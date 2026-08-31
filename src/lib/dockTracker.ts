@@ -14,6 +14,12 @@ export interface Rect {
 export interface IconRect extends Rect {
 	/** The dock's app-icon actor. Passed to IconWiggler, never stored across ticks. */
 	actor: Clutter.Actor;
+	/**
+	 * The icon's size in *logical* pixels (its `icon_size`), as opposed to
+	 * `w`/`h` which are stage pixels. The two differ by the HiDPI scale
+	 * factor: St sizes things logically, Clutter positions them in stage px.
+	 */
+	logicalSize: number;
 }
 
 /**
@@ -176,7 +182,15 @@ export class DockTracker {
 				const [x, y] = visual.get_transformed_position();
 				const [w, h] = visual.get_transformed_size();
 				if (!(w > 4 && h > 4) || !Number.isFinite(x)) continue;
-				out.push({ actor: icon, x, y, w, h });
+				const logical = (visual as St.Icon).icon_size;
+				out.push({
+					actor: icon,
+					x,
+					y,
+					w,
+					h,
+					logicalSize: typeof logical === "number" && logical > 0 ? logical : 0,
+				});
 			}
 		} catch {
 			return [];

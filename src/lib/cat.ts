@@ -74,8 +74,15 @@ interface CatOptions {
 export class Cat {
 	readonly actor: St.Icon;
 	palette: string;
-	size: number;
 	index: number;
+	/** Logical size handed to St (`icon_size`). */
+	iconSize: number;
+	/**
+	 * On-screen size in stage pixels. Equal to iconSize only at scale factor 1
+	 * — on a HiDPI display St allocates `icon_size * scale_factor`, and every
+	 * position we set is in stage pixels, so all geometry uses this.
+	 */
+	size: number;
 
 	x: number;
 	vx = 0;
@@ -95,6 +102,7 @@ export class Cat {
 	constructor({ sprites, palette, size, x, index = 0 }: CatOptions) {
 		this._sprites = sprites;
 		this.palette = palette;
+		this.iconSize = size;
 		this.size = size;
 		this.index = index;
 
@@ -111,6 +119,7 @@ export class Cat {
 			track_hover: false,
 		});
 		this.actor.set_pivot_point(0.5, 0.5);
+		this._syncPixelSize();
 		this._applyFrame();
 	}
 
@@ -119,10 +128,26 @@ export class Cat {
 		this.actor.destroy();
 	}
 
+	/** @param size logical pixels, as the dock and the prefs dialog mean it. */
 	setSize(size: number): void {
-		if (size === this.size) return;
-		this.size = size;
+		if (size === this.iconSize) return;
+		this.iconSize = size;
 		this.actor.icon_size = size;
+		this._syncPixelSize();
+	}
+
+	/**
+	 * Refresh the stage-pixel size from St's own preferred height, which
+	 * already accounts for the scale factor. Asking St beats multiplying by
+	 * scale_factor ourselves — it also picks up any padding the theme adds.
+	 */
+	private _syncPixelSize(): void {
+		// Asking for a preferred height needs a theme node, which only exists
+		// once the actor is on the stage. Before that we keep the logical size
+		// as a placeholder; the first update() after parenting corrects it.
+		if (!this.actor.get_stage()) return;
+		const [, natural] = this.actor.get_preferred_height(-1);
+		this.size = natural > 0 ? natural : this.iconSize;
 	}
 
 	/** The dock icon this cat is currently clawing, if any. */
@@ -187,6 +212,8 @@ export class Cat {
 
 	update(dt: number, ctx: CatContext): void {
 		const { bar, icons, pointer, neighbours, cfg } = ctx;
+		// Cheap, and self-corrects if the scale factor changes under us.
+		this._syncPixelSize();
 		this.stateTime += dt;
 		this._scratchCooldown = Math.max(0, this._scratchCooldown - dt);
 

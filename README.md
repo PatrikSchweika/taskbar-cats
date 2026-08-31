@@ -135,6 +135,14 @@ the dock's: a floating dock (`extend-height=false`) stops short of the screen
 edge, and standing them on its underside leaves them hovering just above the
 floor.
 
+**HiDPI.** Two coordinate spaces are in play and mixing them is the easiest way
+to break this: St sizes things in *logical* pixels (`icon_size`), while Clutter
+positions and `get_transformed_size()` are in *stage* pixels. They differ by the
+scale factor, so at 2x an `icon_size` of 64 allocates 128 stage px. Cats
+therefore carry both — `iconSize` for St and `size` (from St's own preferred
+height) for every position — and the auto-size reads the dock icon's
+`icon_size` rather than its measured height.
+
 **Following the dock.** Every tick reads *transformed* (stage-space) positions
 fresh rather than caching geometry. Intellihide, auto-hide, icon-size changes
 and monitor changes therefore need no special handling — the dock moves and the

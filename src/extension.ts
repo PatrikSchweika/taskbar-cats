@@ -206,9 +206,10 @@ export default class UbuntuCatsExtension extends Extension {
 	 */
 	private _spriteSizeFrom(icons: IconRect[]): number {
 		if (this._cfg.spriteSize > 0) return this._cfg.spriteSize;
-		const median = icons.map((i) => i.h).sort((a, b) => a - b)[
-			Math.floor(icons.length / 2)
-		];
+		// Match the dock's *logical* icon size. Using the measured stage height
+		// would make the cats scale-factor times too big on a HiDPI display.
+		const sizes = icons.map((i) => i.logicalSize).filter((n) => n > 0);
+		const median = sizes.sort((a, b) => a - b)[Math.floor(sizes.length / 2)];
 		if (median === undefined) return DEFAULT_SIZE;
 		return Math.round(Math.min(96, Math.max(20, median)));
 	}
