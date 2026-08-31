@@ -10,44 +10,130 @@ and nothing else.
 
 ![six fur palettes across seven animations](docs/sprites.png)
 
-## Requirements
+## Prerequisites
 
-**To run:** GNOME Shell 45–48 (developed on Ubuntu 24.04 / GNOME 46) and a dock —
-Ubuntu Dock, Dash to Dock, Dash to Panel, or the stock GNOME dash.
+### To run it
 
-**To build:** Node 22+ and Python 3. The extension is written in TypeScript, and
-GNOME Shell only loads plain JavaScript, so there is a real compile step:
-`src/*.ts` → `build/*.js`, and `build/` is what gets installed. Linting and
-formatting are handled by [Biome](https://biomejs.dev).
+| Need | Why | Ubuntu 24.04 |
+|---|---|---|
+| GNOME Shell 45–48 | The extension targets this API | preinstalled |
+| A dock | Ubuntu Dock, Dash to Dock, Dash to Panel, or the stock GNOME dash | Ubuntu Dock is preinstalled |
+| `gnome-extensions` | Enabling and configuring | ships with `gnome-shell` |
+| `glib-compile-schemas` | Compiles the settings schema at install time | `sudo apt install libglib2.0-bin` |
 
-## Install
+### To build it from source
+
+| Need | Why | Ubuntu 24.04 |
+|---|---|---|
+| Node **22.18+** (24 recommended) | Compiles TypeScript, and runs the build tool | see below |
+| `git` | Cloning | `sudo apt install git` |
+
+Node 22.18 is the floor because `tools/cli.ts` is TypeScript executed directly
+by Node, which needs type stripping enabled by default. Ubuntu 24.04's own
+`nodejs` package is 18, which is too old — use
+[nvm](https://github.com/nvm-sh/nvm) or [NodeSource](https://github.com/nodesource/distributions).
+
+Python 3 is **not** needed to install: the sprites are generated ahead of time
+and committed. You only need it to regenerate the art (`npm run sprites`).
+
+### Optional, for the test harness
+
+`sudo apt install dbus-daemon gstreamer1.0-tools` — `npm run test:shell` needs
+`dbus-run-session`, and its screenshot helper needs `gst-launch-1.0`.
+
+### Check what you have
 
 ```bash
+gnome-shell --version
+node --version
+echo "session: $XDG_SESSION_TYPE"
+command -v glib-compile-schemas gnome-extensions
+```
+
+## Install and run
+
+### Option A — from source
+
+```bash
+git clone https://github.com/PatrikSchweika/ubuntu-cats.git
+cd ubuntu-cats
 npm install
 npm run ext:install
 ```
 
-**Restart GNOME Shell first, then enable.** The order matters: `gnome-extensions
-enable` asks the *running* shell to enable it, and the shell only scans the
-extensions directory at startup. Enabling before a restart fails with
-`Extension "ubuntu-cats" does not exist`.
+Then **restart GNOME Shell, and only then enable it.** The order matters:
+`gnome-extensions enable` asks the *running* shell to enable the extension, and
+the shell only scans the extensions directory when it starts. Enabling before a
+restart fails with `Extension "ubuntu-cats" does not exist`.
 
 1. Restart the shell:
    - **X11**: <kbd>Alt</kbd>+<kbd>F2</kbd>, type `r`, <kbd>Enter</kbd>
-   - **Wayland**: log out and back in (the shell cannot be restarted in place)
+   - **Wayland**: log out and back in — the shell cannot restart in place
 
-2. Enable it — this takes effect immediately, no second restart:
+2. Enable it. This takes effect immediately, with no second restart:
 
    ```bash
    npm run ext:enable
    ```
 
-`ext:enable` checks first whether the running shell has actually scanned the
-extension, and tells you to restart rather than failing with GNOME's confusing
-`Extension "ubuntu-cats" does not exist` — which is what you get when the
-extension is plainly installed but the shell started before it was.
+Cats should appear along the bottom edge of your screen. Move the pointer near
+the dock and they will come to it.
 
-Settings: `npm run ext:prefs`.
+`ext:enable` checks first whether the running shell has actually scanned the
+extension, and tells you to restart instead of failing with GNOME's confusing
+"does not exist" — which is what you get when the extension is plainly
+installed but the shell started before it was.
+
+### Option B — from a packaged zip (no Node needed)
+
+Useful for installing on a machine you do not want a toolchain on. Build the
+zip once somewhere with Node:
+
+```bash
+npm run ext:pack        # writes dist/ubuntu-cats.shell-extension.zip
+```
+
+then on the target machine:
+
+```bash
+gnome-extensions install --force ubuntu-cats.shell-extension.zip
+```
+
+Restart the shell as above, then `gnome-extensions enable ubuntu-cats`.
+
+### Everyday commands
+
+```bash
+npm run ext:prefs        # open the settings dialog
+npm run ext:disable      # stop the cats, keep it installed
+npm run ext:enable       # start them again
+npm run ext:uninstall    # disable and remove entirely
+npm run logs             # follow gnome-shell's log
+```
+
+Without the repo checked out, the same things are
+`gnome-extensions prefs|disable|enable ubuntu-cats`.
+
+### Updating
+
+```bash
+git pull
+npm install
+npm run ext:install
+```
+
+Then restart the shell. GNOME caches ES modules, so a running shell keeps the
+old code until it restarts — no need to disable and re-enable.
+
+### If something goes wrong
+
+| Symptom | Cause |
+|---|---|
+| `Extension "ubuntu-cats" does not exist` | The shell has not scanned it yet — restart the shell, then enable |
+| Enabled, but no cats | No dock found. Confirm a dock extension is enabled, and check `npm run logs` |
+| Cats appear then vanish | Expected: they hide with the dock when intellihide or the overview takes it away |
+| `glib-compile-schemas: not found` | `sudo apt install libglib2.0-bin` |
+| `SyntaxError` running `npm run ext:install` | Node older than 22.18 — see prerequisites |
 
 ### A note on the UUID
 

@@ -6,7 +6,7 @@
 	"license": "MIT",
 	"description": "Pixel-art cats that live on your Ubuntu dock, chase the pointer and scratch app icons.",
 	"engines": {
-		"node": ">=22"
+		"node": ">=22.18.0"
 	},
 	"scripts": {
 		"sprites": "python3 tools/gen_sprites.py",
