@@ -28,7 +28,9 @@
 		"dev": "npm run ext:install && dbus-run-session -- gnome-shell --nested --wayland",
 		"test:shell": "npm run ext:install && tools/test-shell.sh restart",
 		"test:shell:stop": "tools/test-shell.sh stop",
-		"test:watch": "node --import ./tests/support/hooks.ts --test --watch \"tests/*.test.ts\""
+		"test:watch": "node --import ./tests/support/hooks.ts --test --watch \"tests/*.test.ts\"",
+		"format:check": "biome format .",
+		"validate": "node tools/cli.ts validate"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.11",

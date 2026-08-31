@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # 22.18 is the floor declared in engines: the first release where Node
+        # strips TypeScript types without a flag, which tools/cli.ts relies on.
+        node: ["22.18", "24"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # `node tools/cli.ts validate` compiles the GSettings schema.
+      - name: Install glib-compile-schemas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libglib2.0-bin
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format
+        run: npm run format:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Validate schema, metadata and sprites
+        run: npm run validate
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+  sprites:
+    name: Generated art is current
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+
+      # The frames are committed so installing needs no Python. Regenerate them
+      # and fail if the result differs from what is checked in — that catches a
+      # hand-edited SVG, or a generator change whose output was not committed.
+      - name: Regenerate sprites
+        run: npm run sprites
+
+      - name: Committed frames match the generator
+        run: git diff --exit-code -- src/assets
