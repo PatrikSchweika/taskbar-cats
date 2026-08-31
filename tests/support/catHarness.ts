@@ -1,6 +1,7 @@
 import type { CatConfig, CatContext } from "../../src/lib/cat.ts";
 import type { IconRect } from "../../src/lib/dockTracker.ts";
 import type { SpriteSet } from "../../src/lib/sprites.ts";
+import { asActor } from "./cast.ts";
 import { FakeActor } from "./stubs/actor.ts";
 
 /** A SpriteSet whose frames identify their animation, so tests can read it. */
@@ -30,7 +31,14 @@ export const DEFAULT_CFG: CatConfig = {
 };
 
 export function makeIcon(x: number, w = 48): IconRect {
-	return { actor: new FakeActor(), x, y: 840, w, h: w, logicalSize: w };
+	return {
+		actor: asActor(new FakeActor()),
+		x,
+		y: 840,
+		w,
+		h: w,
+		logicalSize: w,
+	};
 }
 
 export function makeContext(over: Partial<CatContext> = {}): CatContext {

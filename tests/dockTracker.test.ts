@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 import { DockTracker } from "../src/lib/dockTracker.ts";
+import { asFake } from "./support/cast.ts";
 import { makeDock, resetEnv } from "./support/env.ts";
 import { FakeActor } from "./support/stubs/actor.ts";
 import St from "./support/stubs/St.ts";
@@ -135,13 +136,14 @@ describe("DockTracker", () => {
 		it("skips placeholders, animating-out items and unmapped icons", () => {
 			const { dash, icons } = makeDock({ icons: 3 });
 			Main.layoutManager.uiGroup.add_child(dash);
-			const box = (dash as unknown as { _box: FakeActor })._box;
+			const box = dash._box;
+			assert.ok(box, "the fake dock should have a box");
 
 			// a drag placeholder: a container with no child
 			box.add_child(new FakeActor());
 			// a container whose child has no .icon
 			const bare = new FakeActor();
-			(bare as unknown as { child: FakeActor }).child = new FakeActor();
+			bare.child = new FakeActor();
 			box.add_child(bare);
 
 			(
@@ -159,14 +161,14 @@ describe("DockTracker", () => {
 			Main.layoutManager.uiGroup.add_child(dash);
 			const tracker = new DockTracker();
 
-			(dash as unknown as { _box: unknown })._box = { nope: true };
+			dash._box = { nope: true } as unknown as FakeActor;
 			assert.deepEqual(tracker.getIconRects(), []);
 
 			const box = new FakeActor();
 			box.get_children = () => {
 				throw new Error("boom");
 			};
-			(dash as unknown as { _box: FakeActor })._box = box;
+			dash._box = box;
 			assert.deepEqual(tracker.getIconRects(), []);
 		});
 	});
@@ -198,7 +200,7 @@ describe("DockTracker", () => {
 		it("is false once the dock has slid off-screen", () => {
 			const dash = tracker.dash;
 			assert.ok(dash);
-			dash.get_children()[0].transformed = [500, 900, 500, 66];
+			asFake(dash.get_children()[0]).transformed = [500, 900, 500, 66];
 			assert.equal(tracker.isUsable(), false);
 		});
 	});

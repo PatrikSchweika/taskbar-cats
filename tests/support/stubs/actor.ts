@@ -23,6 +23,16 @@ export class FakeActor {
 	children: FakeActor[] = [];
 	parent: FakeActor | null = null;
 
+	/**
+	 * The duck-typed fields the dock exposes and dockTracker reads. Declaring
+	 * them here keeps the tests free of casts; none of them are Clutter API.
+	 */
+	_box?: FakeActor;
+	child?: FakeActor;
+	icon?: { icon?: FakeActor };
+	app?: unknown;
+	animatingOut?: boolean;
+
 	/** What get_transformed_position/size report, in stage pixels. */
 	transformed: [number, number, number, number] = [0, 0, 0, 0];
 	/** What get_preferred_height reports; defaults to icon_size. */

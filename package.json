@@ -13,7 +13,7 @@
 		"format": "biome format --write .",
 		"lint": "biome lint --error-on-warnings .",
 		"fix": "biome check --write .",
-		"typecheck": "tsc --noEmit && tsc -p tsconfig.tools.json",
+		"typecheck": "tsc --noEmit && tsc -p tsconfig.tools.json && tsc -p tsconfig.tests.json",
 		"check": "biome check --error-on-warnings . && node tools/cli.ts check && npm test",
 		"test": "node --import ./tests/support/hooks.ts --test \"tests/*.test.ts\"",
 		"build": "node tools/cli.ts build",

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 import { IconWiggler } from "../src/lib/iconWiggle.ts";
+import { asActor } from "./support/cast.ts";
 import { resetEnv } from "./support/env.ts";
 import { FakeActor } from "./support/stubs/actor.ts";
 
@@ -8,7 +9,7 @@ import { FakeActor } from "./support/stubs/actor.ts";
 function makeAppIcon(): { button: FakeActor; inner: FakeActor } {
 	const inner = new FakeActor();
 	const button = new FakeActor();
-	(button as unknown as { icon: { icon: FakeActor } }).icon = { icon: inner };
+	button.icon = { icon: inner };
 	return { button, inner };
 }
 
@@ -20,14 +21,14 @@ describe("IconWiggler", () => {
 	it("shakes the inner icon, not the button", () => {
 		// The button carries dash-to-dock's hover-zoom; touching it would fight.
 		const { button, inner } = makeAppIcon();
-		new IconWiggler().shake(button, 0.05);
+		new IconWiggler().shake(asActor(button), 0.05);
 		assert.notEqual(inner.rotation_angle_z, 0);
 		assert.equal(button.rotation_angle_z, 0);
 	});
 
 	it("falls back to the actor when there is no inner icon", () => {
 		const plain = new FakeActor();
-		new IconWiggler().shake(plain, 0.05);
+		new IconWiggler().shake(asActor(plain), 0.05);
 		assert.notEqual(plain.rotation_angle_z, 0);
 	});
 
@@ -35,7 +36,7 @@ describe("IconWiggler", () => {
 		const { button, inner } = makeAppIcon();
 		const w = new IconWiggler();
 		for (let t = 0; t < 2; t += 0.01) {
-			w.shake(button, t);
+			w.shake(asActor(button), t);
 			assert.ok(
 				Math.abs(inner.rotation_angle_z) <= MAX_DEGREES + 1e-9,
 				`|${inner.rotation_angle_z}| exceeded ${MAX_DEGREES}`,
@@ -43,7 +44,7 @@ describe("IconWiggler", () => {
 		}
 		let peakHalf = 0;
 		for (let t = 0; t < 2; t += 0.01) {
-			w.shake(button, t, 0.5);
+			w.shake(asActor(button), t, 0.5);
 			peakHalf = Math.max(peakHalf, Math.abs(inner.rotation_angle_z));
 		}
 		assert.ok(peakHalf <= MAX_DEGREES / 2 + 1e-9);
@@ -52,13 +53,13 @@ describe("IconWiggler", () => {
 
 	it("does not move the icon at zero strength", () => {
 		const { button, inner } = makeAppIcon();
-		new IconWiggler().shake(button, 0.3, 0);
+		new IconWiggler().shake(asActor(button), 0.3, 0);
 		assert.equal(inner.rotation_angle_z, 0);
 	});
 
 	it("sets the pivot to the icon's bottom centre", () => {
 		const { button, inner } = makeAppIcon();
-		new IconWiggler().shake(button, 0.05);
+		new IconWiggler().shake(asActor(button), 0.05);
 		assert.deepEqual(inner.pivot_point, { x: 0.5, y: 1.0 });
 	});
 
@@ -69,10 +70,10 @@ describe("IconWiggler", () => {
 			inner.pivot_point = { x: 0.25, y: 0.75 };
 
 			const w = new IconWiggler();
-			w.shake(button, 0.4);
+			w.shake(asActor(button), 0.4);
 			assert.notEqual(inner.rotation_angle_z, 3);
 
-			w.release(button);
+			w.release(asActor(button));
 			assert.equal(inner.rotation_angle_z, 3);
 			assert.deepEqual(inner.pivot_point, { x: 0.25, y: 0.75 });
 		});
@@ -80,7 +81,7 @@ describe("IconWiggler", () => {
 		it("restoreAll clears every icon it touched", () => {
 			const icons = [makeAppIcon(), makeAppIcon(), makeAppIcon()];
 			const w = new IconWiggler();
-			for (const { button } of icons) w.shake(button, 0.4);
+			for (const { button } of icons) w.shake(asActor(button), 0.4);
 			for (const { inner } of icons) assert.notEqual(inner.rotation_angle_z, 0);
 
 			w.restoreAll();
@@ -97,17 +98,17 @@ describe("IconWiggler", () => {
 			const w = new IconWiggler();
 			assert.equal(inner.handlerCount(), 0);
 
-			w.shake(button, 0.4);
+			w.shake(asActor(button), 0.4);
 			assert.equal(inner.handlerCount(), 1, "should watch for destroy");
 
-			w.release(button);
+			w.release(asActor(button));
 			assert.equal(inner.handlerCount(), 0, "destroy handler leaked");
 		});
 
 		it("leaves nothing attached after restoreAll", () => {
 			const icons = [makeAppIcon(), makeAppIcon()];
 			const w = new IconWiggler();
-			for (const { button } of icons) w.shake(button, 0.4);
+			for (const { button } of icons) w.shake(asActor(button), 0.4);
 			w.restoreAll();
 			for (const { inner } of icons) assert.equal(inner.handlerCount(), 0);
 		});
@@ -116,7 +117,7 @@ describe("IconWiggler", () => {
 			// Dock icons are recreated whenever the app list changes.
 			const { button, inner } = makeAppIcon();
 			const w = new IconWiggler();
-			w.shake(button, 0.4);
+			w.shake(asActor(button), 0.4);
 			inner.destroy();
 			assert.doesNotThrow(() => w.restoreAll());
 		});
@@ -136,7 +137,7 @@ describe("IconWiggler", () => {
 			};
 
 			const w = new IconWiggler();
-			assert.doesNotThrow(() => w.shake(button, 0.4));
+			assert.doesNotThrow(() => w.shake(asActor(button), 0.4));
 			assert.doesNotThrow(() => w.restoreAll());
 		});
 	});

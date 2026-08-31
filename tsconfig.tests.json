@@ -1,0 +1,10 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"rootDir": ".",
+		"allowImportingTsExtensions": true,
+		"types": ["@girs/gnome-shell/ambient", "@girs/gjs/dom", "node"]
+	},
+	"include": ["tests/**/*.ts", "tests/**/*.d.ts"]
+}

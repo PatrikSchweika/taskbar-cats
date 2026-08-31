@@ -264,10 +264,29 @@ restore, leaking a destroy handler — and each one fails the suite. That matter
 more than the count: two tests originally passed against a reintroduced bug and
 had to be rewritten.
 
-`tests/` is linted and formatted by Biome but is not type-checked by `tsc`. The
-stubs cannot satisfy the real GI types (`Clutter.Actor` alone has ~400 members),
-and Node's `global` collides with GNOME's, so a single program cannot hold both.
-`src/` and `tools/` are each type-checked under the types that actually apply.
+### Type-checking
+
+Three `tsc` programs, because three sets of ambient types apply:
+
+| Config | Covers | Types |
+|---|---|---|
+| `tsconfig.json` | `src/` — and emits `build/` | GNOME (`@girs`) |
+| `tsconfig.tools.json` | `tools/` | Node |
+| `tsconfig.tests.json` | `tests/`, and `src/` transitively | GNOME **and** Node |
+
+The third one needs a trick. `@girs/gnome-shell/extensions/global` declares
+`const global: Shell.Global`, which collides with `@types/node`'s
+`var global: typeof globalThis` — and the tests need Node's types for
+`node:test`. So that program leaves the girs global out and
+`tests/support/gjs-globals.d.ts` declares the handful of things `src/` actually
+uses off the global scope (`stage`, `get_pointer`, `log`, `logError`) as `var`
+and `function`. Declared that way they land on `globalThis`, so `global.stage`
+resolves through Node's declaration and both type universes coexist.
+
+The stubs still cannot *implement* GObject types — `Clutter.Actor` declares some
+400 members — so substituting a stub for a real actor is a cast. Every one goes
+through the two named helpers in `tests/support/cast.ts`, which keeps the
+boundary greppable rather than scattered.
 
 ## Linting and formatting
 

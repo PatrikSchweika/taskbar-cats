@@ -1,14 +1,18 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import UbuntuCatsExtension from "../src/extension.ts";
 import { makeDock, resetEnv, testEnv } from "./support/env.ts";
-import Gio from "./support/stubs/Gio.ts";
+import { Settings } from "./support/stubs/Gio.ts";
 import GLib from "./support/stubs/GLib.ts";
 import * as Main from "./support/stubs/shellMain.ts";
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
+const METADATA = JSON.parse(
+	readFileSync(join(SRC, "metadata.json"), "utf8"),
+) as ConstructorParameters<typeof UbuntuCatsExtension>[0];
 
 const DEFAULTS: Record<string, unknown> = {
 	"cat-count": 3,
@@ -25,15 +29,15 @@ const DEFAULTS: Record<string, unknown> = {
 
 interface Harness {
 	ext: UbuntuCatsExtension;
-	settings: Gio.Settings;
+	settings: Settings;
 }
 
 function enableExtension(over: Record<string, unknown> = {}): Harness {
 	const { dash } = makeDock();
 	Main.layoutManager.uiGroup.add_child(dash);
 
-	const settings = new Gio.Settings({ ...DEFAULTS, ...over });
-	const ext = new UbuntuCatsExtension();
+	const settings = new Settings({ ...DEFAULTS, ...over });
+	const ext = new UbuntuCatsExtension(METADATA);
 	(ext as unknown as { path: string }).path = SRC;
 	(ext as unknown as { __settings: unknown }).__settings = settings;
 	ext.enable();
@@ -82,8 +86,8 @@ describe("UbuntuCatsExtension", () => {
 		});
 
 		it("survives having no dock at all", () => {
-			const settings = new Gio.Settings({ ...DEFAULTS });
-			const ext = new UbuntuCatsExtension();
+			const settings = new Settings({ ...DEFAULTS });
+			const ext = new UbuntuCatsExtension(METADATA);
 			(ext as unknown as { path: string }).path = SRC;
 			(ext as unknown as { __settings: unknown }).__settings = settings;
 			assert.doesNotThrow(() => ext.enable());
@@ -144,6 +148,7 @@ describe("UbuntuCatsExtension", () => {
 			const layer = Main.layoutManager.uiGroup
 				.get_children()
 				.find((c) => c.style_class === "ubuntu-cats-layer");
+			assert.ok(layer, "overlay missing");
 			assert.equal(layer.visible, true);
 
 			Main.overview.visible = true;
@@ -235,19 +240,17 @@ describe("UbuntuCatsExtension", () => {
 		});
 
 		it("is safe on an extension that never enabled", () => {
-			const ext = new UbuntuCatsExtension();
+			const ext = new UbuntuCatsExtension(METADATA);
 			assert.doesNotThrow(() => ext.disable());
 		});
 
 		it("can be enabled again afterwards", () => {
 			const { ext } = enableExtension({ "cat-count": 2 });
 			ext.disable();
-			(ext as unknown as { __settings: unknown }).__settings = new Gio.Settings(
-				{
-					...DEFAULTS,
-					"cat-count": 3,
-				},
-			);
+			(ext as unknown as { __settings: unknown }).__settings = new Settings({
+				...DEFAULTS,
+				"cat-count": 3,
+			});
 			ext.enable();
 			assert.equal(catActors().length, 3);
 			assert.equal(GLib.__sources().length, 1);

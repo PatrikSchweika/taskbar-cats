@@ -79,7 +79,7 @@ export function makeDock(
 	dash.add_child(background);
 
 	const box = new FakeActor({ name: "box" });
-	(dash as unknown as { _box: FakeActor })._box = box;
+	dash._box = box;
 	dash.add_child(box);
 
 	const made: FakeActor[] = [];
@@ -92,11 +92,9 @@ export function makeDock(
 			iconSize * scale,
 		];
 		const appIcon = new FakeActor();
-		(appIcon as unknown as { icon: { icon: FakeActor } }).icon = {
-			icon: inner,
-		};
+		appIcon.icon = { icon: inner };
 		const item = new FakeActor();
-		(item as unknown as { child: FakeActor }).child = appIcon;
+		item.child = appIcon;
 		box.add_child(item);
 		made.push(appIcon);
 	}

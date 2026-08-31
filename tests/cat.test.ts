@@ -363,7 +363,7 @@ describe("Cat", () => {
 			const frames = new Set<number>();
 			for (let t = 0; t < 1; t += 1 / 30) {
 				cat.update(1 / 30, ctx);
-				frames.add((cat.actor.gicon as { frame: number }).frame);
+				frames.add((cat.actor.gicon as unknown as { frame: number }).frame);
 			}
 			assert.ok(frames.size > 1, `stuck on frame ${[...frames]}`);
 		});
