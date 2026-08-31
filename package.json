@@ -11,11 +11,11 @@
 	"scripts": {
 		"sprites": "python3 tools/gen_sprites.py",
 		"format": "biome format --write .",
-		"lint": "biome lint .",
+		"lint": "biome lint --error-on-warnings .",
 		"fix": "biome check --write .",
-		"typecheck": "tsc --noEmit",
-		"check": "biome check . && node tools/cli.ts check",
-		"test": "npm run check",
+		"typecheck": "tsc --noEmit && tsc -p tsconfig.tools.json",
+		"check": "biome check --error-on-warnings . && node tools/cli.ts check && npm test",
+		"test": "node --import ./tests/support/hooks.ts --test \"tests/*.test.ts\"",
 		"build": "node tools/cli.ts build",
 		"clean": "node tools/cli.ts clean",
 		"ext:install": "node tools/cli.ts install",
@@ -27,11 +27,13 @@
 		"logs": "journalctl -f -o cat /usr/bin/gnome-shell",
 		"dev": "npm run ext:install && dbus-run-session -- gnome-shell --nested --wayland",
 		"test:shell": "npm run ext:install && tools/test-shell.sh restart",
-		"test:shell:stop": "tools/test-shell.sh stop"
+		"test:shell:stop": "tools/test-shell.sh stop",
+		"test:watch": "node --import ./tests/support/hooks.ts --test --watch \"tests/*.test.ts\""
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.11",
 		"@girs/gnome-shell": "^46.0.2",
+		"@types/node": "^26.4.0",
 		"typescript": "^7.0.2"
 	},
 	"overrides": {

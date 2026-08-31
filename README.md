@@ -205,10 +205,12 @@ Every setting applies immediately; none of them need a restart.
 
 | Command | What it does |
 |---|---|
-| `npm run check` | The full gate: Biome (lint + format + import order), typecheck, schema and metadata validation, and a check that every sprite the manifest promises exists |
+| `npm run check` | The full gate: Biome, typecheck, schema/metadata/sprite validation, and the test suite |
+| `npm test` | Unit tests (`node --test`) |
+| `npm run test:watch` | …the same, re-run on change |
 | `npm run fix` | Apply Biome's fixes and formatting |
 | `npm run lint` / `npm run format` | Lint only / format-write only |
-| `npm run typecheck` | `tsc --noEmit` |
+| `npm run typecheck` | `tsc --noEmit` over `src/`, and again over `tools/` |
 | `npm run build` | Compile `src/*.ts` → `build/`, copying assets, schemas and metadata alongside |
 | `npm run ext:install` | Build, then install into `~/.local/share/gnome-shell/extensions/` |
 | `npm run ext:enable` / `ext:disable` / `ext:prefs` | Extension lifecycle |
@@ -221,6 +223,51 @@ Every setting applies immediately; none of them need a restart.
 
 Scripts are prefixed `ext:` so none collide with npm's own commands — in
 particular, a script named `install` would run on every `npm install`.
+
+## Tests
+
+```bash
+npm test
+```
+
+84 tests, no dependencies beyond Node — `node:test` runs the TypeScript
+directly, the same way `tools/cli.ts` does.
+
+**How they run at all.** The extension imports `gi://St`,
+`resource:///org/gnome/shell/...` and GJS globals, none of which exist in Node.
+`tests/support/hooks.ts` registers in-thread `module.registerHooks` that point
+those specifiers at stubs in `tests/support/stubs/`, installs `global`, `log`
+and `logError`, and maps the `.js` import specifiers in `src/` onto the `.ts`
+files on disk. Production code is imported unmodified — nothing is refactored
+for testability.
+
+The stubs are controllable rather than inert: `St` has a settable scale factor
+so HiDPI is testable, `GLib` collects timeout sources so the tick can be driven
+by hand instead of by real time, and `Gio.Settings` can fire `changed` so live
+setting updates can be exercised.
+
+What is covered:
+
+| Area | What is checked |
+|---|---|
+| `cat.ts` | Placement on the floor, roaming bounds and the icon bias, pointer chasing and fan-out, sleeping and waking, sitting, scratching and its cooldown, gaits, facing, frame advance, and the HiDPI unit handling |
+| `dockTracker.ts` | Dash discovery, ignoring the overview's dash, measuring the painted background, logical vs stage icon sizes, and degrading to empty rather than throwing when the dock's internals move |
+| `iconWiggle.ts` | Bounded rotation, exact restoration of rotation and pivot, no leaked destroy handlers, and surviving an actor that throws |
+| `extension.ts` | Enable/disable lifecycle, live setting changes, one tick source across interval changes, drowsy throttling, and that disable restores every icon and disconnects every signal |
+| `sprites.ts` | Manifest loading, frame paths, fallbacks, palette resolution |
+| Generated art | Every frame present, on a 32×32 grid, clear of the left/right/top edges, and with feet on the bottom row |
+
+Several tests are labelled *Regression*; each pins a bug that shipped. The suite
+was checked against deliberately reintroduced versions of those bugs — reverting
+the HiDPI fix, re-rooting `ALERT`, making `SIT` permanent, dropping the icon
+restore, leaking a destroy handler — and each one fails the suite. That matters
+more than the count: two tests originally passed against a reintroduced bug and
+had to be rewritten.
+
+`tests/` is linted and formatted by Biome but is not type-checked by `tsc`. The
+stubs cannot satisfy the real GI types (`Clutter.Actor` alone has ~400 members),
+and Node's `global` collides with GNOME's, so a single program cannot hold both.
+`src/` and `tools/` are each type-checked under the types that actually apply.
 
 ## Linting and formatting
 
