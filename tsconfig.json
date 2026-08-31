@@ -1,0 +1,26 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"lib": ["ES2022"],
+		"rootDir": "src",
+		"outDir": "build",
+		"strict": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noImplicitOverride": true,
+		"noFallthroughCasesInSwitch": true,
+		"exactOptionalPropertyTypes": false,
+		"skipLibCheck": true,
+		"noEmitOnError": true,
+		"declaration": false,
+		"sourceMap": false,
+		"types": [
+			"@girs/gnome-shell/ambient",
+			"@girs/gnome-shell/extensions/global",
+			"@girs/gjs/dom"
+		]
+	},
+	"include": ["src/**/*.ts"]
+}

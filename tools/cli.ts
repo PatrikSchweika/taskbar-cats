@@ -1,0 +1,286 @@
+#!/usr/bin/env node
+/**
+ * Build and install tasks for ubuntu-cats.
+ *
+ * Written in TypeScript and run directly by Node's native type stripping, so
+ * the tooling itself needs no build step. Invoked through `npm run …`.
+ */
+import { spawnSync } from "node:child_process";
+import {
+	cpSync,
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+} from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+const SRC = join(ROOT, "src");
+const BUILD = join(ROOT, "build");
+const DIST = join(ROOT, "dist");
+
+interface Metadata {
+	uuid: string;
+	name: string;
+	description: string;
+	"shell-version": string[];
+	"settings-schema"?: string;
+}
+
+/**
+ * metadata.json is the single source of truth for the UUID and schema id —
+ * nothing else in the build restates them, or they drift.
+ */
+const metadata = JSON.parse(
+	readFileSync(join(SRC, "metadata.json"), "utf8"),
+) as Metadata;
+const UUID = metadata.uuid;
+const SCHEMA = metadata["settings-schema"] ?? "";
+const INSTALLDIR = join(homedir(), ".local/share/gnome-shell/extensions", UUID);
+
+/** Everything that is copied into the extension verbatim. */
+const STATIC_SOURCES = ["metadata.json", "stylesheet.css", "schemas", "assets"];
+
+function run(
+	cmd: string,
+	args: string[],
+	opts: { quiet?: boolean } = {},
+): number {
+	const r = spawnSync(cmd, args, {
+		stdio: opts.quiet ? "pipe" : "inherit",
+		cwd: ROOT,
+		encoding: "utf8",
+	});
+	if (r.error) die(`${cmd}: ${r.error.message}`);
+	return r.status ?? 1;
+}
+
+/**
+ * Whether the *running* shell knows about this uuid.
+ *
+ * `gnome-extensions` talks to the shell over D-Bus, and GNOME only scans the
+ * extensions directory at startup. A freshly installed extension is therefore
+ * invisible until the shell restarts, which produces a bewildering
+ * "Extension ... does not exist" from an extension that plainly does exist.
+ */
+function shellKnows(uuid: string): boolean {
+	const r = spawnSync("gnome-extensions", ["list"], { encoding: "utf8" });
+	if (r.status !== 0) return false;
+	return String(r.stdout)
+		.split("\n")
+		.map((l) => l.trim())
+		.includes(uuid);
+}
+
+function requireShellKnows(): void {
+	if (!existsSync(INSTALLDIR))
+		die(`${UUID} is not installed. Run: npm run ext:install`);
+	if (shellKnows(UUID)) return;
+	console.error(`error: ${UUID} is installed at`);
+	console.error(`       ${INSTALLDIR}`);
+	console.error("       but the running GNOME Shell has not scanned it yet.");
+	console.error("");
+	console.error(
+		"GNOME only looks for new extensions when it starts. Restart the",
+	);
+	console.error("shell, then run this command again:");
+	console.error("  X11:      Alt+F2, type 'r', Enter");
+	console.error("  Wayland:  log out and back in");
+	process.exit(1);
+}
+
+function die(msg: string): never {
+	console.error(`error: ${msg}`);
+	process.exit(1);
+}
+
+// -- validate ---------------------------------------------------------------
+
+function validate(): boolean {
+	let ok = true;
+	const fail = (m: string) => {
+		console.error(`  ✗ ${m}`);
+		ok = false;
+	};
+
+	for (const key of ["uuid", "name", "description", "shell-version"] as const) {
+		if (!metadata[key]) fail(`metadata.json is missing "${key}"`);
+	}
+	if (
+		!Array.isArray(metadata["shell-version"]) ||
+		!metadata["shell-version"].length
+	)
+		fail('metadata.json "shell-version" must be a non-empty array');
+	// GNOME's convention is name@domain and extensions.gnome.org requires it,
+	// but the shell itself only requires that the uuid match the directory
+	// name. A bare name is fine for a locally installed extension.
+	if (UUID && !/^[A-Za-z0-9._@-]+$/.test(UUID))
+		fail(
+			`metadata.json uuid "${UUID}" has characters that cannot appear in a directory name`,
+		);
+	if (ok) console.log("metadata: ok");
+
+	// GSettings schema, and its id agreeing with metadata.json
+	const schemaDir = join(SRC, "schemas");
+	if (
+		run("glib-compile-schemas", ["--strict", "--dry-run", schemaDir], {
+			quiet: true,
+		}) !== 0
+	) {
+		run("glib-compile-schemas", ["--strict", "--dry-run", schemaDir]);
+		fail("schema failed to compile");
+	} else if (SCHEMA) {
+		const file = join(schemaDir, `${SCHEMA}.gschema.xml`);
+		if (!existsSync(file))
+			fail(
+				`metadata declares settings-schema "${SCHEMA}" but ${file} is missing`,
+			);
+		else if (!readFileSync(file, "utf8").includes(`id="${SCHEMA}"`))
+			fail(`${file} does not declare id="${SCHEMA}"`);
+		else console.log("schema: ok");
+	}
+
+	// Every frame the manifest promises actually exists
+	const catsDir = join(SRC, "assets", "cats");
+	const manifestPath = join(catsDir, "manifest.json");
+	if (!existsSync(manifestPath)) {
+		fail("assets/cats/manifest.json is missing — run `npm run sprites`");
+	} else {
+		const { palettes, animations } = JSON.parse(
+			readFileSync(manifestPath, "utf8"),
+		) as { palettes: string[]; animations: Record<string, number> };
+		let count = 0;
+		let missing = 0;
+		for (const palette of palettes) {
+			for (const [anim, frames] of Object.entries(animations)) {
+				for (let i = 0; i < frames; i++) {
+					count++;
+					if (!existsSync(join(catsDir, palette, `${anim}_${i}.svg`))) {
+						fail(`missing sprite ${palette}/${anim}_${i}.svg`);
+						missing++;
+					}
+				}
+			}
+		}
+		if (!missing)
+			console.log(`sprites: ok (${count} frames, ${palettes.length} palettes)`);
+	}
+	return ok;
+}
+
+// -- build ------------------------------------------------------------------
+
+function typecheck(): void {
+	if (run("npx", ["tsc", "--noEmit"]) !== 0) die("typecheck failed");
+	console.log("types: ok");
+}
+
+function build(): void {
+	rmSync(BUILD, { recursive: true, force: true });
+	if (run("npx", ["tsc"]) !== 0) die("compile failed");
+	for (const entry of STATIC_SOURCES) {
+		const from = join(SRC, entry);
+		if (existsSync(from)) cpSync(from, join(BUILD, entry), { recursive: true });
+	}
+	const emitted = readdirSync(BUILD).filter((f) => f.endsWith(".js"));
+	if (!emitted.includes("extension.js"))
+		die("tsc did not emit extension.js — check tsconfig rootDir/outDir");
+	console.log(
+		`build: ok -> build/ (${emitted.join(", ")} + lib/, assets/, schemas/)`,
+	);
+}
+
+// -- extension lifecycle ----------------------------------------------------
+
+function install(): void {
+	build();
+	rmSync(INSTALLDIR, { recursive: true, force: true });
+	mkdirSync(INSTALLDIR, { recursive: true });
+	cpSync(BUILD, INSTALLDIR, { recursive: true });
+	run("glib-compile-schemas", [join(INSTALLDIR, "schemas")]);
+	console.log(`installed -> ${INSTALLDIR}`);
+	console.log("");
+	console.log(
+		"Restart the shell FIRST, then enable — the running shell only scans",
+	);
+	console.log(
+		"the extensions directory at startup, so enabling before a restart fails.",
+	);
+	console.log(
+		"  1. Alt+F2, type 'r', Enter     (X11; on Wayland log out and back in)",
+	);
+	console.log("  2. npm run ext:enable");
+	console.log("");
+	console.log("Or test without touching your desktop:  npm run test:shell");
+}
+
+function pack(): void {
+	build();
+	mkdirSync(DIST, { recursive: true });
+	const args = [
+		"pack",
+		BUILD,
+		"--extra-source=lib",
+		"--extra-source=assets",
+		"--force",
+		`--out-dir=${DIST}`,
+	];
+	if (SCHEMA) args.push(`--schema=schemas/${SCHEMA}.gschema.xml`);
+	if (run("gnome-extensions", args) !== 0) die("gnome-extensions pack failed");
+	console.log(`packed -> dist/${UUID}.shell-extension.zip`);
+}
+
+// -- dispatch ---------------------------------------------------------------
+
+const command = process.argv[2] ?? "help";
+
+switch (command) {
+	case "validate":
+		process.exit(validate() ? 0 : 1);
+		break;
+	case "check":
+		typecheck();
+		process.exit(validate() ? 0 : 1);
+		break;
+	case "build":
+		build();
+		break;
+	case "install":
+		if (!validate()) die("validation failed");
+		install();
+		break;
+	case "uninstall":
+		run("gnome-extensions", ["disable", UUID], { quiet: true });
+		rmSync(INSTALLDIR, { recursive: true, force: true });
+		console.log(`removed ${INSTALLDIR}`);
+		break;
+	case "enable":
+		requireShellKnows();
+		process.exit(run("gnome-extensions", ["enable", UUID]));
+		break;
+	case "disable":
+		process.exit(run("gnome-extensions", ["disable", UUID]));
+		break;
+	case "prefs":
+		requireShellKnows();
+		process.exit(run("gnome-extensions", ["prefs", UUID]));
+		break;
+	case "pack":
+		pack();
+		break;
+	case "clean":
+		rmSync(BUILD, { recursive: true, force: true });
+		rmSync(DIST, { recursive: true, force: true });
+		console.log("removed build/ and dist/");
+		break;
+	default:
+		console.log(
+			"usage: node tools/cli.ts <check|validate|build|install|uninstall|" +
+				"enable|disable|prefs|pack|clean>",
+		);
+		process.exit(1);
+}

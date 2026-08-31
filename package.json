@@ -1,0 +1,42 @@
+{
+	"name": "ubuntu-cats",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"license": "MIT",
+	"description": "Pixel-art cats that live on your Ubuntu dock, chase the pointer and scratch app icons.",
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"sprites": "python3 tools/gen_sprites.py",
+		"format": "biome format --write .",
+		"lint": "biome lint .",
+		"fix": "biome check --write .",
+		"typecheck": "tsc --noEmit",
+		"check": "biome check . && node tools/cli.ts check",
+		"test": "npm run check",
+		"build": "node tools/cli.ts build",
+		"clean": "node tools/cli.ts clean",
+		"ext:install": "node tools/cli.ts install",
+		"ext:uninstall": "node tools/cli.ts uninstall",
+		"ext:enable": "node tools/cli.ts enable",
+		"ext:disable": "node tools/cli.ts disable",
+		"ext:prefs": "node tools/cli.ts prefs",
+		"ext:pack": "node tools/cli.ts pack",
+		"logs": "journalctl -f -o cat /usr/bin/gnome-shell",
+		"dev": "npm run ext:install && dbus-run-session -- gnome-shell --nested --wayland",
+		"test:shell": "npm run ext:install && tools/test-shell.sh restart",
+		"test:shell:stop": "tools/test-shell.sh stop"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.5.11",
+		"@girs/gnome-shell": "^46.0.2",
+		"typescript": "^7.0.2"
+	},
+	"overrides": {
+		"@girs/glib-2.0": "2.88.0-4.0.0-rc.17",
+		"@girs/gobject-2.0": "2.88.0-4.0.0-rc.17",
+		"@girs/gio-2.0": "2.88.0-4.0.0-rc.17"
+	}
+}

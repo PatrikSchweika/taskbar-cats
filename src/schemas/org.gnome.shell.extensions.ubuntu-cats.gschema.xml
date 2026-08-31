@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.ubuntu-cats"
+          path="/org/gnome/shell/extensions/ubuntu-cats/">
+
+    <key name="cat-count" type="i">
+      <default>3</default>
+      <range min="1" max="8"/>
+      <summary>Number of cats</summary>
+      <description>How many cats live on the dock.</description>
+    </key>
+
+    <key name="palettes" type="as">
+      <default>[]</default>
+      <summary>Fur palettes to draw from</summary>
+      <description>Palette names to assign to cats. Empty means use them all.</description>
+    </key>
+
+    <key name="max-speed" type="i">
+      <default>220</default>
+      <range min="40" max="600"/>
+      <summary>Top speed in pixels per second</summary>
+      <description>How fast a cat can run along the dock.</description>
+    </key>
+
+    <key name="mouse-attraction" type="i">
+      <default>60</default>
+      <range min="0" max="100"/>
+      <summary>Mouse attraction</summary>
+      <description>How strongly cats are drawn to the pointer. 0 means they ignore it.</description>
+    </key>
+
+    <key name="attract-radius" type="i">
+      <default>260</default>
+      <range min="40" max="1200"/>
+      <summary>Attraction radius</summary>
+      <description>How far above the dock the pointer can be and still interest the cats.</description>
+    </key>
+
+    <key name="scratch-icons" type="b">
+      <default>true</default>
+      <summary>Scratch app icons</summary>
+      <description>Let cats stop at an app icon and claw at it.</description>
+    </key>
+
+    <key name="wiggle-icons" type="b">
+      <default>true</default>
+      <summary>Make scratched icons shake</summary>
+      <description>Rock the real dock icon while a cat scratches it. Turn this off to leave the dock untouched.</description>
+    </key>
+
+    <key name="sprite-size" type="i">
+      <default>0</default>
+      <range min="0" max="128"/>
+      <summary>Cat size in pixels</summary>
+      <description>0 matches the dock's own icon size.</description>
+    </key>
+
+    <key name="sleep-after" type="i">
+      <default>20</default>
+      <range min="0" max="600"/>
+      <summary>Seconds of stillness before cats nap</summary>
+      <description>0 means the cats never sleep.</description>
+    </key>
+
+    <key name="animation-fps" type="i">
+      <default>12</default>
+      <range min="4" max="30"/>
+      <summary>Sprite animation frame rate</summary>
+    </key>
+
+  </schema>
+</schemalist>

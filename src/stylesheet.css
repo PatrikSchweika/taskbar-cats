@@ -1,0 +1,15 @@
+/* The cat layer draws nothing of its own; every pixel comes from the sprites.
+   Keeping this empty and explicit avoids inheriting shell icon styling. */
+.ubuntu-cats-layer {
+	background: none;
+	border: none;
+	padding: 0;
+	margin: 0;
+}
+
+.ubuntu-cats-cat {
+	background: none;
+	border: none;
+	padding: 0;
+	margin: 0;
+}
