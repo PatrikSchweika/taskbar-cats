@@ -77,7 +77,15 @@ restart fails with `Extension "ubuntu-cats" does not exist`.
    ```
 
 Cats should appear along the bottom edge of your screen. Move the pointer near
-the dock and they will come to it.
+the dock and they will come to it. To change how many there are, how fast they
+run, or whether they scratch, open the settings:
+
+```bash
+gnome-extensions prefs ubuntu-cats
+```
+
+See [Opening them](#opening-them) for the graphical route — Ubuntu does not
+install an Extensions app by default.
 
 `ext:enable` checks first whether the running shell has actually scanned the
 extension, and tells you to restart instead of failing with GNOME's confusing
@@ -112,7 +120,8 @@ npm run logs             # follow gnome-shell's log
 ```
 
 Without the repo checked out, the same things are
-`gnome-extensions prefs|disable|enable ubuntu-cats`.
+`gnome-extensions prefs|disable|enable ubuntu-cats`. See
+[Opening them](#opening-them) for the graphical route.
 
 ### Updating
 
@@ -147,6 +156,37 @@ The GSettings schema is `org.gnome.shell.extensions.ubuntu-cats` and is
 independent of the UUID, so renaming the extension does not lose your settings.
 
 ## Settings
+
+### Opening them
+
+From a terminal — this always works, because `gnome-extensions` ships with
+GNOME Shell itself:
+
+```bash
+gnome-extensions prefs ubuntu-cats
+```
+
+Or, from a checkout of this repo, `npm run ext:prefs`.
+
+**Ubuntu has no graphical Extensions app installed by default.** GNOME ships an
+`org.gnome.Shell.Extensions.desktop` entry, but on Ubuntu 24.04 it is a hidden
+stub (`Exec=false`, `NoDisplay=true`) and there is no app behind it. To get a
+GUI, install one:
+
+```bash
+sudo apt install gnome-shell-extension-prefs   # GNOME's own "Extensions" app
+# or
+sudo apt install gnome-shell-extension-manager # "Extension Manager", third-party
+```
+
+Then launch **Extensions** (or **Extension Manager**) from the app grid, find
+*Ubuntu Cats*, and click the gear icon beside it.
+
+Either way the extension has to be one the running shell knows about, so if the
+settings command reports that it does not exist, restart the shell first — see
+[Install and run](#install-and-run).
+
+Every setting applies immediately; none of them need a restart.
 
 | Setting | Default | What it does |
 |---|---|---|
