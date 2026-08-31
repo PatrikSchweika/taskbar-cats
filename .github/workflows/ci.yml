@@ -70,7 +70,7 @@ jobs:
 
       - run: npm ci
 
-      # The frames are committed so installing needs no Python. Regenerate them
+      # The frames are committed so installing needs no toolchain. Regenerate them
       # and fail if the result differs from what is checked in — that catches a
       # hand-edited SVG, or a generator change whose output was not committed.
       - name: Regenerate sprites

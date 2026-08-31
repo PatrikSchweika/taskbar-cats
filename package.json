@@ -9,7 +9,7 @@
 		"node": ">=22.18.0"
 	},
 	"scripts": {
-		"sprites": "python3 tools/gen_sprites.py",
+		"sprites": "node tools/gen-sprites.ts",
 		"format": "biome format --write .",
 		"lint": "biome lint --error-on-warnings .",
 		"fix": "biome check --write .",
