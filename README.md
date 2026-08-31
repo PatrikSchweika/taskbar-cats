@@ -194,7 +194,7 @@ Every setting applies immediately; none of them need a restart.
 | Cat size | 0 | Pixels; 0 matches the dock's own icon size |
 | Fur palettes | all | tabby-orange, grey-tabby, black, white, siamese, calico |
 | Mouse attraction | 60 | How hard they chase the pointer; 0 ignores it |
-| Attraction radius | 260 | How far above the dock the pointer still interests them |
+| Attraction radius | 260 | How far above the screen's bottom edge the pointer still interests them |
 | Top speed | 220 | Pixels per second at a full run |
 | Nap after | 20 | Seconds of stillness before they curl up; 0 keeps them awake |
 | Scratch app icons | on | Cats stop at an icon and claw at it |
@@ -255,11 +255,13 @@ Because those internals are not public API, they are modelled as narrow
 `…Like` interfaces in that one file, and every access is optional and guarded.
 
 **Where they walk.** Cats walk along the bottom edge of the monitor the dock is
-on, in front of the dock, and roam horizontally within the dock's own width so
-they stay near the icons. The floor is the *monitor's* bottom edge rather than
-the dock's: a floating dock (`extend-height=false`) stops short of the screen
-edge, and standing them on its underside leaves them hovering just above the
-floor.
+on, and roam its full width — they are free to leave the dock entirely. What
+keeps them around the icons is a bias, not a fence: a wander target is an
+actual dock icon 70% of the time and anywhere on the floor otherwise, so they
+congregate at the dock but do go for the occasional stroll. The floor is the
+*monitor's* bottom edge rather than the dock's: a floating dock
+(`extend-height=false`) stops short of the screen edge, and standing them on
+its underside leaves them hovering just above the floor.
 
 **HiDPI.** Two coordinate spaces are in play and mixing them is the easiest way
 to break this: St sizes things in *logical* pixels (`icon_size`), while Clutter
@@ -267,7 +269,9 @@ positions and `get_transformed_size()` are in *stage* pixels. They differ by the
 scale factor, so at 2x an `icon_size` of 64 allocates 128 stage px. Cats
 therefore carry both — `iconSize` for St and `size` (from St's own preferred
 height) for every position — and the auto-size reads the dock icon's
-`icon_size` rather than its measured height.
+`icon_size` rather than its measured height. The pixel-valued settings
+(attraction radius, top speed) are logical too, so they are scaled to stage
+pixels before use; otherwise they would mean half as much on a 2x display.
 
 **Following the dock.** Every tick reads *transformed* (stage-space) positions
 fresh rather than caching geometry. Intellihide, auto-hide, icon-size changes

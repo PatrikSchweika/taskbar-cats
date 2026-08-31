@@ -1,7 +1,7 @@
 import type Gio from "gi://Gio";
 import St from "gi://St";
 
-import type { IconRect, Rect } from "./dockTracker.js";
+import type { IconRect } from "./dockTracker.js";
 import type { SpriteSet } from "./sprites.js";
 
 export const State = Object.freeze({
@@ -27,7 +27,12 @@ export interface CatConfig {
 }
 
 export interface CatContext {
-	bar: Rect;
+	/**
+	 * How far the cats may wander, in stage px. This is the monitor's width,
+	 * not the dock's: they are free to leave the dock and roam the whole
+	 * bottom edge, and are only drawn back to it by the wander bias.
+	 */
+	roam: { min: number; max: number };
 	/** y the cats' feet rest on — the bottom of the dock's monitor. */
 	floorY: number;
 	icons: IconRect[];
@@ -211,7 +216,7 @@ export class Cat {
 	}
 
 	update(dt: number, ctx: CatContext): void {
-		const { bar, icons, pointer, neighbours, cfg } = ctx;
+		const { icons, pointer, neighbours, cfg } = ctx;
 		// Cheap, and self-corrects if the scale factor changes under us.
 		this._syncPixelSize();
 		this.stateTime += dt;
@@ -227,17 +232,24 @@ export class Cat {
 		}
 
 		const half = this.size * 0.5;
-		const minX = bar.x + half;
-		const maxX = bar.x + bar.w - half;
+		const minX = ctx.roam.min + half;
+		const maxX = ctx.roam.max - half;
+
+		// Settings are in logical pixels, the way the prefs dialog and the
+		// dock's own icon size mean them; everything here is stage pixels.
+		// Without this a 2x display halves the attraction radius and the speed.
+		const scale = this.iconSize > 0 ? this.size / this.iconSize : 1;
+		const attractRadius = cfg.attractRadius * scale;
+		const topSpeed = cfg.maxSpeed * scale;
 
 		// --- Is the pointer interesting? -----------------------------------
 		const attract = cfg.attraction / 100;
 		const interested =
 			attract > 0.05 &&
-			pointer.y > bar.y - cfg.attractRadius &&
-			pointer.y < bar.y + bar.h + 120 &&
-			pointer.x > bar.x - 200 &&
-			pointer.x < bar.x + bar.w + 200;
+			pointer.y > ctx.floorY - attractRadius &&
+			pointer.y <= ctx.floorY &&
+			pointer.x > minX - 200 &&
+			pointer.x < maxX + 200;
 
 		const sleepy = cfg.sleepAfter > 0 && pointer.idleTime > cfg.sleepAfter;
 
@@ -266,7 +278,7 @@ export class Cat {
 
 		// --- Steering ------------------------------------------------------
 		const speedScale = interested ? 0.4 + 0.6 * attract : 0.55;
-		const maxSpeed = cfg.maxSpeed * speedScale;
+		const maxSpeed = topSpeed * speedScale;
 		const delta = this._target - this.x;
 
 		let desiredVx = 0;
@@ -281,7 +293,7 @@ export class Cat {
 			if (Math.abs(gap) < room && Math.abs(gap) > 0.001)
 				desiredVx += Math.sign(gap) * (room - Math.abs(gap)) * 3;
 		}
-		desiredVx = clamp(desiredVx, -cfg.maxSpeed, cfg.maxSpeed);
+		desiredVx = clamp(desiredVx, -topSpeed, topSpeed);
 
 		this.vx += (desiredVx - this.vx) * Math.min(1, dt * 9);
 		if (Math.abs(this.vx) < 2) this.vx = 0;
@@ -298,7 +310,7 @@ export class Cat {
 				this._setState(State.IDLE);
 			}
 		} else if (speed > 6) {
-			this._setState(speed > cfg.maxSpeed * 0.5 ? State.RUN : State.WALK);
+			this._setState(speed > topSpeed * 0.5 ? State.RUN : State.WALK);
 		} else if (interested && pointer.idleTime < 2.0) {
 			// Pointer is hovering right above: sit up and watch it.
 			this._setState(State.ALERT);

@@ -207,7 +207,11 @@ export class DockTracker {
 	 * the floor. The monitor bottom is what "walking along the bottom of the
 	 * screen" actually means.
 	 */
-	getFloorY(): number | null {
+	/**
+	 * Stage-space rect of the monitor the dock is on. This, not the dock, is
+	 * what bounds the cats: they are free to roam the whole bottom edge.
+	 */
+	getMonitorRect(): Rect | null {
 		const dash = this.dash;
 		if (!dash) return null;
 		try {
@@ -215,10 +219,27 @@ export class DockTracker {
 				Main.layoutManager.findMonitorForActor(dash) ??
 				Main.layoutManager.primaryMonitor;
 			if (!monitor) return null;
-			return monitor.y + monitor.height;
+			return {
+				x: monitor.x,
+				y: monitor.y,
+				w: monitor.width,
+				h: monitor.height,
+			};
 		} catch {
 			return null;
 		}
+	}
+
+	/**
+	 * The y the cats' feet rest on: the bottom edge of the dock's monitor.
+	 *
+	 * Not the dock's own bottom edge — a floating dock stops short of the
+	 * screen edge, and standing the cats there leaves them hovering just above
+	 * the floor.
+	 */
+	getFloorY(): number | null {
+		const monitor = this.getMonitorRect();
+		return monitor ? monitor.y + monitor.h : null;
 	}
 
 	/** True when the dock is visible and the cats should be drawn. */

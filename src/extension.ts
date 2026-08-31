@@ -222,7 +222,7 @@ export default class UbuntuCatsExtension extends Extension {
 
 	private _syncCats(rt: Runtime): void {
 		const size = this._spriteSizeFrom(rt.tracker.getIconRects());
-		const bar = rt.tracker.getBarRect();
+		const monitor = rt.tracker.getMonitorRect();
 
 		while (rt.cats.length > this._cfg.count) {
 			const cat = rt.cats.pop();
@@ -233,8 +233,8 @@ export default class UbuntuCatsExtension extends Extension {
 
 		while (rt.cats.length < this._cfg.count) {
 			const i = rt.cats.length;
-			const x = bar
-				? bar.x + (bar.w * (i + 1)) / (this._cfg.count + 1)
+			const x = monitor
+				? monitor.x + (monitor.w * (i + 1)) / (this._cfg.count + 1)
 				: 100 + i * 60;
 			const cat = new Cat({
 				sprites: rt.sprites,
@@ -320,8 +320,8 @@ export default class UbuntuCatsExtension extends Extension {
 	}
 
 	private _updateCats(rt: Runtime, dt: number): void {
-		const bar = rt.tracker.getBarRect();
-		if (!bar) return;
+		const monitor = rt.tracker.getMonitorRect();
+		if (!monitor) return;
 		const icons = rt.tracker.getIconRects();
 
 		// The dock may have appeared, or changed icon size, since we last
@@ -333,8 +333,8 @@ export default class UbuntuCatsExtension extends Extension {
 		}
 
 		const ctx = {
-			bar,
-			floorY: rt.tracker.getFloorY() ?? bar.y + bar.h,
+			roam: { min: monitor.x, max: monitor.x + monitor.w },
+			floorY: monitor.y + monitor.h,
 			icons,
 			pointer: {
 				x: this._pointer[0],

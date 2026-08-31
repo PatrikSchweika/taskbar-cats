@@ -34,7 +34,7 @@
       <default>260</default>
       <range min="40" max="1200"/>
       <summary>Attraction radius</summary>
-      <description>How far above the dock the pointer can be and still interest the cats.</description>
+      <description>How far above the bottom of the screen the pointer can be and still interest the cats.</description>
     </key>
 
     <key name="scratch-icons" type="b">

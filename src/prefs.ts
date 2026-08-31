@@ -90,7 +90,7 @@ export default class UbuntuCatsPreferences extends ExtensionPreferences {
 				settings,
 				"attract-radius",
 				"Attraction radius",
-				"How far above the dock the pointer can be and still interest them.",
+				"How far above the bottom of the screen the pointer can be and still interest them.",
 				40,
 				1200,
 				20,
