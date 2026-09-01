@@ -90,6 +90,54 @@ jobs:
       - name: Test
         run: npm test
 
+      # Packaging is verified here rather than only at release time. The
+      # collisions it has to avoid — build/ and dist/ already belong to the
+      # GNOME extension — and the prebuilt helper landing in the right place
+      # are both things that would otherwise be discovered by cutting a broken
+      # release.
+      # electron-builder cleans its output directory before building, and its
+      # default output is dist/ — where the GNOME extension's packed zip lives.
+      # A sentinel proves the override actually took effect, which checking for
+      # the zip itself would not: dist/ is gitignored, so on a fresh checkout
+      # there is nothing there to survive.
+      - name: Leave a sentinel in dist/
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Set-Content -Path dist/sentinel.txt -Value "the extension zip lives here"
+
+      - name: Package
+        run: npm run win:pack
+
+      - name: The helper is in the package
+        shell: pwsh
+        run: |
+          $found = Get-ChildItem -Path dist/win32 -Recurse -Filter win32_shell.node
+          if (-not $found) {
+            Write-Error "win32_shell.node is not in the packaged output"
+            exit 1
+          }
+          $found | ForEach-Object { Write-Host "found $($_.FullName)" }
+
+      - name: The GNOME extension's output directory is untouched
+        shell: pwsh
+        run: |
+          if (-not (Test-Path dist/sentinel.txt)) {
+            Write-Error "electron-builder cleaned dist/ — it would have deleted the extension zip"
+            exit 1
+          }
+          Write-Host "dist/ holds: $((Get-ChildItem dist).Name -join ', ')"
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-installer
+          path: |
+            dist/win32/*.exe
+            dist/win32/*.zip
+          if-no-files-found: error
+          retention-days: 14
+
   sprites:
     name: Generated art is current
     runs-on: ubuntu-24.04
