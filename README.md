@@ -237,7 +237,7 @@ particular, a script named `install` would run on every `npm install`.
 npm test
 ```
 
-164 tests, no dependencies beyond Node — `node:test` runs the TypeScript
+212 tests, no dependencies beyond Node — `node:test` runs the TypeScript
 directly, the same way `tools/cli.ts` does.
 
 **Layout.** `tests/` mirrors `src/`, so the test for a file is at the same path
@@ -247,7 +247,7 @@ simulates:
 ```
 tests/
   assets.test.ts              invariants of the generated art in src/assets/
-  core/                       cat.test.ts, config.test.ts
+  core/                       cat.test.ts, colony.test.ts, config.test.ts
   platform/gnome/             catView, dockTracker, extension, iconWiggle, sprites
   platform/win32/             config, native, taskbarTracker
   tools/                      gen-sprites.test.ts, gen-icons.test.ts
@@ -281,6 +281,7 @@ What is covered:
 | Area | What is checked |
 |---|---|
 | `core/cat.ts` | Placement on the floor, roaming bounds and the icon bias, pointer chasing and fan-out, sleeping and waking, sitting, scratching and its cooldown, gaits, facing, frame advance, and the HiDPI unit handling |
+| `core/colony.ts` | Cat count changes and that the cats already out are kept, even spread, palette cycling and fallbacks, auto-sizing against the dock including a late-arriving one, sleep detection, teardown, and the pointer's jitter threshold |
 | `core/config.ts` | That the shared settings table and the GSettings schema agree in both directions, and that hostile values are clamped or rejected rather than reaching the simulation |
 | `gnome/dockTracker.ts` | Dash discovery, ignoring the overview's dash, measuring the painted background, logical vs stage icon sizes, and degrading to empty rather than throwing when the dock's internals move |
 | `gnome/iconWiggle.ts` | Bounded rotation, exact restoration of rotation and pivot, no leaked destroy handlers, and surviving an actor that throws |
@@ -302,7 +303,8 @@ Several tests are labelled *Regression*; each pins a bug that shipped. The suite
 was checked against deliberately reintroduced versions of those bugs — reverting
 the HiDPI fix, re-rooting `ALERT`, making `SIT` permanent, dropping the icon
 restore, leaking a destroy handler — and each one fails the suite. The same was
-done to each of the seven rules in `win32/taskbarTracker.ts`. That matters more
+done to each of the seven rules in `win32/taskbarTracker.ts` and to thirteen in
+`core/colony.ts`. That matters more
 than the count: several tests originally passed against a reintroduced bug and
 had to be rewritten.
 

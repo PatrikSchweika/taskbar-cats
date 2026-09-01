@@ -11,7 +11,7 @@ import {
 	shownAnimation,
 	viewOf,
 	withRandom,
-} from "../support/core/catHarness.ts";
+} from "../support/core/harness.ts";
 
 /**
  * @param scale simulated HiDPI scale factor — what the platform allocates for

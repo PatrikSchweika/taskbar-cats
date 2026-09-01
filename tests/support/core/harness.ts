@@ -1,4 +1,6 @@
 import type { Cat, CatConfig, CatContext } from "../../../src/core/cat.ts";
+import type { Bounds, ColonyHost, World } from "../../../src/core/colony.ts";
+import { defaultSettings, type Settings } from "../../../src/core/config.ts";
 import type {
 	CatView,
 	FrameHandle,
@@ -125,4 +127,44 @@ export function withRandom<T>(values: number[], fn: () => T): T {
 	} finally {
 		Math.random = real;
 	}
+}
+
+// -- the colony -------------------------------------------------------------
+
+/**
+ * A ColonyHost whose views are kept, so a test can inspect what the colony
+ * drew without reaching through the cats.
+ */
+export function fakeHost(palettes = ["tabby-orange"]): ColonyHost & {
+	views: FakeCatView[];
+} {
+	const views: FakeCatView[] = [];
+	return {
+		views,
+		sprites: fakeSprites(palettes),
+		createView: () => {
+			const view = new FakeCatView();
+			views.push(view);
+			return view;
+		},
+	};
+}
+
+export function makeSettings(over: Partial<Settings> = {}): Settings {
+	return { ...defaultSettings(), ...over };
+}
+
+/** Bounds a cat can walk: 0..1200 with the floor at 900. */
+export function makeBounds(over: Partial<Bounds> = {}): Bounds {
+	return { roam: { min: 0, max: 1200 }, floorY: 900, ...over };
+}
+
+export function makeWorld(over: Partial<World> = {}): World {
+	return {
+		...makeBounds(),
+		icons: [],
+		// far away and long still: uninteresting by default
+		pointer: { x: -5000, y: -5000, idleTime: 0 },
+		...over,
+	};
 }
