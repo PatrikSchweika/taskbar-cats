@@ -14,6 +14,7 @@
  */
 import type { IconRect, Rect } from "../../core/types.js";
 import type {
+	ForegroundWindow,
 	PhysicalRect,
 	TaskbarButton,
 	TaskbarEdge,
@@ -170,15 +171,85 @@ export function taskbarOnScreen(
 	return visible > area(taskbar) * 0.5;
 }
 
+/**
+ * Top-level window classes the shell uses for its own surfaces.
+ *
+ * The Start menu, search, the notification centre and — on some Windows 11
+ * releases — the tray and calendar flyouts are hosted in windows sized to the
+ * whole monitor, of which only a panel is ever drawn. By rect alone they are
+ * indistinguishable from a fullscreen game, and treating them as one hid the
+ * cats for as long as any taskbar menu was open. None of them ever covers the
+ * taskbar, which is the only thing the cats care about.
+ *
+ * Lower-case, matched case-insensitively: Win32 class names are.
+ */
+const SHELL_SURFACES = new Set(
+	[
+		// UWP shell hosts: Start, search, notification centre.
+		"Windows.UI.Core.CoreWindow",
+		// explorer.exe's XAML islands: Windows 11 tray and calendar flyouts.
+		"XamlExplorerHostIslandWindow",
+		// Quick settings on Windows 11 24H2 and later.
+		"ControlCenterWindow",
+		// Invisible windows Windows hands the foreground to during a switch.
+		"ForegroundStaging",
+		"MultitaskingViewFrame",
+		// The taskbar itself, and the desktop behind everything.
+		"Shell_TrayWnd",
+		"Shell_SecondaryTrayWnd",
+		"Progman",
+		"WorkerW",
+	].map((name) => name.toLowerCase()),
+);
+
+/**
+ * How long a fullscreen reading has to hold before the cats hide.
+ *
+ * Windows briefly gives the foreground to monitor-sized windows during quite
+ * ordinary transitions — a console host starting, a flyout animating in — for
+ * a few hundred milliseconds at a time. Hiding on the first reading made the
+ * cats blink out for no reason anyone could see. A game that has just started
+ * is not spoiled by cats for three quarters of a second.
+ */
+export const FULLSCREEN_GRACE_MS = 750;
+
+/**
+ * Does this window take over its whole monitor?
+ *
+ * The rect test is the obvious part. The exclusions are why this lives here
+ * rather than in the addon: which windows are "really" fullscreen is a policy
+ * about the shell, and one that has to be checked against fixtures.
+ */
+export function coversMonitor(fg: ForegroundWindow | null): boolean {
+	if (!fg || fg.cloaked) return false;
+	if (SHELL_SURFACES.has(fg.className.toLowerCase())) return false;
+	const m = fg.monitor;
+	// A pixel of slack: some players sit a hair outside the monitor rect.
+	return (
+		fg.x <= m.x + 1 &&
+		fg.y <= m.y + 1 &&
+		fg.x + fg.w >= m.x + m.w - 1 &&
+		fg.y + fg.h >= m.y + m.h - 1
+	);
+}
+
 export class TaskbarTracker {
 	private readonly _shell: Win32Shell;
 	private readonly _bridge: DisplayBridge;
+	private readonly _now: () => number;
 	private _desktop: Desktop | null = null;
 	private _onScreen = false;
+	/** When the current run of fullscreen readings began, or null if not in one. */
+	private _coveredSince: number | null = null;
 
-	constructor(shell: Win32Shell, bridge: DisplayBridge) {
+	constructor(
+		shell: Win32Shell,
+		bridge: DisplayBridge,
+		now: () => number = Date.now,
+	) {
 		this._shell = shell;
 		this._bridge = bridge;
+		this._now = now;
 	}
 
 	/**
@@ -278,11 +349,18 @@ export class TaskbarTracker {
 	 *
 	 * Deliberately *not* hiding for a maximised window: the taskbar is still
 	 * visible then, so the cats should be too. Only a window covering its whole
-	 * monitor — a game, a video, a presentation — takes the screen over.
+	 * monitor — a game, a video, a presentation — takes the screen over, and
+	 * only once it has done so for FULLSCREEN_GRACE_MS. Coming back is instant:
+	 * the grace period exists to ignore transients, not to keep a bare taskbar.
 	 */
 	isUsable(): boolean {
 		if (!this._desktop || !this._onScreen) return false;
-		return !this._shell.foregroundFullscreen();
+		if (!coversMonitor(this._shell.foreground())) {
+			this._coveredSince = null;
+			return true;
+		}
+		this._coveredSince ??= this._now();
+		return this._now() - this._coveredSince < FULLSCREEN_GRACE_MS;
 	}
 
 	/** The pointer in DIP, or null when Windows will not say. */

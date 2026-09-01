@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+	coversMonitor,
+	FULLSCREEN_GRACE_MS,
 	selectAppButtons,
 	TaskbarTracker,
 	taskbarOnScreen,
@@ -8,10 +10,22 @@ import {
 import {
 	fakeBridge,
 	fakeShell,
+	fullscreenWindow,
 	taskbarInfo,
 	win10Button,
 	win11Button,
 } from "../../support/win32/harness.ts";
+
+/** A clock the tests move by hand, so the grace period is deterministic. */
+function clock(start = 0): { now: () => number; advance: (ms: number) => void } {
+	let t = start;
+	return {
+		now: () => t,
+		advance: (ms) => {
+			t += ms;
+		},
+	};
+}
 
 const TASKBAR = { x: 0, y: 1032, w: 1920, h: 48 };
 
@@ -197,6 +211,83 @@ describe("taskbarOnScreen", () => {
 	});
 });
 
+describe("coversMonitor", () => {
+	it("is true for a window over the whole monitor", () => {
+		assert.equal(coversMonitor(fullscreenWindow()), true);
+	});
+
+	it("allows a pixel of slack on every edge", () => {
+		// Some players sit a hair outside the monitor rect.
+		assert.equal(
+			coversMonitor(fullscreenWindow({ x: -1, y: -1, w: 1922, h: 1082 })),
+			true,
+		);
+	});
+
+	it("is false for a maximised window, which leaves the taskbar showing", () => {
+		assert.equal(coversMonitor(fullscreenWindow({ h: 1032 })), false);
+	});
+
+	it("is false when there is no foreground window", () => {
+		assert.equal(coversMonitor(null), false);
+	});
+
+	it("judges against the window's own monitor, not the primary", () => {
+		// A game on a second display to the right covers *that* display.
+		const second = { x: 1920, y: 0, w: 2560, h: 1440 };
+		assert.equal(
+			coversMonitor(fullscreenWindow({ ...second, monitor: second })),
+			true,
+		);
+	});
+
+	it("is false for a cloaked window", () => {
+		// DWM cloaks a window while it animates in or has been suspended. It can
+		// hold the foreground with a full-monitor rect and show nothing at all.
+		assert.equal(coversMonitor(fullscreenWindow({ cloaked: true })), false);
+	});
+
+	describe("the shell's own surfaces", () => {
+		// The Windows 11 shell hosts the Start menu, search, the notification
+		// centre and — on some releases — the tray and calendar flyouts in
+		// top-level windows sized to the whole monitor, of which only a panel is
+		// visible. Treating them as fullscreen hid the cats whenever a taskbar
+		// menu was open. None of them ever covers the taskbar.
+		for (const className of [
+			"Windows.UI.Core.CoreWindow",
+			"XamlExplorerHostIslandWindow",
+			"ControlCenterWindow",
+			"ForegroundStaging",
+			"MultitaskingViewFrame",
+			"Shell_TrayWnd",
+			"Shell_SecondaryTrayWnd",
+			"Progman",
+			"WorkerW",
+		])
+			it(`ignores ${className}`, () => {
+				assert.equal(coversMonitor(fullscreenWindow({ className })), false);
+			});
+
+		it("matches the class case-insensitively, as Win32 does", () => {
+			assert.equal(
+				coversMonitor(fullscreenWindow({ className: "WORKERW" })),
+				false,
+			);
+		});
+
+		it("still counts a full-screen app hosted in a normal window", () => {
+			// UWP apps are top-level ApplicationFrameWindows; only the shell's
+			// own surfaces are bare CoreWindows.
+			assert.equal(
+				coversMonitor(
+					fullscreenWindow({ className: "ApplicationFrameWindow" }),
+				),
+				true,
+			);
+		});
+	});
+});
+
 describe("TaskbarTracker", () => {
 	describe("when the taskbar cannot be found at all", () => {
 		// The native helper was never built, or explorer.exe is restarting.
@@ -229,9 +320,12 @@ describe("TaskbarTracker", () => {
 
 		it("still hides for a fullscreen window", () => {
 			const { shell, state } = fakeShell({ taskbar: null });
-			const tracker = new TaskbarTracker(shell, fakeBridge());
+			const time = clock();
+			const tracker = new TaskbarTracker(shell, fakeBridge(), time.now);
 			tracker.refreshLayout();
-			state.fullscreen = true;
+			state.foreground = fullscreenWindow();
+			tracker.isUsable();
+			time.advance(FULLSCREEN_GRACE_MS);
 			assert.equal(tracker.isUsable(), false);
 		});
 
@@ -324,14 +418,107 @@ describe("TaskbarTracker", () => {
 	});
 
 	describe("isUsable", () => {
-		it("is false while a fullscreen window is in front", () => {
+		it("is false once a fullscreen window has been in front a while", () => {
 			const { shell, state } = fakeShell();
-			const tracker = new TaskbarTracker(shell, fakeBridge());
+			const time = clock();
+			const tracker = new TaskbarTracker(shell, fakeBridge(), time.now);
 			tracker.refreshLayout();
 			assert.equal(tracker.isUsable(), true);
 
-			state.fullscreen = true;
+			state.foreground = fullscreenWindow();
+			tracker.isUsable();
+			time.advance(FULLSCREEN_GRACE_MS);
 			assert.equal(tracker.isUsable(), false, "a game should hide the cats");
+		});
+
+		describe("the grace period", () => {
+			// Windows briefly hands the foreground to monitor-sized windows during
+			// ordinary transitions — a console host starting, a flyout animating
+			// in — for a few hundred milliseconds. Hiding on the first reading made
+			// the cats blink out for no reason the user could see.
+			it("keeps the cats through a brief fullscreen reading", () => {
+				const { shell, state } = fakeShell();
+				const time = clock();
+				const tracker = new TaskbarTracker(shell, fakeBridge(), time.now);
+				tracker.refreshLayout();
+
+				state.foreground = fullscreenWindow();
+				assert.equal(tracker.isUsable(), true, "first reading");
+				time.advance(FULLSCREEN_GRACE_MS / 2);
+				assert.equal(tracker.isUsable(), true, "still within grace");
+
+				state.foreground = null;
+				assert.equal(tracker.isUsable(), true, "transient is over");
+			});
+
+			it("hides once the reading has held for the whole grace period", () => {
+				const { shell, state } = fakeShell();
+				const time = clock();
+				const tracker = new TaskbarTracker(shell, fakeBridge(), time.now);
+				tracker.refreshLayout();
+
+				state.foreground = fullscreenWindow();
+				tracker.isUsable();
+				time.advance(FULLSCREEN_GRACE_MS - 1);
+				assert.equal(tracker.isUsable(), true, "one ms short");
+				time.advance(1);
+				assert.equal(tracker.isUsable(), false, "grace elapsed");
+			});
+
+			it("starts the period over after the window goes away", () => {
+				const { shell, state } = fakeShell();
+				const time = clock();
+				const tracker = new TaskbarTracker(shell, fakeBridge(), time.now);
+				tracker.refreshLayout();
+
+				state.foreground = fullscreenWindow();
+				tracker.isUsable();
+				time.advance(FULLSCREEN_GRACE_MS - 100);
+				state.foreground = null;
+				tracker.isUsable();
+
+				state.foreground = fullscreenWindow();
+				time.advance(200);
+				assert.equal(
+					tracker.isUsable(),
+					true,
+					"the two readings should not add up",
+				);
+			});
+
+			it("shows the cats again the moment the window is gone", () => {
+				// The grace period is only on the way out. Coming back is instant,
+				// or a game's exit would leave the taskbar bare for no reason.
+				const { shell, state } = fakeShell();
+				const time = clock();
+				const tracker = new TaskbarTracker(shell, fakeBridge(), time.now);
+				tracker.refreshLayout();
+
+				state.foreground = fullscreenWindow();
+				tracker.isUsable();
+				time.advance(FULLSCREEN_GRACE_MS * 10);
+				assert.equal(tracker.isUsable(), false);
+
+				state.foreground = null;
+				assert.equal(tracker.isUsable(), true);
+			});
+
+			it("ignores a shell surface however long it stays in front", () => {
+				// The user's report: any taskbar menu on the right — tray,
+				// calendar, quick settings — removed the cats for as long as it
+				// was open. Those menus are monitor-sized shell windows.
+				const { shell, state } = fakeShell();
+				const time = clock();
+				const tracker = new TaskbarTracker(shell, fakeBridge(), time.now);
+				tracker.refreshLayout();
+
+				state.foreground = fullscreenWindow({
+					className: "Windows.UI.Core.CoreWindow",
+				});
+				tracker.isUsable();
+				time.advance(FULLSCREEN_GRACE_MS * 10);
+				assert.equal(tracker.isUsable(), true);
+			});
 		});
 
 		it("is false while the taskbar is hidden away", () => {

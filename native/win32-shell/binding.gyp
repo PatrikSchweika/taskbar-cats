@@ -24,7 +24,8 @@
               "oleaut32.lib",
               "uuid.lib",
               "shell32.lib",
-              "user32.lib"
+              "user32.lib",
+              "dwmapi.lib"
             ],
             "msvs_settings": {
               "VCCLCompilerTool": { "AdditionalOptions": ["/std:c++17"] }

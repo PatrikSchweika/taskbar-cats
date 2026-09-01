@@ -2,9 +2,10 @@
 //
 // This addon is deliberately incurious. It reports what the shell says —
 // taskbar rect, every button on it, the notification area's extent, the cursor,
-// whether a fullscreen app is in front — and makes no decisions about which
-// buttons are app icons or where a cat may walk. That policy lives in
-// taskbarTracker.ts, where it can be unit-tested against fixtures on any OS.
+// which window is in front and how big it is — and makes no decisions about
+// which buttons are app icons, whether that window counts as fullscreen, or
+// where a cat may walk. That policy lives in taskbarTracker.ts, where it can be
+// unit-tested against fixtures on any OS.
 //
 // Everything here is in *physical* pixels. Electron works in device-independent
 // pixels, so main.ts converts through `screen.screenToDipRect`.
@@ -12,6 +13,7 @@
 #include <napi.h>
 
 #include <windows.h>
+#include <dwmapi.h>
 #include <shellapi.h>
 #include <uiautomation.h>
 
@@ -20,10 +22,8 @@
 
 namespace {
 
-std::string ToUtf8(BSTR value) {
-  if (value == nullptr) return std::string();
-  const int wide_len = static_cast<int>(SysStringLen(value));
-  if (wide_len == 0) return std::string();
+std::string ToUtf8(const wchar_t* value, int wide_len) {
+  if (value == nullptr || wide_len <= 0) return std::string();
   const int len = WideCharToMultiByte(CP_UTF8, 0, value, wide_len, nullptr, 0,
                                       nullptr, nullptr);
   if (len <= 0) return std::string();
@@ -31,6 +31,11 @@ std::string ToUtf8(BSTR value) {
   WideCharToMultiByte(CP_UTF8, 0, value, wide_len, out.data(), len, nullptr,
                       nullptr);
   return out;
+}
+
+std::string ToUtf8(BSTR value) {
+  if (value == nullptr) return std::string();
+  return ToUtf8(value, static_cast<int>(SysStringLen(value)));
 }
 
 /** A BSTR that releases itself. */
@@ -270,41 +275,44 @@ Napi::Value GetCursorPosition(const Napi::CallbackInfo& info) {
 }
 
 /**
- * Whether the foreground window covers its whole monitor.
+ * The foreground window: its class, its rect, the monitor it is on, and
+ * whether DWM is cloaking it. Null when there is no foreground window.
  *
- * The overlay is topmost, so without this the cats would walk across a
- * fullscreen game or video. The desktop and the shell itself are not counted:
- * they are always "fullscreen" and are exactly when the cats should be visible.
+ * Whether that adds up to a fullscreen app the cats should hide from is
+ * decided in taskbarTracker.ts. The shell's own monitor-sized surfaces — the
+ * Start menu, the notification centre, tray flyouts — look exactly like a game
+ * from here, and telling them apart is a policy about the shell that belongs
+ * where it can be tested against fixtures.
  */
-Napi::Value IsForegroundFullscreen(const Napi::CallbackInfo& info) {
+Napi::Value GetForeground(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   HWND fg = GetForegroundWindow();
-  if (fg == nullptr) return Napi::Boolean::New(env, false);
-
-  wchar_t class_name[128] = {0};
-  GetClassNameW(fg, class_name, 128);
-  const std::wstring cls(class_name);
-  if (cls == L"Progman" || cls == L"WorkerW" || cls == L"Shell_TrayWnd" ||
-      cls == L"Shell_SecondaryTrayWnd")
-    return Napi::Boolean::New(env, false);
+  if (fg == nullptr) return env.Null();
 
   RECT window_rect;
-  if (GetWindowRect(fg, &window_rect) == 0)
-    return Napi::Boolean::New(env, false);
+  if (GetWindowRect(fg, &window_rect) == 0) return env.Null();
 
   HMONITOR monitor = MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST);
   MONITORINFO mi;
   ZeroMemory(&mi, sizeof(mi));
   mi.cbSize = sizeof(mi);
-  if (GetMonitorInfoW(monitor, &mi) == 0)
-    return Napi::Boolean::New(env, false);
+  if (GetMonitorInfoW(monitor, &mi) == 0) return env.Null();
 
-  // A pixel of slack: some players sit a hair outside the monitor rect.
-  const bool covers = window_rect.left <= mi.rcMonitor.left + 1 &&
-                      window_rect.top <= mi.rcMonitor.top + 1 &&
-                      window_rect.right >= mi.rcMonitor.right - 1 &&
-                      window_rect.bottom >= mi.rcMonitor.bottom - 1;
-  return Napi::Boolean::New(env, covers);
+  wchar_t class_name[256] = {0};
+  const int class_len = GetClassNameW(fg, class_name, 256);
+
+  // Cloaked means DWM is not drawing it — suspended, or still animating in —
+  // however large its rect says it is.
+  DWORD cloaked = 0;
+  if (FAILED(DwmGetWindowAttribute(fg, DWMWA_CLOAKED, &cloaked,
+                                   sizeof(cloaked))))
+    cloaked = 0;
+
+  Napi::Object out = RectToJs(env, window_rect);
+  out.Set("className", Napi::String::New(env, ToUtf8(class_name, class_len)));
+  out.Set("monitor", RectToJs(env, mi.rcMonitor));
+  out.Set("cloaked", Napi::Boolean::New(env, cloaked != 0));
+  return out;
 }
 
 Napi::Value Dispose(const Napi::CallbackInfo& info) {
@@ -318,8 +326,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("notificationArea",
               Napi::Function::New(env, GetNotificationArea));
   exports.Set("cursor", Napi::Function::New(env, GetCursorPosition));
-  exports.Set("foregroundFullscreen",
-              Napi::Function::New(env, IsForegroundFullscreen));
+  exports.Set("foreground", Napi::Function::New(env, GetForeground));
   exports.Set("dispose", Napi::Function::New(env, Dispose));
   return exports;
 }

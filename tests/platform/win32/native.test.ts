@@ -19,7 +19,7 @@ describe("loadShell", () => {
 		assert.deepEqual(loaded.shell.taskbarButtons(), []);
 		assert.equal(loaded.shell.notificationArea(), null);
 		assert.equal(loaded.shell.cursor(), null);
-		assert.equal(loaded.shell.foregroundFullscreen(), false);
+		assert.equal(loaded.shell.foreground(), null);
 		assert.doesNotThrow(() => loaded.shell.dispose());
 	});
 });

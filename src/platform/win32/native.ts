@@ -38,12 +38,29 @@ export interface TaskbarButton extends PhysicalRect {
 	id: string;
 }
 
+/**
+ * The window in front, before anything decides what it means.
+ *
+ * Whether it is "a fullscreen app the cats should hide from" is decided in
+ * taskbarTracker.ts: the shell's own surfaces can be monitor-sized without
+ * covering anything, and telling them apart is policy, not observation.
+ */
+export interface ForegroundWindow extends PhysicalRect {
+	/** The Win32 class, e.g. 'Windows.UI.Core.CoreWindow' for shell surfaces. */
+	className: string;
+	/** The monitor the window is on, so "covers it" has something to compare to. */
+	monitor: PhysicalRect;
+	/** DWM is not drawing it: suspended, or mid-animation. */
+	cloaked: boolean;
+}
+
 export interface Win32Shell {
 	taskbar(): TaskbarInfo | null;
 	taskbarButtons(): TaskbarButton[];
 	notificationArea(): PhysicalRect | null;
 	cursor(): { x: number; y: number } | null;
-	foregroundFullscreen(): boolean;
+	/** Null when Windows has no foreground window at all. */
+	foreground(): ForegroundWindow | null;
 	dispose(): void;
 }
 
@@ -53,7 +70,7 @@ const UNAVAILABLE: Win32Shell = {
 	taskbarButtons: () => [],
 	notificationArea: () => null,
 	cursor: () => null,
-	foregroundFullscreen: () => false,
+	foreground: () => null,
 	dispose: () => {},
 };
 
@@ -121,6 +138,13 @@ export function loadShell(
 			const addon = require_(path) as Win32Shell;
 			if (typeof addon.taskbar !== "function")
 				throw new Error("addon does not export taskbar()");
+			// A helper built before foreground() existed would load fine and then
+			// throw on every tick. Refusing it here turns that into the ordinary
+			// "rebuild the helper" message instead.
+			if (typeof addon.foreground !== "function")
+				throw new Error(
+					"addon is out of date (no foreground()); run `npm run win:native`",
+				);
 			return { shell: addon, available: true };
 		} catch (e) {
 			// Missing is the common case (never built); anything else is worth

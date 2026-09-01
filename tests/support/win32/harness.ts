@@ -7,6 +7,7 @@
  * interfaces, so all of it can be driven from here on any OS.
  */
 import type {
+	ForegroundWindow,
 	PhysicalRect,
 	TaskbarButton,
 	TaskbarEdge,
@@ -23,7 +24,8 @@ export interface FakeShellState {
 	buttons: TaskbarButton[];
 	notification: PhysicalRect | null;
 	cursor: { x: number; y: number } | null;
-	fullscreen: boolean;
+	/** The window in front, or null when Windows has no foreground window. */
+	foreground: ForegroundWindow | null;
 	disposed: boolean;
 }
 
@@ -36,7 +38,7 @@ export function fakeShell(over: Partial<FakeShellState> = {}): {
 		buttons: [],
 		notification: null,
 		cursor: { x: 0, y: 0 },
-		fullscreen: false,
+		foreground: null,
 		disposed: false,
 		...over,
 	};
@@ -45,12 +47,31 @@ export function fakeShell(over: Partial<FakeShellState> = {}): {
 		taskbarButtons: () => state.buttons,
 		notificationArea: () => state.notification,
 		cursor: () => state.cursor,
-		foregroundFullscreen: () => state.fullscreen,
+		foreground: () => state.foreground,
 		dispose: () => {
 			state.disposed = true;
 		},
 	};
 	return { shell, state };
+}
+
+/** The 1920x1080 monitor every fixture here lives on, in physical px. */
+export const MONITOR: PhysicalRect = { x: 0, y: 0, w: 1920, h: 1080 };
+
+/**
+ * A foreground window covering the whole monitor: a game, a video, a slide
+ * show. Anything a cat should not walk across.
+ */
+export function fullscreenWindow(
+	over: Partial<ForegroundWindow> = {},
+): ForegroundWindow {
+	return {
+		...MONITOR,
+		className: "UnrealWindow",
+		monitor: MONITOR,
+		cloaked: false,
+		...over,
+	};
 }
 
 /** A 1920x1080 display with a 48px taskbar along the bottom, in physical px. */

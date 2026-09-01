@@ -26,7 +26,7 @@ a change to how it behaves changes both at once.
 | Icon geometry | The drawn icon, in stage px | The whole taskbar button, in DIP |
 | Icon shake while clawing | Yes | **No** — see below |
 | Settings | GSettings + Adw prefs dialog | `settings.json` + a settings window |
-| Hidden when | Overview open, dock auto-hidden, monitor fullscreen | Taskbar auto-hidden, foreground window covers a monitor |
+| Hidden when | Overview open, dock auto-hidden, monitor fullscreen | Taskbar auto-hidden, a window has covered its monitor for ¾ s |
 | Multi-monitor | The dock's monitor | The primary taskbar's monitor only |
 
 ### The icon shake is not implemented
@@ -167,8 +167,8 @@ npm run win:clean
 native/win32-shell/          C++ N-API addon. Reports facts, decides nothing:
                              SHAppBarMessage for the taskbar rect and auto-hide
                              state, UI Automation for every button on the bar,
-                             GetCursorPos, and whether the foreground window
-                             covers its monitor.
+                             GetCursorPos, and the foreground window's class,
+                             rect and monitor.
 
 src/platform/win32/
   native.ts                  Types the addon and survives its absence.
@@ -319,7 +319,11 @@ and the icon-finding code takes a different path on each.
 - [ ] A maximised window does **not** hide the cats (the taskbar is still
       visible, so they should be too).
 - [ ] A fullscreen video (YouTube fullscreen) hides them.
-- [ ] A fullscreen game hides them, and they come back on Alt+Tab out.
+- [ ] A fullscreen game hides them, and they come back on Alt+Tab out —
+      on top of the taskbar, not behind it.
+- [ ] Opening a taskbar menu — the clock, the tray overflow, quick settings,
+      the Start menu — does **not** hide them. Those are monitor-sized shell
+      windows, and the cats must tell them from a game.
 - [ ] While hidden, the app's CPU use drops to roughly nothing.
 
 ### Settings and lifecycle

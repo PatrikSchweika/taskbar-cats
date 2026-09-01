@@ -393,8 +393,13 @@ class CatsApp {
 		const visible = this._tracker.isUsable();
 		if (visible !== this._visible) {
 			this._visible = visible;
-			if (visible) overlay.window.showInactive();
-			else overlay.window.hide();
+			if (visible) {
+				overlay.window.showInactive();
+				// A re-shown window lands wherever Windows puts it in the topmost
+				// band — observed: underneath the taskbar, cats and all. Put it
+				// back on top now rather than at the next layout refresh.
+				overlay.window.setAlwaysOnTop(true, "screen-saver");
+			} else overlay.window.hide();
 		}
 		if (!visible) return;
 
@@ -422,6 +427,16 @@ class CatsApp {
 		}
 
 		const strip = stripFor(desktop);
+
+		// Another window can be raised above ours at any time — the taskbar
+		// itself, when explorer restarts or a flyout closes — and nothing tells
+		// us. Re-asserting on every refresh is the Windows equivalent of the
+		// GNOME backend re-raising its actor whenever the dock is rediscovered;
+		// it is one SetWindowPos with no move, no resize and no repaint. It has
+		// to run even when nothing below has changed: the case that lost the
+		// cats behind the taskbar left every rect exactly as it was.
+		overlay.window.setAlwaysOnTop(true, "screen-saver");
+
 		const key = JSON.stringify([strip, desktop.icons]);
 		if (key === this._lastLayoutKey) return;
 		this._lastLayoutKey = key;
@@ -435,11 +450,6 @@ class CatsApp {
 		)
 			overlay.window.setBounds(strip);
 		overlay.origin = { x: strip.x, y: strip.y };
-
-		// Another window can be raised above ours at any time; re-asserting is
-		// cheap and is the Windows equivalent of the GNOME backend re-raising
-		// its actor whenever the dock is rediscovered.
-		overlay.window.setAlwaysOnTop(true, "screen-saver");
 
 		const layout: Layout = {
 			roam: {
