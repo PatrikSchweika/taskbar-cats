@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { posix } from "node:path";
 
 /** Pending timeouts, driven manually by tests rather than by real time. */
 export interface FakeSource {
@@ -16,8 +16,16 @@ export const PRIORITY_DEFAULT = 0;
 export const SOURCE_CONTINUE = true;
 export const SOURCE_REMOVE = false;
 
+/**
+ * Always POSIX, whatever the host is.
+ *
+ * The extension this stands in for only ever runs on Linux, so GLib always
+ * builds paths with '/'. Using the host's separator instead would make the
+ * simulated GNOME environment change shape depending on where the test suite
+ * happens to run — which it does, now that CI exercises it on Windows too.
+ */
 export function build_filenamev(parts: string[]): string {
-	return join(...parts);
+	return posix.join(...parts.map((p) => p.split("\\").join("/")));
 }
 
 export function file_get_contents(path: string): [boolean, Uint8Array] {
