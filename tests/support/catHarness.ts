@@ -1,24 +1,74 @@
-import type { CatConfig, CatContext } from "../../src/lib/cat.ts";
-import type { IconRect } from "../../src/lib/dockTracker.ts";
-import type { SpriteSet } from "../../src/lib/sprites.ts";
-import { asActor } from "./cast.ts";
-import { FakeActor } from "./stubs/actor.ts";
+import type { Cat, CatConfig, CatContext } from "../../src/core/cat.ts";
+import type {
+	CatView,
+	FrameHandle,
+	IconRect,
+	SpriteSource,
+} from "../../src/core/types.ts";
 
-/** A SpriteSet whose frames identify their animation, so tests can read it. */
-export function fakeSprites(): SpriteSet {
+/** A SpriteSource whose frames identify themselves, so tests can read them. */
+export function fakeSprites(palettes = ["tabby-orange"]): SpriteSource {
 	return {
+		palettes,
 		frames: (palette: string, animation: string) =>
 			[0, 1, 2, 3].map((frame) => ({ palette, animation, frame })),
-		resolvePalettes: (requested: string[]) =>
-			requested.length ? requested : ["tabby-orange"],
-		palettes: ["tabby-orange"],
-		animations: {},
-		destroy() {},
-	} as unknown as SpriteSet;
+	};
 }
 
-export function shownAnimation(actor: { gicon: unknown }): string {
-	return (actor.gicon as { animation: string }).animation;
+/**
+ * A CatView that just records what the simulation pushed at it.
+ *
+ * This is the whole rendering contract, which is the point: the physics tests
+ * need no windowing system at all, and the same fake stands in for St.Icon and
+ * for a DOM element.
+ */
+export class FakeCatView implements CatView {
+	x = 0;
+	y = 0;
+	facing = 1;
+	logicalSize = 0;
+	frame: FrameHandle = null;
+	destroyed = false;
+
+	/**
+	 * Simulated HiDPI scale: what the platform actually allocates for a given
+	 * logical size. St allocates `icon_size * scale_factor`, which is the crux
+	 * of the HiDPI bug the tests guard against.
+	 */
+	scale = 1;
+	/** False while the view cannot measure itself yet (not on the stage). */
+	measurable = true;
+
+	setSize(logical: number): void {
+		this.logicalSize = logical;
+	}
+
+	pixelSize(): number {
+		return this.measurable ? this.logicalSize * this.scale : 0;
+	}
+
+	setFrame(frame: FrameHandle): void {
+		this.frame = frame;
+	}
+
+	place(x: number, y: number, facing: number): void {
+		this.x = x;
+		this.y = y;
+		this.facing = facing;
+	}
+
+	destroy(): void {
+		this.destroyed = true;
+	}
+}
+
+/** The recording view behind a cat built by the test helpers. */
+export function viewOf(cat: Cat): FakeCatView {
+	return cat.view as FakeCatView;
+}
+
+export function shownAnimation(cat: Cat): string {
+	return (viewOf(cat).frame as { animation: string }).animation;
 }
 
 export const DEFAULT_CFG: CatConfig = {
@@ -32,7 +82,8 @@ export const DEFAULT_CFG: CatConfig = {
 
 export function makeIcon(x: number, w = 48): IconRect {
 	return {
-		actor: asActor(new FakeActor()),
+		// Any unique object will do — the simulation only compares identity.
+		handle: {},
 		x,
 		y: 840,
 		w,

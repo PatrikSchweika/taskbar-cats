@@ -2,24 +2,18 @@ import type Clutter from "gi://Clutter";
 import type St from "gi://St";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
+import type { IconRect, Rect } from "../../core/types.js";
+
 const MAX_DEPTH = 16;
 
-export interface Rect {
-	x: number;
-	y: number;
-	w: number;
-	h: number;
-}
-
-export interface IconRect extends Rect {
-	/** The dock's app-icon actor. Passed to IconWiggler, never stored across ticks. */
-	actor: Clutter.Actor;
-	/**
-	 * The icon's size in *logical* pixels (its `icon_size`), as opposed to
-	 * `w`/`h` which are stage pixels. The two differ by the HiDPI scale
-	 * factor: St sizes things logically, Clutter positions them in stage px.
-	 */
-	logicalSize: number;
+/**
+ * The dock's app-icon actor, as stored in {@link IconRect.handle}.
+ *
+ * The core simulation treats handles as opaque; only {@link IconWiggler} — the
+ * one thing that touches the dock's own actors — reads it back out.
+ */
+export function iconActor(icon: IconRect): Clutter.Actor {
+	return icon.handle as Clutter.Actor;
 }
 
 /**
@@ -184,7 +178,7 @@ export class DockTracker {
 				if (!(w > 4 && h > 4) || !Number.isFinite(x)) continue;
 				const logical = (visual as St.Icon).icon_size;
 				out.push({
-					actor: icon,
+					handle: icon,
 					x,
 					y,
 					w,

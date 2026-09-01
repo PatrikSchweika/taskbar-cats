@@ -1,60 +1,60 @@
 import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
-import { Cat, State } from "../src/lib/cat.ts";
+import { describe, it } from "node:test";
+import { Cat, State } from "../src/core/cat.ts";
 import {
 	DEFAULT_CFG,
+	FakeCatView,
 	fakeSprites,
 	makeContext,
 	makeIcon,
 	run,
 	shownAnimation,
+	viewOf,
 	withRandom,
 } from "./support/catHarness.ts";
-import { resetEnv } from "./support/env.ts";
 
+/**
+ * @param scale simulated HiDPI scale factor — what the platform allocates for
+ * the cat's logical size.
+ */
 function makeCat(
-	over: { size?: number; x?: number; index?: number } = {},
+	over: { size?: number; x?: number; index?: number; scale?: number } = {},
 ): Cat {
-	const cat = new Cat({
+	const view = new FakeCatView();
+	view.scale = over.scale ?? 1;
+	return new Cat({
+		view,
 		sprites: fakeSprites(),
 		palette: "tabby-orange",
 		size: over.size ?? 48,
 		x: over.x ?? 800,
 		index: over.index ?? 0,
 	});
-	// The real layer parents the actor; St needs a stage for preferred size.
-	(globalThis as { stage: { add_child(a: unknown): void } }).stage.add_child(
-		cat.actor,
-	);
-	return cat;
 }
 
 describe("Cat", () => {
-	beforeEach(() => resetEnv());
-
 	describe("placement", () => {
 		it("stands with its feet exactly on the floor", () => {
 			const cat = makeCat({ size: 48 });
 			run([cat], makeContext(), 0.2);
-			assert.equal(cat.actor.y + cat.size, 900);
+			assert.equal(viewOf(cat).y + cat.size, 900);
 		});
 
 		it("centres itself horizontally on its position", () => {
 			const cat = makeCat({ size: 48, x: 700 });
 			run([cat], makeContext(), 0.2);
-			assert.equal(cat.actor.x, Math.round(cat.x - cat.size / 2));
+			assert.equal(viewOf(cat).x, Math.round(cat.x - cat.size / 2));
 		});
 
 		it("still stands on the floor at a 2x scale factor", () => {
-			// Regression: St allocates icon_size * scale_factor stage pixels, so
+			// Regression: the platform allocates logical size * scale factor, so
 			// positioning by the logical size sank half the cat off-screen.
-			resetEnv(2);
-			const cat = makeCat({ size: 64 });
+			const cat = makeCat({ size: 64, scale: 2 });
 			run([cat], makeContext(), 0.2);
 
-			assert.equal(cat.iconSize, 64, "logical size is what St is told");
-			assert.equal(cat.size, 128, "stage size is double at 2x");
-			assert.equal(cat.actor.y + cat.size, 900, "feet on the floor");
+			assert.equal(cat.iconSize, 64, "logical size is what the view is told");
+			assert.equal(cat.size, 128, "on-screen size is double at 2x");
+			assert.equal(viewOf(cat).y + cat.size, 900, "feet on the floor");
 		});
 
 		it("resizes when told, keeping its feet down", () => {
@@ -63,7 +63,7 @@ describe("Cat", () => {
 			cat.setSize(24);
 			run([cat], makeContext(), 0.2);
 			assert.equal(cat.size, 24);
-			assert.equal(cat.actor.y + cat.size, 900);
+			assert.equal(viewOf(cat).y + cat.size, 900);
 		});
 	});
 
@@ -176,15 +176,13 @@ describe("Cat", () => {
 			const PARKED = 0.049;
 			const pointer = { x: 1500, y: 500, idleTime: 0 };
 
-			resetEnv(1);
-			const at1x = makeCat({ x: 100, size: 24 });
+			const at1x = makeCat({ x: 100, size: 24, scale: 1 });
 			withRandom([PARKED], () =>
 				run([at1x], makeContext({ pointer: { ...pointer } }), 6),
 			);
 			assert.ok(at1x.x < 300, `chased from out of range, reached ${at1x.x}`);
 
-			resetEnv(2);
-			const at2x = makeCat({ x: 100, size: 24 });
+			const at2x = makeCat({ x: 100, size: 24, scale: 2 });
 			withRandom([PARKED], () =>
 				run([at2x], makeContext({ pointer: { ...pointer } }), 8),
 			);
@@ -201,7 +199,7 @@ describe("Cat", () => {
 			const cat = makeCat();
 			run([cat], ctx, 4);
 			assert.equal(cat.state, State.SLEEP);
-			assert.equal(shownAnimation(cat.actor), "sleep");
+			assert.equal(shownAnimation(cat), "sleep");
 		});
 
 		it("wakes when the pointer comes back", () => {
@@ -263,8 +261,8 @@ describe("Cat", () => {
 			withRandom([0.0], () => run([cat], ctx, 2));
 
 			assert.equal(cat.state, State.SCRATCH);
-			assert.equal(cat.scratchTarget?.actor, icon.actor);
-			assert.equal(shownAnimation(cat.actor), "scratch");
+			assert.equal(cat.scratchTarget?.handle, icon.handle);
+			assert.equal(shownAnimation(cat), "scratch");
 		});
 
 		it("does not claw when the setting is off", () => {
@@ -335,12 +333,12 @@ describe("Cat", () => {
 			const cat = makeCat({ x: 200 });
 			run([cat], ctx, 2);
 			assert.equal(cat.facing, 1);
-			assert.equal(cat.actor.scale_x, 1);
+			assert.equal(viewOf(cat).facing, 1);
 
 			ctx.pointer.x = 100;
 			run([cat], ctx, 3);
 			assert.equal(cat.facing, -1);
-			assert.equal(cat.actor.scale_x, -1);
+			assert.equal(viewOf(cat).facing, -1);
 		});
 
 		it("uses both gaits", () => {
@@ -363,7 +361,7 @@ describe("Cat", () => {
 			const frames = new Set<number>();
 			for (let t = 0; t < 1; t += 1 / 30) {
 				cat.update(1 / 30, ctx);
-				frames.add((cat.actor.gicon as unknown as { frame: number }).frame);
+				frames.add((viewOf(cat).frame as { frame: number }).frame);
 			}
 			assert.ok(frames.size > 1, `stuck on frame ${[...frames]}`);
 		});
@@ -372,8 +370,7 @@ describe("Cat", () => {
 	it("covers a longer distance per second at a 2x scale factor", () => {
 		// Speed is a logical-pixel setting, so it must be scaled to stage px.
 		const measure = (scale: number): number => {
-			resetEnv(scale);
-			const cat = makeCat({ x: 100, size: 24 });
+			const cat = makeCat({ x: 100, size: 24, scale });
 			const ctx = makeContext({ pointer: { x: 1500, y: 880, idleTime: 0 } });
 			run([cat], ctx, 1);
 			return cat.x - 100;

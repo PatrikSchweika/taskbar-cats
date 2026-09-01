@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
-import { DockTracker } from "../src/lib/dockTracker.ts";
+import { DockTracker } from "../src/platform/gnome/dockTracker.ts";
 import { asFake } from "./support/cast.ts";
 import { makeDock, resetEnv } from "./support/env.ts";
 import { FakeActor } from "./support/stubs/actor.ts";

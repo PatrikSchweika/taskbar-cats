@@ -22,5 +22,9 @@
 			"@girs/gjs/dom"
 		]
 	},
-	"include": ["src/**/*.ts"]
+	// The Windows backend is Electron and Node, not GJS: it gets its own
+	// tsconfig with its own types. Compiling it here would fail on the first
+	// `import { app } from "electron"`.
+	"include": ["src/**/*.ts"],
+	"exclude": ["src/platform/win32/**"]
 }

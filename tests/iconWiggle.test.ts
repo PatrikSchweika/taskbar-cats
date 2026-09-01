@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
-import { IconWiggler } from "../src/lib/iconWiggle.ts";
+import { IconWiggler } from "../src/platform/gnome/iconWiggle.ts";
 import { asActor } from "./support/cast.ts";
 import { resetEnv } from "./support/env.ts";
 import { FakeActor } from "./support/stubs/actor.ts";

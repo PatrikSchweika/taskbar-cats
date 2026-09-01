@@ -1,8 +1,4 @@
-import type Gio from "gi://Gio";
-import St from "gi://St";
-
-import type { IconRect } from "./dockTracker.js";
-import type { SpriteSet } from "./sprites.js";
+import type { CatView, IconRect, SpriteSource } from "./types.js";
 
 export const State = Object.freeze({
 	IDLE: "idle",
@@ -28,9 +24,9 @@ export interface CatConfig {
 
 export interface CatContext {
 	/**
-	 * How far the cats may wander, in stage px. This is the monitor's width,
-	 * not the dock's: they are free to leave the dock and roam the whole
-	 * bottom edge, and are only drawn back to it by the wander bias.
+	 * How far the cats may wander. This is the monitor's width, not the dock's:
+	 * they are free to leave the dock and roam the whole bottom edge, and are
+	 * only drawn back to it by the wander bias.
 	 */
 	roam: { min: number; max: number };
 	/** y the cats' feet rest on — the bottom of the dock's monitor. */
@@ -53,7 +49,7 @@ const FRAME_RATE_SCALE: Record<CatState, number> = {
 };
 
 const ARRIVE_PX = 7; // close enough to the target to stop
-const SCRATCH_SECONDS = 1.7;
+export const SCRATCH_SECONDS = 1.7;
 const SCRATCH_COOLDOWN = 4.0;
 const FOOT_LIFT = 0; // nudge the feet up off the floor, if a dock needs it
 
@@ -62,7 +58,8 @@ function clamp(v: number, lo: number, hi: number): number {
 }
 
 interface CatOptions {
-	sprites: SpriteSet;
+	view: CatView;
+	sprites: SpriteSource;
 	palette: string;
 	size: number;
 	x: number;
@@ -70,22 +67,22 @@ interface CatOptions {
 }
 
 /**
- * One cat: a sprite actor, a 1D position along the dock, and a state machine.
+ * One cat: a sprite view, a 1D position along the dock, and a state machine.
  *
  * Movement is purely horizontal — the cat's feet always rest on the floor (the
  * bottom of the dock's monitor), so vertical position is derived from the
  * context each frame rather than simulated.
  */
 export class Cat {
-	readonly actor: St.Icon;
+	readonly view: CatView;
 	palette: string;
 	index: number;
-	/** Logical size handed to St (`icon_size`). */
+	/** Logical size handed to the view. */
 	iconSize: number;
 	/**
-	 * On-screen size in stage pixels. Equal to iconSize only at scale factor 1
-	 * — on a HiDPI display St allocates `icon_size * scale_factor`, and every
-	 * position we set is in stage pixels, so all geometry uses this.
+	 * On-screen size in the positioning space. Equal to iconSize only at scale
+	 * factor 1 — on a HiDPI display the platform allocates more than that, and
+	 * every position we set is in that space, so all geometry uses this.
 	 */
 	size: number;
 
@@ -95,7 +92,7 @@ export class Cat {
 	state: CatState = State.IDLE;
 	stateTime = 0;
 
-	private readonly _sprites: SpriteSet;
+	private readonly _sprites: SpriteSource;
 	private _frame = 0;
 	private _frameTime = 0;
 	private _target: number;
@@ -104,7 +101,8 @@ export class Cat {
 	private _scratchCooldown = 0;
 	private _sitFor = 5;
 
-	constructor({ sprites, palette, size, x, index = 0 }: CatOptions) {
+	constructor({ view, sprites, palette, size, x, index = 0 }: CatOptions) {
+		this.view = view;
 		this._sprites = sprites;
 		this.palette = palette;
 		this.iconSize = size;
@@ -116,43 +114,36 @@ export class Cat {
 		this._target = x;
 		this._wanderIn = Math.random() * 3;
 
-		this.actor = new St.Icon({
-			style_class: "ubuntu-cats-cat",
-			icon_size: size,
-			reactive: false, // never intercept clicks meant for the dock
-			can_focus: false,
-			track_hover: false,
-		});
-		this.actor.set_pivot_point(0.5, 0.5);
+		this.view.setSize(size);
 		this._syncPixelSize();
 		this._applyFrame();
 	}
 
 	destroy(): void {
 		this._scratchIcon = null;
-		this.actor.destroy();
+		this.view.destroy();
 	}
 
 	/** @param size logical pixels, as the dock and the prefs dialog mean it. */
 	setSize(size: number): void {
 		if (size === this.iconSize) return;
 		this.iconSize = size;
-		this.actor.icon_size = size;
+		this.view.setSize(size);
 		this._syncPixelSize();
 	}
 
 	/**
-	 * Refresh the stage-pixel size from St's own preferred height, which
-	 * already accounts for the scale factor. Asking St beats multiplying by
-	 * scale_factor ourselves — it also picks up any padding the theme adds.
+	 * Refresh the on-screen size from the view's own measurement, which already
+	 * accounts for the scale factor. Asking the view beats multiplying by a
+	 * scale factor ourselves — it also picks up any padding a theme adds.
 	 */
 	private _syncPixelSize(): void {
-		// Asking for a preferred height needs a theme node, which only exists
-		// once the actor is on the stage. Before that we keep the logical size
-		// as a placeholder; the first update() after parenting corrects it.
-		if (!this.actor.get_stage()) return;
-		const [, natural] = this.actor.get_preferred_height(-1);
-		this.size = natural > 0 ? natural : this.iconSize;
+		// A view cannot always measure itself yet (on GNOME a preferred height
+		// needs a theme node, which only exists once the actor is on the
+		// stage). Until it can we keep the logical size as a placeholder; the
+		// first update() after parenting corrects it.
+		const measured = this.view.pixelSize();
+		if (measured > 0) this.size = measured;
 	}
 
 	/** The dock icon this cat is currently clawing, if any. */
@@ -171,9 +162,9 @@ export class Cat {
 	}
 
 	private _applyFrame(): void {
-		const frames: Gio.Icon[] = this._sprites.frames(this.palette, this.state);
+		const frames = this._sprites.frames(this.palette, this.state);
 		if (!frames.length) return;
-		this.actor.gicon = frames[this._frame % frames.length];
+		this.view.setFrame(frames[this._frame % frames.length]);
 	}
 
 	private _advanceAnimation(dt: number, fps: number): void {
@@ -222,21 +213,21 @@ export class Cat {
 		this.stateTime += dt;
 		this._scratchCooldown = Math.max(0, this._scratchCooldown - dt);
 
-		// The dock destroys and recreates icon actors whenever the app list
+		// The dock destroys and recreates icon handles whenever the app list
 		// changes. Holding one across ticks and then reading a property off it
-		// is a hard error in GJS, so re-resolve against this tick's live list
-		// by reference identity (which never touches the object itself).
+		// is a hard error on GNOME, so re-resolve against this tick's live list
+		// by reference identity (which never touches the handle itself).
 		if (this._scratchIcon) {
 			const held = this._scratchIcon;
-			this._scratchIcon = icons.find((i) => i.actor === held.actor) ?? null;
+			this._scratchIcon = icons.find((i) => i.handle === held.handle) ?? null;
 		}
 
 		const half = this.size * 0.5;
 		const minX = ctx.roam.min + half;
 		const maxX = ctx.roam.max - half;
 
-		// Settings are in logical pixels, the way the prefs dialog and the
-		// dock's own icon size mean them; everything here is stage pixels.
+		// Settings are in logical pixels, the way the settings UI and the dock's
+		// own icon size mean them; everything here is in the positioning space.
 		// Without this a 2x display halves the attraction radius and the speed.
 		const scale = this.iconSize > 0 ? this.size / this.iconSize : 1;
 		const attractRadius = cfg.attractRadius * scale;
@@ -365,10 +356,10 @@ export class Cat {
 	private _render(floorY: number): void {
 		// Feet on the floor: the cats walk along the bottom edge of the screen,
 		// in front of the dock, rather than perching on its top lip.
-		this.actor.set_position(
+		this.view.place(
 			Math.round(this.x - this.size * 0.5),
 			Math.round(floorY - this.size - FOOT_LIFT),
+			this.facing,
 		);
-		this.actor.scale_x = this.facing;
 	}
 }

@@ -2,6 +2,8 @@ import Clutter from "gi://Clutter";
 import St from "gi://St";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
+import { GnomeCatView } from "./catView.js";
+
 /**
  * The input-transparent surface the cats are drawn on.
  *
@@ -50,8 +52,11 @@ export class CatLayer {
 		}
 	}
 
-	add(child: Clutter.Actor): void {
-		this.actor.add_child(child);
+	/** A view for one more cat, parented into the overlay. */
+	createView(): GnomeCatView {
+		const view = new GnomeCatView();
+		this.actor.add_child(view.actor);
+		return view;
 	}
 
 	show(): void {

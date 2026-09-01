@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { SpriteSet } from "../src/lib/sprites.ts";
+import { SpriteSet } from "../src/platform/gnome/sprites.ts";
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
 
