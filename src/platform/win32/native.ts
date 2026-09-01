@@ -65,14 +65,21 @@ export interface LoadedShell {
 }
 
 /**
- * Where the compiled addon might be.
+ * Where the compiled addon might be, in the order worth trying.
  *
- * Running from source it sits under native/, three directories up from the
- * compiled main.js. Packaged, electron-builder unpacks it beside the app. Both
- * are tried rather than resolved from configuration, so neither layout needs
- * the other to know about it.
+ * Running from source it sits under native/, a few directories up from the
+ * compiled main.js. In a package, electron-builder's `extraResources` drops it
+ * straight into resources/ — outside the asar archive, because a .node file has
+ * to be a real file on disk for LoadLibrary to open it.
+ *
+ * Every layout is tried rather than resolved from configuration, so none of
+ * them needs the others to know about it. Exported so the packaged locations
+ * can be tested somewhere other than inside an installer.
  */
-function candidatePaths(fromDir: string, resourcesPath?: string): string[] {
+export function candidatePaths(
+	fromDir: string,
+	resourcesPath?: string,
+): string[] {
 	const built = join(
 		"native",
 		"win32-shell",
@@ -85,6 +92,9 @@ function candidatePaths(fromDir: string, resourcesPath?: string): string[] {
 		join(fromDir, "..", "..", "..", "..", built),
 	];
 	if (resourcesPath) {
+		// Where electron-builder.yml puts it.
+		paths.push(join(resourcesPath, "win32_shell.node"));
+		// Fallbacks for an asar-packed layout, should the config ever change.
 		paths.push(join(resourcesPath, "app.asar.unpacked", built));
 		paths.push(join(resourcesPath, built));
 	}

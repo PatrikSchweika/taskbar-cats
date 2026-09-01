@@ -34,13 +34,15 @@
 		"win:build": "node tools/win32.ts build",
 		"win:clean": "node tools/win32.ts clean",
 		"win:dev": "node tools/win32.ts dev",
-		"win:native": "node tools/win32.ts native"
+		"win:native": "node tools/win32.ts native",
+		"win:pack": "node tools/win32.ts pack"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.11",
 		"@girs/gnome-shell": "^46.0.2",
 		"@types/node": "^26.4.0",
 		"electron": "^38.8.6",
+		"electron-builder": "^26.15.3",
 		"node-addon-api": "^8.9.2",
 		"node-gyp": "^11.5.0",
 		"typescript": "^7.0.2"
@@ -49,5 +51,11 @@
 		"@girs/glib-2.0": "2.88.0-4.0.0-rc.17",
 		"@girs/gobject-2.0": "2.88.0-4.0.0-rc.17",
 		"@girs/gio-2.0": "2.88.0-4.0.0-rc.17"
+	},
+	"author": "PatrikSchweika",
+	"binary": {
+		"napi_versions": [
+			8
+		]
 	}
 }

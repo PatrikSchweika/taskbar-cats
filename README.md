@@ -8,7 +8,8 @@ Built as a GNOME Shell extension, because that is the only way to get at where
 the dock icons actually are, and the only way to shake one.
 
 There is also a **Windows** backend — same cats, same physics, drawn on a
-click-through overlay in front of the taskbar. See [docs/windows.md](docs/windows.md);
+click-through overlay in front of the taskbar. Released as an installer that
+needs no toolchain; see [docs/windows.md](docs/windows.md);
 the differences worth knowing are that it finds icons through UI Automation
 instead of the dash's actor tree, and that it cannot shake them, because the
 taskbar belongs to `explorer.exe`.
@@ -223,6 +224,7 @@ Every setting applies immediately; none of them need a restart.
 | `npm run ext:uninstall` | Disable and remove |
 | `npm run sprites` | Regenerate the sprite frames and the Windows icons |
 | `npm run win:dev` | Windows only: build the taskbar helper and overlay, then run it |
+| `npm run win:pack` | Windows only: an installer and a portable zip in `dist/win32/` |
 | `npm run win:build` / `win:native` / `win:clean` | Windows backend build steps ([docs](docs/windows.md)) |
 | `npm run test:shell` | Headless GNOME Shell for testing — cannot touch your desktop |
 | `npm run dev` | Nested shell in a window |
@@ -237,7 +239,7 @@ particular, a script named `install` would run on every `npm install`.
 npm test
 ```
 
-212 tests, no dependencies beyond Node — `node:test` runs the TypeScript
+223 tests, no dependencies beyond Node — `node:test` runs the TypeScript
 directly, the same way `tools/cli.ts` does.
 
 **Layout.** `tests/` mirrors `src/`, so the test for a file is at the same path
@@ -250,7 +252,7 @@ tests/
   core/                       cat.test.ts, colony.test.ts, config.test.ts
   platform/gnome/             catView, dockTracker, extension, iconWiggle, sprites
   platform/win32/             config, native, taskbarTracker
-  tools/                      gen-sprites.test.ts, gen-icons.test.ts
+  tools/                      gen-sprites, gen-icons, win32
   support/
     hooks.ts                  module resolution and GJS globals, for every run
     core/                     catHarness.ts
@@ -290,9 +292,10 @@ What is covered:
 | `gnome/sprites.ts` | Manifest loading, frame paths, fallbacks, palette resolution |
 | `win32/taskbarTracker.ts` | Which taskbar buttons are app icons on both Windows 10 and 11, exclusion of the shell's own controls and the notification area, physical-to-DIP conversion, and when to draw at all |
 | `win32/config.ts` | Persistence keyed as the schema is, clamping on the way to disk, change notification, and surviving a hand-edited file |
-| `win32/native.ts` | That a missing taskbar helper degrades to a working app rather than throwing |
+| `win32/native.ts` | That a missing taskbar helper degrades to a working app rather than throwing, and that the addon is looked for where the packaging actually puts it |
 | `tools/gen-sprites.ts` | Python's rounding and truncation semantics, which the committed frames depend on |
 | `tools/gen-icons.ts` | The hand-rolled PNG and ICO writers, read back rather than trusted |
+| `tools/win32.ts` | The manifest that goes inside the packaged app — `main` and `type` decide whether an installed app starts at all, and neither can be checked without building an installer |
 | Generated art | Every frame present, on a 32×32 grid, clear of the left/right/top edges, and with feet on the bottom row |
 
 The Windows rows all run on any OS: everything platform-specific about that

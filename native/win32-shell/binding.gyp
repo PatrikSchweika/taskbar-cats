@@ -4,7 +4,17 @@
       "target_name": "win32_shell",
       "sources": ["src/win32_shell.cc"],
       "include_dirs": ["<!@(node -p \"require('node-addon-api').include\")"],
-      "defines": ["NAPI_DISABLE_CPP_EXCEPTIONS", "UNICODE", "_UNICODE"],
+      # NAPI_VERSION pins the ABI this compiles against. It matters because the
+      # binary is built once by CI and then shipped to run under whatever
+      # Electron the release happens to bundle: N-API guarantees that only for a
+      # version the runtime actually supports, so leaving it to node-addon-api's
+      # default would make compatibility a matter of luck.
+      "defines": [
+        "NAPI_VERSION=8",
+        "NAPI_DISABLE_CPP_EXCEPTIONS",
+        "UNICODE",
+        "_UNICODE"
+      ],
       "conditions": [
         [
           "OS=='win'",

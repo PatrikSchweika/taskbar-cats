@@ -51,6 +51,37 @@ icons are nowhere near the floor and the cats would claw at empty carpet
 underneath them. With a left, right or top taskbar the cats therefore roam and
 nap as usual and no icons are reported.
 
+## Install
+
+Download the latest release and run it. Nothing else is needed — no Node, no
+Visual Studio, no Python. The native taskbar helper is compiled by CI and ships
+inside the package.
+
+| File | What it is |
+|---|---|
+| `Ubuntu Cats Setup <version>.exe` | Installs for the current user only, so there is **no administrator prompt**. Adds a Start-menu entry and an uninstaller, and starts the cats when it finishes. |
+| `Ubuntu Cats-<version>-win-x64.zip` | The same app, unzipped wherever you like. No Start-menu entry, no uninstaller. |
+
+Right-click the cat in the notification area for settings, autostart and quit.
+
+### Windows will warn you about it
+
+The releases are **not code-signed**, so Windows shows *"Windows protected your
+PC"* the first time you run the installer. To continue: **More info** → **Run
+anyway**.
+
+That warning is honest — it means Windows cannot confirm who built this, and you
+should only click through it if you trust the source. Signing it would need a
+certificate on a hardware token or a cloud signing service, which is a running
+cost this project does not have. If that changes, the warning goes away with no
+change to the app itself.
+
+### Where your settings live
+
+`%APPDATA%\Ubuntu Cats\settings.json`, keyed exactly as the GNOME version's
+GSettings schema is. It survives upgrades, and the tray menu can open it.
+Uninstalling leaves it behind; delete it by hand if you want it gone.
+
 ## Prerequisites
 
 | Need | Why |
@@ -60,9 +91,10 @@ nap as usual and no icons are reported.
 | Visual Studio Build Tools with the *Desktop development with C++* workload | Compiles the taskbar helper |
 | Python 3 | `node-gyp` needs it |
 
-The C++ toolchain is only needed for the taskbar helper. Without it, everything
-else still builds and runs — the cats roam the bottom of the screen and ignore
-your icons. The app says so on startup and in the settings window.
+The C++ toolchain is only needed for the taskbar helper, and only when building
+from source: released packages ship it prebuilt. Without it, everything else
+still builds and runs — the cats roam the bottom of the screen and ignore your
+icons. The app says so on startup and in the settings window.
 
 ## Build and run
 
@@ -139,6 +171,60 @@ off. The sandbox is worth more than the module syntax, so the preload is built
 separately by `tsconfig.win32.preload.json` into a directory with its own
 `package.json` declaring `"type": "commonjs"`.
 
+## Packaging
+
+```bash
+npm run win:native
+```
+
+```bash
+npm run win:pack
+```
+
+`win:pack` refuses to run without the taskbar helper, on purpose: a package
+built without it would install cats that silently ignore the taskbar, and the
+loader is deliberately good at surviving that — so nobody would notice. Output
+lands in `dist/win32/`.
+
+Add `-- --arch=arm64` to either command for Windows on ARM. That cross-compiles,
+so it needs the ARM64 MSVC target installed; the release workflow treats an
+arm64 failure as non-fatal so it cannot withhold the x64 build.
+
+Configuration is [`electron-builder.yml`](../electron-builder.yml). Four things
+in it are worth knowing about:
+
+- **`directories.buildResources` and `directories.output` are both overridden.**
+  They default to `build/` and `dist/`, which this repository already uses for
+  the GNOME extension and its packed zip. Left alone, electron-builder would
+  read the extension's compiled output as installer resources and write
+  installers over the zip.
+- **The helper is `extraResources`, not `asarUnpack`.** A `.node` file has to be
+  a real file on disk for `LoadLibrary` to open it, so it cannot live inside
+  `app.asar`. Unpacking would also work; a plain file in `resources/` is one
+  fewer layer.
+- **`directories.app` is `build-win32`**, so the packaged app is exactly what
+  `win:build` emitted, with the `package.json` that build generates. That
+  manifest is what makes the app identical when run from source and when
+  installed — `productName` included, which is what decides where settings live.
+- **`NAPI_VERSION` is pinned to 8** in
+  [`binding.gyp`](../native/win32-shell/binding.gyp). The helper is compiled
+  once and then runs under whatever Electron a release bundles; N-API only
+  guarantees that for a version the runtime actually supports, so leaving it to
+  node-addon-api's default would make compatibility a matter of luck.
+
+A release is cut by pushing a `v*` tag. `.github/workflows/release.yml` builds
+each architecture, checks that `win32_shell.node` really is in the output, and
+attaches the installers to a GitHub release. It also runs on
+`workflow_dispatch`, which packages and uploads workflow artifacts without
+creating a release — useful for exercising the packaging without cutting one.
+
+### About the size
+
+Roughly 85MB to download and 210MB installed, which is Electron. There is no
+configuration that meaningfully changes that; it would take a native rewrite of
+the renderer, and at that point the C#/WPF approach that was considered and
+rejected for this port becomes the better trade.
+
 ## Verification checklist
 
 The tracker's decisions, the config store, the icon writers and all of the cat
@@ -212,6 +298,25 @@ and the icon-finding code takes a different path on each.
 - [ ] **Quit** from the tray leaves no `electron.exe` behind.
 - [ ] Launching a second copy does not produce a second colony.
 
+### The packaged app
+
+Everything above is worth re-checking from an installer rather than from source,
+because the addon is loaded from a different path and the app is launched by a
+different executable. Specifically:
+
+- [ ] The installer runs without an administrator prompt.
+- [ ] The app starts by itself when the installer finishes.
+- [ ] Cats appear, and they can see the taskbar icons — this is what proves the
+      prebuilt helper was found at `resources/win32_shell.node`.
+- [ ] The settings window's warning about the helper is **absent**.
+- [ ] The Start-menu entry launches it.
+- [ ] **Start with Windows** survives a reboot when installed (the login item
+      points at the installed executable, not at `electron.exe`).
+- [ ] Settings written before an upgrade are still there after one.
+- [ ] The uninstaller removes the app and leaves no process behind.
+- [ ] The portable zip works unzipped to a path containing a space and a
+      non-ASCII character.
+
 ### Without the native helper
 
 Delete `native/win32-shell/build/` and run `npm run win:build && npx electron
@@ -224,9 +329,13 @@ build-win32/platform/win32/main.js`:
 
 ## Not done yet
 
-- **Packaging.** There is no installer or `.exe` yet; it runs from source. The
-  app icon (`src/assets/icons/app.ico`) is generated and ready for whatever
-  packager is chosen.
+- **Code signing.** Releases are unsigned, so users meet a SmartScreen warning
+  once. Azure Trusted Signing is the cheapest route that works from CI now that
+  OV certificates require a hardware token or cloud HSM; nothing about the app
+  changes when it is added.
+- **Auto-update.** Deliberately left out. `electron-updater` would add a runtime
+  dependency and periodic network calls to a desktop toy; worth it once there
+  are users who would benefit.
 - **Secondary taskbars.** `SHAppBarMessage` reports the primary taskbar only, so
   a second monitor's taskbar is not tracked. `Shell_SecondaryTrayWnd` is the
   window class to enumerate for that.
