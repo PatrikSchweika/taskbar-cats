@@ -4,14 +4,14 @@ import {
 	selectAppButtons,
 	TaskbarTracker,
 	taskbarOnScreen,
-} from "../src/platform/win32/taskbarTracker.ts";
+} from "../../../src/platform/win32/taskbarTracker.ts";
 import {
 	fakeBridge,
 	fakeShell,
 	taskbarInfo,
 	win10Button,
 	win11Button,
-} from "./support/win32Harness.ts";
+} from "../../support/win32/harness.ts";
 
 const TASKBAR = { x: 0, y: 1032, w: 1920, h: 48 };
 

@@ -237,13 +237,36 @@ particular, a script named `install` would run on every `npm install`.
 npm test
 ```
 
-160 tests, no dependencies beyond Node — `node:test` runs the TypeScript
+164 tests, no dependencies beyond Node — `node:test` runs the TypeScript
 directly, the same way `tools/cli.ts` does.
+
+**Layout.** `tests/` mirrors `src/`, so the test for a file is at the same path
+with `.test.ts` on the end, and the support code sits under the platform it
+simulates:
+
+```
+tests/
+  assets.test.ts              invariants of the generated art in src/assets/
+  core/                       cat.test.ts, config.test.ts
+  platform/gnome/             catView, dockTracker, extension, iconWiggle, sprites
+  platform/win32/             config, native, taskbarTracker
+  tools/                      gen-sprites.test.ts, gen-icons.test.ts
+  support/
+    hooks.ts                  module resolution and GJS globals, for every run
+    core/                     catHarness.ts
+    gnome/                    env.ts, cast.ts, stubs/
+    win32/                    harness.ts
+```
+
+Two files therefore share a name across platforms — `config.test.ts` and
+`sprites.test.ts` — which is the point: the directory says which one you are
+looking at, so no test file needs a `win32`- or `gnome`- prefix to disambiguate
+itself.
 
 **How they run at all.** The extension imports `gi://St`,
 `resource:///org/gnome/shell/...` and GJS globals, none of which exist in Node.
 `tests/support/hooks.ts` registers in-thread `module.registerHooks` that point
-those specifiers at stubs in `tests/support/stubs/`, installs `global`, `log`
+those specifiers at stubs in `tests/support/gnome/stubs/`, installs `global`, `log`
 and `logError`, and maps the `.js` import specifiers in `src/` onto the `.ts`
 files on disk. Production code is imported unmodified — nothing is refactored
 for testability.
@@ -257,42 +280,56 @@ What is covered:
 
 | Area | What is checked |
 |---|---|
-| `cat.ts` | Placement on the floor, roaming bounds and the icon bias, pointer chasing and fan-out, sleeping and waking, sitting, scratching and its cooldown, gaits, facing, frame advance, and the HiDPI unit handling |
-| `dockTracker.ts` | Dash discovery, ignoring the overview's dash, measuring the painted background, logical vs stage icon sizes, and degrading to empty rather than throwing when the dock's internals move |
-| `iconWiggle.ts` | Bounded rotation, exact restoration of rotation and pivot, no leaked destroy handlers, and surviving an actor that throws |
-| `extension.ts` | Enable/disable lifecycle, live setting changes, one tick source across interval changes, drowsy throttling, and that disable restores every icon and disconnects every signal |
-| `sprites.ts` | Manifest loading, frame paths, fallbacks, palette resolution |
+| `core/cat.ts` | Placement on the floor, roaming bounds and the icon bias, pointer chasing and fan-out, sleeping and waking, sitting, scratching and its cooldown, gaits, facing, frame advance, and the HiDPI unit handling |
+| `core/config.ts` | That the shared settings table and the GSettings schema agree in both directions, and that hostile values are clamped or rejected rather than reaching the simulation |
+| `gnome/dockTracker.ts` | Dash discovery, ignoring the overview's dash, measuring the painted background, logical vs stage icon sizes, and degrading to empty rather than throwing when the dock's internals move |
+| `gnome/iconWiggle.ts` | Bounded rotation, exact restoration of rotation and pivot, no leaked destroy handlers, and surviving an actor that throws |
+| `gnome/extension.ts` | Enable/disable lifecycle, live setting changes, one tick source across interval changes, drowsy throttling, and that disable restores every icon and disconnects every signal |
+| `gnome/catView.ts` | That it reports what St allocated rather than what it was asked for, which is where HiDPI is handled on GNOME |
+| `gnome/sprites.ts` | Manifest loading, frame paths, fallbacks, palette resolution |
+| `win32/taskbarTracker.ts` | Which taskbar buttons are app icons on both Windows 10 and 11, exclusion of the shell's own controls and the notification area, physical-to-DIP conversion, and when to draw at all |
+| `win32/config.ts` | Persistence keyed as the schema is, clamping on the way to disk, change notification, and surviving a hand-edited file |
+| `win32/native.ts` | That a missing taskbar helper degrades to a working app rather than throwing |
+| `tools/gen-sprites.ts` | Python's rounding and truncation semantics, which the committed frames depend on |
+| `tools/gen-icons.ts` | The hand-rolled PNG and ICO writers, read back rather than trusted |
 | Generated art | Every frame present, on a 32×32 grid, clear of the left/right/top edges, and with feet on the bottom row |
+
+The Windows rows all run on any OS: everything platform-specific about that
+backend is either a pure function over plain data or takes its shell and display
+maths as an interface, so the tests drive it with fixtures.
 
 Several tests are labelled *Regression*; each pins a bug that shipped. The suite
 was checked against deliberately reintroduced versions of those bugs — reverting
 the HiDPI fix, re-rooting `ALERT`, making `SIT` permanent, dropping the icon
-restore, leaking a destroy handler — and each one fails the suite. That matters
-more than the count: two tests originally passed against a reintroduced bug and
+restore, leaking a destroy handler — and each one fails the suite. The same was
+done to each of the seven rules in `win32/taskbarTracker.ts`. That matters more
+than the count: several tests originally passed against a reintroduced bug and
 had to be rewritten.
 
 ### Type-checking
 
-Three `tsc` programs, because three sets of ambient types apply:
+Five `tsc` programs, because five sets of ambient types apply:
 
 | Config | Covers | Types |
 |---|---|---|
-| `tsconfig.json` | `src/` — and emits `build/` | GNOME (`@girs`) |
+| `tsconfig.json` | The extension: `src/`, minus the Windows backend — and emits `build/` | GNOME (`@girs`) |
+| `tsconfig.win32.json` | `src/core/` and `src/platform/win32/` — and emits `build-win32/` | Node + DOM |
+| `tsconfig.win32.preload.json` | The preload alone, as CommonJS | Node |
 | `tsconfig.tools.json` | `tools/` | Node |
 | `tsconfig.tests.json` | `tests/`, and `src/` transitively | GNOME **and** Node |
 
-The third one needs a trick. `@girs/gnome-shell/extensions/global` declares
+The last one needs a trick. `@girs/gnome-shell/extensions/global` declares
 `const global: Shell.Global`, which collides with `@types/node`'s
 `var global: typeof globalThis` — and the tests need Node's types for
 `node:test`. So that program leaves the girs global out and
-`tests/support/gjs-globals.d.ts` declares the handful of things `src/` actually
+`tests/support/gnome/gjs-globals.d.ts` declares the handful of things `src/` actually
 uses off the global scope (`stage`, `get_pointer`, `log`, `logError`) as `var`
 and `function`. Declared that way they land on `globalThis`, so `global.stage`
 resolves through Node's declaration and both type universes coexist.
 
 The stubs still cannot *implement* GObject types — `Clutter.Actor` declares some
 400 members — so substituting a stub for a real actor is a cast. Every one goes
-through the two named helpers in `tests/support/cast.ts`, which keeps the
+through the two named helpers in `tests/support/gnome/cast.ts`, which keeps the
 boundary greppable rather than scattered.
 
 ## Linting and formatting

@@ -10,9 +10,9 @@ import {
 	normalizeSettings,
 	PALETTES_KEY,
 	toStorage,
-} from "../src/core/config.ts";
+} from "../../src/core/config.ts";
 
-const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
+const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "src");
 const SCHEMA_PATH = join(
 	SRC,
 	"schemas",

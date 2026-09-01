@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
-import { DockTracker } from "../src/platform/gnome/dockTracker.ts";
-import { asFake } from "./support/cast.ts";
-import { makeDock, resetEnv } from "./support/env.ts";
-import { FakeActor } from "./support/stubs/actor.ts";
-import St from "./support/stubs/St.ts";
-import * as Main from "./support/stubs/shellMain.ts";
+import { DockTracker } from "../../../src/platform/gnome/dockTracker.ts";
+import { asFake } from "../../support/gnome/cast.ts";
+import { makeDock, resetEnv } from "../../support/gnome/env.ts";
+import { FakeActor } from "../../support/gnome/stubs/actor.ts";
+import St from "../../support/gnome/stubs/St.ts";
+import * as Main from "../../support/gnome/stubs/shellMain.ts";
 
 describe("DockTracker", () => {
 	beforeEach(() => resetEnv());

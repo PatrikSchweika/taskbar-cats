@@ -3,13 +3,19 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import UbuntuCatsExtension from "../src/extension.ts";
-import { makeDock, resetEnv, testEnv } from "./support/env.ts";
-import { Settings } from "./support/stubs/Gio.ts";
-import GLib from "./support/stubs/GLib.ts";
-import * as Main from "./support/stubs/shellMain.ts";
+import UbuntuCatsExtension from "../../../src/extension.ts";
+import { makeDock, resetEnv, testEnv } from "../../support/gnome/env.ts";
+import { Settings } from "../../support/gnome/stubs/Gio.ts";
+import GLib from "../../support/gnome/stubs/GLib.ts";
+import * as Main from "../../support/gnome/stubs/shellMain.ts";
 
-const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
+const SRC = join(
+	dirname(fileURLToPath(import.meta.url)),
+	"..",
+	"..",
+	"..",
+	"src",
+);
 const METADATA = JSON.parse(
 	readFileSync(join(SRC, "metadata.json"), "utf8"),
 ) as ConstructorParameters<typeof UbuntuCatsExtension>[0];

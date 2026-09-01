@@ -12,11 +12,11 @@ import type {
 	TaskbarEdge,
 	TaskbarInfo,
 	Win32Shell,
-} from "../../src/platform/win32/native.ts";
+} from "../../../src/platform/win32/native.ts";
 import type {
 	Display,
 	DisplayBridge,
-} from "../../src/platform/win32/taskbarTracker.ts";
+} from "../../../src/platform/win32/taskbarTracker.ts";
 
 export interface FakeShellState {
 	taskbar: TaskbarInfo | null;

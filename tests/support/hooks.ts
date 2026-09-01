@@ -13,7 +13,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const STUBS = join(HERE, "stubs");
+const STUBS = join(HERE, "gnome", "stubs");
 
 const RESOURCE_MAP: Record<string, string> = {
 	"resource:///org/gnome/shell/ui/main.js": "shellMain.ts",
@@ -56,7 +56,7 @@ registerHooks({
 // -- GJS globals ------------------------------------------------------------
 // gnome-shell puts these in the global scope; in Node we install them so the
 // extension's `global.stage`, `log()` and `logError()` resolve.
-import { FakeActor } from "./stubs/actor.ts";
+import { FakeActor } from "./gnome/stubs/actor.ts";
 
 const stage = new FakeActor({ name: "stage" });
 stage.isStage = true;

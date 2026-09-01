@@ -1,10 +1,10 @@
-import type { Cat, CatConfig, CatContext } from "../../src/core/cat.ts";
+import type { Cat, CatConfig, CatContext } from "../../../src/core/cat.ts";
 import type {
 	CatView,
 	FrameHandle,
 	IconRect,
 	SpriteSource,
-} from "../../src/core/types.ts";
+} from "../../../src/core/types.ts";
 
 /** A SpriteSource whose frames identify themselves, so tests can read them. */
 export function fakeSprites(palettes = ["tabby-orange"]): SpriteSource {

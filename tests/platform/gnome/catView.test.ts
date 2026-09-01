@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
-import { GnomeCatView } from "../src/platform/gnome/catView.ts";
-import { asFake } from "./support/cast.ts";
-import { resetEnv } from "./support/env.ts";
+import { GnomeCatView } from "../../../src/platform/gnome/catView.ts";
+import { asFake } from "../../support/gnome/cast.ts";
+import { resetEnv } from "../../support/gnome/env.ts";
 
 /**
  * The GNOME half of the HiDPI story.

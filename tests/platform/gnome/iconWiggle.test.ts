@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
-import { IconWiggler } from "../src/platform/gnome/iconWiggle.ts";
-import { asActor } from "./support/cast.ts";
-import { resetEnv } from "./support/env.ts";
-import { FakeActor } from "./support/stubs/actor.ts";
+import { IconWiggler } from "../../../src/platform/gnome/iconWiggle.ts";
+import { asActor } from "../../support/gnome/cast.ts";
+import { resetEnv } from "../../support/gnome/env.ts";
+import { FakeActor } from "../../support/gnome/stubs/actor.ts";
 
 /** An app icon shaped like the dock's: a button wrapping an inner icon. */
 function makeAppIcon(): { button: FakeActor; inner: FakeActor } {

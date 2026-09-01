@@ -3,9 +3,11 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { defaultSettings } from "../src/core/config.ts";
-import { ConfigStore, changedKeys } from "../src/platform/win32/config.ts";
-import { loadShell } from "../src/platform/win32/native.ts";
+import { defaultSettings } from "../../../src/core/config.ts";
+import {
+	ConfigStore,
+	changedKeys,
+} from "../../../src/platform/win32/config.ts";
 
 describe("ConfigStore", () => {
 	let dir: string;
@@ -114,23 +116,5 @@ describe("changedKeys", () => {
 		const a = defaultSettings();
 		const b = { ...a, count: 8, fps: 30 };
 		assert.deepEqual(changedKeys(a, b).sort(), ["count", "fps"]);
-	});
-});
-
-describe("loadShell", () => {
-	it("degrades instead of throwing when the addon is not there", () => {
-		// The whole point: no taskbar helper is a working app with cats that
-		// cannot see icons, not a crash on startup.
-		const loaded = loadShell();
-		if (process.platform === "win32" && loaded.available) return;
-
-		assert.equal(loaded.available, false);
-		assert.ok(loaded.reason, "an unavailable shell should say why");
-		assert.equal(loaded.shell.taskbar(), null);
-		assert.deepEqual(loaded.shell.taskbarButtons(), []);
-		assert.equal(loaded.shell.notificationArea(), null);
-		assert.equal(loaded.shell.cursor(), null);
-		assert.equal(loaded.shell.foregroundFullscreen(), false);
-		assert.doesNotThrow(() => loaded.shell.dispose());
 	});
 });

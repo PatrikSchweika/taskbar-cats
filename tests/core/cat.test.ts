@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { Cat, State } from "../src/core/cat.ts";
+import { Cat, State } from "../../src/core/cat.ts";
 import {
 	DEFAULT_CFG,
 	FakeCatView,
@@ -11,7 +11,7 @@ import {
 	shownAnimation,
 	viewOf,
 	withRandom,
-} from "./support/catHarness.ts";
+} from "../support/core/catHarness.ts";
 
 /**
  * @param scale simulated HiDPI scale factor — what the platform allocates for
