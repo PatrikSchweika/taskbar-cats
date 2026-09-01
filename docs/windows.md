@@ -88,13 +88,53 @@ Uninstalling leaves it behind; delete it by hand if you want it gone.
 |---|---|
 | Windows 10 21H2+ or Windows 11 | UI Automation exposes the taskbar buttons |
 | Node 22.18+ (24 recommended) | Same as the rest of the repo |
-| Visual Studio Build Tools with the *Desktop development with C++* workload | Compiles the taskbar helper |
+| Visual Studio Build Tools with the *Desktop development with C++* workload | Compiles the taskbar helper — see below |
 | Python 3 | `node-gyp` needs it |
 
 The C++ toolchain is only needed for the taskbar helper, and only when building
 from source: released packages ship it prebuilt. Without it, everything else
 still builds and runs — the cats roam the bottom of the screen and ignore your
-icons. The app says so on startup and in the settings window.
+icons. The app says so on startup and in the settings window. So if all you want
+is to run the app, [install a release](#install) instead and skip this section
+entirely: the toolchain is a 2–7GB download.
+
+### Installing the C++ toolchain
+
+The quickest way, which needs no clicking through an installer:
+
+```powershell
+winget install Microsoft.VisualStudio.2022.BuildTools --override "--passive --wait --add Microsoft.VisualStudio.Workload.VCTools"
+```
+
+```powershell
+winget install Python.Python.3.12
+```
+
+`--wait` looks optional and is not: without it winget returns as soon as the
+*Visual Studio installer* is installed, long before Visual Studio itself has
+finished, and the next command then fails for no visible reason. Expect a UAC
+prompt either way — Visual Studio Installer operations always require elevation.
+
+By hand instead: [visualstudio.microsoft.com/downloads](https://visualstudio.microsoft.com/downloads/)
+→ **All Downloads** → **Tools for Visual Studio** → **Build Tools for Visual
+Studio 2022**, then tick the **Desktop development with C++** workload
+(`Microsoft.VisualStudio.Workload.VCTools`), which brings MSVC and the Windows
+SDK with it. Python from [python.org/downloads](https://www.python.org/downloads/).
+
+Build Tools, not the full Visual Studio IDE — the same compiler without the
+editor.
+
+For the arm64 cross-compile, add two more components:
+
+```
+Microsoft.VisualStudio.Component.VC.Tools.ARM64
+Microsoft.VisualStudio.Component.VC.ATL.ARM64
+```
+
+Do **not** use `npm install --global windows-build-tools`. It is long deprecated
+and broken on current Node, and it is still what much of the older advice on the
+internet recommends. node-gyp's own scripted alternative is Chocolatey:
+`choco install python visualstudio2022-workload-vctools -y`.
 
 ## Build and run
 
@@ -187,8 +227,9 @@ loader is deliberately good at surviving that — so nobody would notice. Output
 lands in `dist/win32/`.
 
 Add `-- --arch=arm64` to either command for Windows on ARM. That cross-compiles,
-so it needs the ARM64 MSVC target installed; the release workflow treats an
-arm64 failure as non-fatal so it cannot withhold the x64 build.
+so it needs the [ARM64 MSVC components](#installing-the-c-toolchain) installed;
+the release workflow treats an arm64 failure as non-fatal so it cannot withhold
+the x64 build.
 
 Configuration is [`electron-builder.yml`](../electron-builder.yml). Four things
 in it are worth knowing about:
