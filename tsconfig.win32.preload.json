@@ -1,0 +1,24 @@
+{
+	// The preload script alone, as CommonJS.
+	//
+	// Electron only allows an ES-module preload when the renderer's sandbox is
+	// turned off, and the sandbox is worth more than the module syntax is. The
+	// emitted directory gets its own package.json declaring "commonjs", because
+	// the repository root declares "module" and that would otherwise win.
+	//
+	// rootDir has to be src/ rather than the preload's own directory: it imports
+	// types from src/core, and TypeScript requires every file in the program to
+	// sit under rootDir. That also means this build emits an unused CommonJS
+	// copy of src/core beside the preload. It is a few kilobytes and nothing
+	// loads it.
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"outDir": "build-win32/cjs",
+		"module": "CommonJS",
+		"moduleResolution": "Bundler",
+		"lib": ["ES2023", "DOM"],
+		"types": ["node"]
+	},
+	"include": ["src/platform/win32/preload.ts"],
+	"exclude": []
+}

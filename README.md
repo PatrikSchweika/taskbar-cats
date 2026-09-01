@@ -5,8 +5,13 @@ pointer, sit and stare up at it, nap when you ignore them, and periodically
 claw at your app icons — which visibly shake when they do.
 
 Built as a GNOME Shell extension, because that is the only way to get at where
-the dock icons actually are. A standalone app would get an always-on-top window
-and nothing else.
+the dock icons actually are, and the only way to shake one.
+
+There is also a **Windows** backend — same cats, same physics, drawn on a
+click-through overlay in front of the taskbar. See [docs/windows.md](docs/windows.md);
+the differences worth knowing are that it finds icons through UI Automation
+instead of the dash's actor tree, and that it cannot shake them, because the
+taskbar belongs to `explorer.exe`.
 
 ![six fur palettes across seven animations](docs/sprites.png)
 
@@ -210,13 +215,15 @@ Every setting applies immediately; none of them need a restart.
 | `npm run test:watch` | …the same, re-run on change |
 | `npm run fix` | Apply Biome's fixes and formatting |
 | `npm run lint` / `npm run format` | Lint only / format-write only |
-| `npm run typecheck` | `tsc --noEmit` over `src/`, and again over `tools/` |
+| `npm run typecheck` | `tsc --noEmit` over the extension, the Windows overlay, `tools/` and `tests/` |
 | `npm run build` | Compile `src/*.ts` → `build/`, copying assets, schemas and metadata alongside |
 | `npm run ext:install` | Build, then install into `~/.local/share/gnome-shell/extensions/` |
 | `npm run ext:enable` / `ext:disable` / `ext:prefs` | Extension lifecycle |
 | `npm run ext:pack` | Distributable zip in `dist/` |
 | `npm run ext:uninstall` | Disable and remove |
-| `npm run sprites` | Regenerate the sprite frames |
+| `npm run sprites` | Regenerate the sprite frames and the Windows icons |
+| `npm run win:dev` | Windows only: build the taskbar helper and overlay, then run it |
+| `npm run win:build` / `win:native` / `win:clean` | Windows backend build steps ([docs](docs/windows.md)) |
 | `npm run test:shell` | Headless GNOME Shell for testing — cannot touch your desktop |
 | `npm run dev` | Nested shell in a window |
 | `npm run logs` | `journalctl` follow on gnome-shell |
@@ -230,7 +237,7 @@ particular, a script named `install` would run on every `npm install`.
 npm test
 ```
 
-84 tests, no dependencies beyond Node — `node:test` runs the TypeScript
+160 tests, no dependencies beyond Node — `node:test` runs the TypeScript
 directly, the same way `tools/cli.ts` does.
 
 **How they run at all.** The extension imports `gi://St`,
@@ -311,9 +318,20 @@ assertions are gone rather than suppressed.
 
 ## How it works
 
+**Two backends, one colony.** `src/core/` holds everything that is not
+platform-specific — the cat state machine and steering, the colony (count,
+palettes, auto-sizing, sleep detection, pointer idle), the settings table and
+their ranges, and the sprite manifest format. It imports nothing from a
+windowing system. `src/platform/gnome/` and `src/platform/win32/` are the two
+things that satisfy it, and the whole rendering contract between them is five
+methods: `setSize`, `pixelSize`, `setFrame`, `place`, `destroy`. `src/extension.ts`
+and `src/prefs.ts` stay at the root as one-line re-exports, because GNOME loads
+those two paths by name. The Windows half is documented separately in
+[docs/windows.md](docs/windows.md).
+
 **Finding the dock.** Nothing is imported from the dock extension — importing
 `ubuntu-dock`'s `docking.js` would create a second module instance whose
-`DockManager` singleton is null. Instead `lib/dockTracker.ts` duck-types the
+`DockManager` singleton is null. Instead `platform/gnome/dockTracker.ts` duck-types the
 actor tree: it looks for a descendant named `dash`, then for icon containers
 whose `.child` exposes `.icon`. That is the same predicate dash-to-dock's own
 `getAppIcons()` uses, and it works for the stock dash and Dash to Panel too.
@@ -350,7 +368,7 @@ layer and every cat are `reactive: false`. Clicks pass straight through a cat to
 the icon underneath.
 
 **Touching your dock.** Shaking a real icon is the only thing that reaches into
-another extension's actors, so it is confined to `lib/iconWiggle.ts`. It drives
+another extension's actors, so it is confined to `platform/gnome/iconWiggle.ts`. It drives
 `rotation_angle_z` directly from our own tick instead of installing a Clutter
 transition (nothing to cancel, nothing to collide with the dock's hover-zoom),
 targets the inner icon rather than the button, records every actor's original
@@ -425,7 +443,8 @@ tools/test-shell.sh shot 3 out    # writes out000.png
 ## Verifying a change
 
 `npm run check` covers the static half. The rest only a running shell can tell
-you, and is worth re-checking after touching the dock-facing code:
+you, and is worth re-checking after touching the dock-facing code. The Windows
+backend has its own checklist in [docs/windows.md](docs/windows.md#verification-checklist):
 
 1. Cats run toward the pointer, slow to a walk, and stop under it
 2. Pointer held above the dock → cats sit and look up
@@ -442,6 +461,9 @@ you, and is worth re-checking after touching the dock-facing code:
 
 Number 9 is the one that matters: it is what keeps a bug here from outliving the
 extension and leaving your dock crooked.
+
+Anything touching `src/core/` affects both platforms, so it needs the Windows
+checklist as well — or at least a note in the pull request that it was not run.
 
 ## Licence
 

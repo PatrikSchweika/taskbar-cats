@@ -54,6 +54,39 @@ jobs:
       - name: Build
         run: npm run build
 
+      # The overlay's TypeScript is platform-independent even though it only
+      # runs on Windows, so compiling it here catches breakage without needing
+      # a Windows runner. The native helper is the only part that cannot.
+      - name: Build the Windows overlay
+        run: npm run win:build
+
+      - name: Test
+        run: npm test
+
+  windows:
+    name: Windows backend
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+
+      # The one thing the Linux job cannot check: that the taskbar helper
+      # actually compiles against the Windows SDK.
+      - name: Build the taskbar helper
+        run: npm run win:native
+
+      - name: Build the overlay
+        run: npm run win:build
+
+      - name: Typecheck
+        run: npm run typecheck
+
       - name: Test
         run: npm test
 
@@ -73,7 +106,7 @@ jobs:
       # The frames are committed so installing needs no toolchain. Regenerate them
       # and fail if the result differs from what is checked in — that catches a
       # hand-edited SVG, or a generator change whose output was not committed.
-      - name: Regenerate sprites
+      - name: Regenerate sprites and icons
         run: npm run sprites
 
       - name: Committed frames match the generator

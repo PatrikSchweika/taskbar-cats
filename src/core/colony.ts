@@ -18,12 +18,26 @@ const POINTER_EPS = 2; // px of jitter that does not count as movement
 const DEFAULT_SIZE = 40; // used only until the dock can be measured
 const FALLBACK_PALETTE = "tabby-orange";
 
+/** How far the cats may walk, and where the floor is. */
+export interface Bounds {
+	/** Horizontal range, inclusive of the cats' own width. */
+	roam: { min: number; max: number };
+	/** The y the cats' feet rest on. */
+	floorY: number;
+}
+
 /** Everything the simulation needs to know about the desktop this tick. */
-export interface World {
-	/** The monitor the dock is on. Bounds the cats' roaming. */
-	monitor: Rect;
+export interface World extends Bounds {
 	icons: IconRect[];
 	pointer: { x: number; y: number; idleTime: number };
+}
+
+/** The bounds of a monitor: what both platforms derive them from. */
+export function boundsOfMonitor(monitor: Rect): Bounds {
+	return {
+		roam: { min: monitor.x, max: monitor.x + monitor.w },
+		floorY: monitor.y + monitor.h,
+	};
 }
 
 /**
@@ -121,7 +135,7 @@ export class Colony {
 	sync(
 		settings: Settings,
 		icons: readonly IconRect[],
-		monitor: Rect | null,
+		bounds: Bounds | null,
 		onRemove?: (cat: Cat) => void,
 	): void {
 		const size = this.sizeFor(settings, icons);
@@ -136,8 +150,10 @@ export class Colony {
 
 		while (this.cats.length < settings.count) {
 			const i = this.cats.length;
-			const x = monitor
-				? monitor.x + (monitor.w * (i + 1)) / (settings.count + 1)
+			// Spread new cats evenly rather than stacking them at one edge.
+			const x = bounds
+				? bounds.roam.min +
+					((bounds.roam.max - bounds.roam.min) * (i + 1)) / (settings.count + 1)
 				: 100 + i * 60;
 			this.cats.push(
 				new Cat({
@@ -171,8 +187,8 @@ export class Colony {
 		}
 
 		const ctx = {
-			roam: { min: world.monitor.x, max: world.monitor.x + world.monitor.w },
-			floorY: world.monitor.y + world.monitor.h,
+			roam: world.roam,
+			floorY: world.floorY,
 			icons: world.icons,
 			pointer: world.pointer,
 			neighbours: this.cats,

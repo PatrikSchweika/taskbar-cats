@@ -7,6 +7,7 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import { SCRATCH_SECONDS } from "../../core/cat.js";
 import {
 	ACTIVE_INTERVAL_MS,
+	boundsOfMonitor,
 	Colony,
 	DROWSY_INTERVAL_MS,
 	PointerTracker,
@@ -206,10 +207,11 @@ export default class UbuntuCatsExtension extends Extension {
 	}
 
 	private _syncCats(rt: Runtime): void {
+		const monitor = rt.tracker.getMonitorRect();
 		rt.colony.sync(
 			this._cfg,
 			rt.tracker.getIconRects(),
-			rt.tracker.getMonitorRect(),
+			monitor ? boundsOfMonitor(monitor) : null,
 			(cat) => this._releaseShaken(rt, cat),
 		);
 	}
@@ -251,7 +253,7 @@ export default class UbuntuCatsExtension extends Extension {
 			rt.colony.update(
 				dt,
 				{
-					monitor,
+					...boundsOfMonitor(monitor),
 					icons: rt.tracker.getIconRects(),
 					pointer: this._pointer.sample,
 				},
