@@ -384,7 +384,9 @@ export class TaskbarTracker {
 	 */
 	private _taskbarAbove(): boolean {
 		const bands =
-			this.overlayHandle === null ? null : this._shell.bands(this.overlayHandle);
+			this.overlayHandle === null
+				? null
+				: this._shell.bands(this.overlayHandle);
 		if (!bands || bands.taskbar <= bands.overlay) {
 			this._elevatedSince = null;
 			return false;
