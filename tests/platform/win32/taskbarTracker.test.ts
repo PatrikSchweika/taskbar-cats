@@ -18,7 +18,10 @@ import {
 } from "../../support/win32/harness.ts";
 
 /** A clock the tests move by hand, so the grace period is deterministic. */
-function clock(start = 0): { now: () => number; advance: (ms: number) => void } {
+function clock(start = 0): {
+	now: () => number;
+	advance: (ms: number) => void;
+} {
 	let t = start;
 	return {
 		now: () => t,

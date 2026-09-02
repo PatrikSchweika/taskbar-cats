@@ -36,7 +36,14 @@ export interface Layout {
  * bundler to the preload build without also giving the preload another way to
  * be self-contained. Any of them stops the inlining, and the failure is a
  * runtime one in a window that has no way to report it.
+ *
+ * Biome's noConstEnum rule wants a regular enum here, and its fix is not safe
+ * to take: a regular enum emits runtime code, which puts `require("./ipc.js")`
+ * back into the preload and reintroduces exactly the failure above. The
+ * suppression has to sit on the line directly below this comment, because that
+ * is the only place Biome reads one from.
  */
+// biome-ignore lint/suspicious/noConstEnum: the inlining is the point; see above.
 export const enum CHANNELS {
 	/** main -> overlay: the desktop changed shape. */
 	layout = "cats:layout",
