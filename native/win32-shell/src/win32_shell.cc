@@ -2,9 +2,9 @@
 //
 // This addon is deliberately incurious. It reports what the shell says —
 // taskbar rect, every button on it, the notification area's extent, the cursor,
-// which window is in front and how big it is, which z-band the taskbar sits in
-// — and makes no decisions about which buttons are app icons, whether that
-// window counts as fullscreen, or where a cat may walk. That policy lives in taskbarTracker.ts, where it can be
+// which window is in front and how big it is — and makes no decisions about
+// which buttons are app icons, whether that window counts as fullscreen, or
+// where a cat may walk. That policy lives in taskbarTracker.ts, where it can be
 // unit-tested against fixtures on any OS.
 //
 // Everything here is in *physical* pixels. Electron works in device-independent
@@ -315,53 +315,6 @@ Napi::Value GetForeground(const Napi::CallbackInfo& info) {
   return out;
 }
 
-// -- z-bands ------------------------------------------------------------------
-//
-// GetWindowBand has been exported by user32 since Windows 8 but is declared in
-// no SDK header, so it is resolved at runtime and its absence is just "no
-// answer". Nothing here can move a window between bands; this only reports.
-
-using GetWindowBandFn = BOOL(WINAPI*)(HWND, PDWORD);
-
-GetWindowBandFn ResolveGetWindowBand() {
-  static const GetWindowBandFn fn = [] {
-    HMODULE user32 = GetModuleHandleW(L"user32.dll");
-    if (user32 == nullptr) return static_cast<GetWindowBandFn>(nullptr);
-    return reinterpret_cast<GetWindowBandFn>(
-        GetProcAddress(user32, "GetWindowBand"));
-  }();
-  return fn;
-}
-
-/**
- * The z-bands of the taskbar and of the window whose handle is passed in.
- *
- * A window in a higher band is above every window in a lower one, topmost or
- * not. Whether the cats should do anything about that is taskbarTracker.ts's
- * decision. Null when the answer cannot be read.
- */
-Napi::Value GetBands(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  GetWindowBandFn get_band = ResolveGetWindowBand();
-  if (get_band == nullptr) return env.Null();
-  if (info.Length() < 1 || !info[0].IsNumber()) return env.Null();
-
-  HWND overlay = reinterpret_cast<HWND>(
-      static_cast<uintptr_t>(info[0].As<Napi::Number>().Int64Value()));
-  HWND tray = FindWindowW(L"Shell_TrayWnd", nullptr);
-  if (overlay == nullptr || tray == nullptr) return env.Null();
-
-  DWORD tray_band = 0;
-  DWORD overlay_band = 0;
-  if (!get_band(tray, &tray_band) || !get_band(overlay, &overlay_band))
-    return env.Null();
-
-  Napi::Object out = Napi::Object::New(env);
-  out.Set("taskbar", Napi::Number::New(env, tray_band));
-  out.Set("overlay", Napi::Number::New(env, overlay_band));
-  return out;
-}
-
 Napi::Value Dispose(const Napi::CallbackInfo& info) {
   SafeRelease(&g_automation);
   return info.Env().Undefined();
@@ -374,7 +327,6 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
               Napi::Function::New(env, GetNotificationArea));
   exports.Set("cursor", Napi::Function::New(env, GetCursorPosition));
   exports.Set("foreground", Napi::Function::New(env, GetForeground));
-  exports.Set("bands", Napi::Function::New(env, GetBands));
   exports.Set("dispose", Napi::Function::New(env, Dispose));
   return exports;
 }

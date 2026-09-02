@@ -20,7 +20,6 @@ describe("loadShell", () => {
 		assert.equal(loaded.shell.notificationArea(), null);
 		assert.equal(loaded.shell.cursor(), null);
 		assert.equal(loaded.shell.foreground(), null);
-		assert.equal(loaded.shell.bands(0), null);
 		assert.doesNotThrow(() => loaded.shell.dispose());
 	});
 });

@@ -54,20 +54,6 @@ export interface ForegroundWindow extends PhysicalRect {
 	cloaked: boolean;
 }
 
-/**
- * Which z-band the taskbar and the overlay are in.
- *
- * Windows keeps top-level windows in bands, and a window in a higher band is
- * above every window in a lower one — HWND_TOPMOST included. Ordinary apps
- * live in the desktop band; the Windows 11 taskbar moves between bands, and
- * while it is above ours no SetWindowPos can put the cats in front of it. The
- * numbers only mean anything relative to each other.
- */
-export interface ZBands {
-	taskbar: number;
-	overlay: number;
-}
-
 export interface Win32Shell {
 	taskbar(): TaskbarInfo | null;
 	taskbarButtons(): TaskbarButton[];
@@ -75,12 +61,6 @@ export interface Win32Shell {
 	cursor(): { x: number; y: number } | null;
 	/** Null when Windows has no foreground window at all. */
 	foreground(): ForegroundWindow | null;
-	/**
-	 * The bands of the taskbar and of the window with this handle. Null when
-	 * either cannot be read — GetWindowBand is undocumented, and a Windows
-	 * without it is simply a Windows where the answer is unknown.
-	 */
-	bands(overlay: number): ZBands | null;
 	dispose(): void;
 }
 
@@ -91,7 +71,6 @@ const UNAVAILABLE: Win32Shell = {
 	notificationArea: () => null,
 	cursor: () => null,
 	foreground: () => null,
-	bands: () => null,
 	dispose: () => {},
 };
 
@@ -156,18 +135,17 @@ export function loadShell(
 	for (const path of candidatePaths(here, options.resourcesPath)) {
 		tried.push(path);
 		try {
-			const addon = require_(path) as Partial<Win32Shell>;
+			const addon = require_(path) as Win32Shell;
 			if (typeof addon.taskbar !== "function")
 				throw new Error("addon does not export taskbar()");
-			// A helper built before an export existed would load fine and then
+			// A helper built before foreground() existed would load fine and then
 			// throw on every tick. Refusing it here turns that into the ordinary
 			// "rebuild the helper" message instead.
-			for (const name of ["foreground", "bands"] as const)
-				if (typeof addon[name] !== "function")
-					throw new Error(
-						`addon is out of date (no ${name}()); run \`npm run win:native\``,
-					);
-			return { shell: addon as Win32Shell, available: true };
+			if (typeof addon.foreground !== "function")
+				throw new Error(
+					"addon is out of date (no foreground()); run `npm run win:native`",
+				);
+			return { shell: addon, available: true };
 		} catch (e) {
 			// Missing is the common case (never built); anything else is worth
 			// reporting, but not worth failing over.

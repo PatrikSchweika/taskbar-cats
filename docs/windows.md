@@ -27,24 +27,7 @@ a change to how it behaves changes both at once.
 | Icon shake while clawing | Yes | **No** — see below |
 | Settings | GSettings + Adw prefs dialog | `settings.json` + a settings window |
 | Hidden when | Overview open, dock auto-hidden, monitor fullscreen | Taskbar auto-hidden, a window has covered its monitor for ¾ s |
-| When the bar is above everything | n/a | Cats climb onto the taskbar — see below |
 | Multi-monitor | The dock's monitor | The primary taskbar's monitor only |
-
-### The taskbar can be above everything
-
-Windows keeps top-level windows in *z-bands*. A window in a higher band is
-above every window in a lower one, `HWND_TOPMOST` or not, and ordinary apps
-can only create windows in the lowest. The Windows 11 taskbar lives in that
-band most of the time — which is what lets the overlay sit on it — but Windows
-lifts it into a higher band while a menu is open, and it has been observed to
-stay up there indefinitely. Nothing an Electron app can do reaches it then.
-
-So the overlay watches the bands (through `GetWindowBand`, undocumented but
-exported since Windows 8) and, once the taskbar has been above it for a
-second, moves the cats' floor to the taskbar's top edge: they stand on the
-bar, still pawing at the icons below. The moment the bar drops back, so do
-they. A menu opening still covers them for the length of its animation; that
-is a Windows limitation, and hopping for it would look worse than it does.
 
 ### The icon shake is not implemented
 
@@ -344,11 +327,7 @@ and the icon-finding code takes a different path on each.
       on top of the taskbar, not behind it.
 - [ ] Opening a taskbar menu — the clock, the tray overflow, quick settings,
       the Start menu — does **not** hide them. Those are monitor-sized shell
-      windows, and the cats must tell them from a game. (They may be covered by
-      the bar itself for the length of the menu's animation; see above.)
-- [ ] If the taskbar stays above the overlay (`GetWindowBand` reports it in a
-      higher band), the cats appear standing on top of it within a second, and
-      drop back onto it when it returns.
+      windows, and the cats must tell them from a game.
 - [ ] While hidden, the app's CPU use drops to roughly nothing.
 
 ### Settings and lifecycle
