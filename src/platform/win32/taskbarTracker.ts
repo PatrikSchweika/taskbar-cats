@@ -149,6 +149,14 @@ export interface Desktop {
 	taskbar: Rect;
 	edge: TaskbarEdge;
 	/**
+	 * The y the cats' feet rest on, in DIP screen coordinates.
+	 *
+	 * The bottom of the monitor, so they walk across the taskbar — unless the
+	 * taskbar has moved into a z-band above the overlay, where nothing can be
+	 * drawn over it. Then it is the taskbar's top edge, and they stand on it.
+	 */
+	floor: number;
+	/**
 	 * True when this was assembled without finding a taskbar — the native
 	 * helper is missing, or explorer.exe is restarting. The cats roam the
 	 * bottom of the primary display and have nothing to claw.
@@ -214,6 +222,18 @@ const SHELL_SURFACES = new Set(
 export const FULLSCREEN_GRACE_MS = 750;
 
 /**
+ * How long the taskbar has to sit in a higher z-band than the overlay before
+ * the cats climb onto it.
+ *
+ * Windows 11 lifts the taskbar into a higher band for the length of a menu's
+ * animation, and drops it back when the menu closes. The cats are covered for
+ * that moment whatever we do; hopping up and back down would only add to it.
+ * A taskbar that stays up there — observed to happen, indefinitely — is a
+ * different matter: on it, the cats are at least visible.
+ */
+export const ELEVATED_GRACE_MS = 1000;
+
+/**
  * Does this window take over its whole monitor?
  *
  * The rect test is the obvious part. The exclusions are why this lives here
@@ -241,6 +261,13 @@ export class TaskbarTracker {
 	private _onScreen = false;
 	/** When the current run of fullscreen readings began, or null if not in one. */
 	private _coveredSince: number | null = null;
+	/** When the taskbar was first seen above the overlay, or null if it is not. */
+	private _elevatedSince: number | null = null;
+	/**
+	 * The overlay's HWND, once there is one. Until main sets it the bands are
+	 * not asked about, because there is nothing to compare the taskbar to.
+	 */
+	overlayHandle: number | null = null;
 
 	constructor(
 		shell: Win32Shell,
@@ -293,11 +320,20 @@ export class TaskbarTracker {
 					)
 				: [];
 
+		const taskbarDip = this._bridge.rectToDip(taskbar);
+		// Standing on a side or top bar makes no sense; the cats walk the bottom
+		// of the screen whatever such a bar does, as they do for icons.
+		const floor =
+			taskbar.edge === "bottom" && this._taskbarAbove()
+				? taskbarDip.y
+				: display.bounds.y + display.bounds.h;
+
 		this._desktop = {
 			monitor: display.bounds,
 			display,
-			taskbar: this._bridge.rectToDip(taskbar),
+			taskbar: taskbarDip,
 			edge: taskbar.edge,
+			floor,
 			fallback: false,
 			icons: buttons.map((button) => {
 				const rect = this._bridge.rectToDip(button);
@@ -334,9 +370,27 @@ export class TaskbarTracker {
 				h: 0,
 			},
 			edge: "bottom",
+			floor: display.bounds.y + display.bounds.h,
 			icons: [],
 			fallback: true,
 		};
+	}
+
+	/**
+	 * Has the taskbar been in a higher z-band than the overlay for a while?
+	 *
+	 * Read once per layout refresh, not per tick: it changes on the timescale
+	 * of menus opening, and it is one more cross-process question each time.
+	 */
+	private _taskbarAbove(): boolean {
+		const bands =
+			this.overlayHandle === null ? null : this._shell.bands(this.overlayHandle);
+		if (!bands || bands.taskbar <= bands.overlay) {
+			this._elevatedSince = null;
+			return false;
+		}
+		this._elevatedSince ??= this._now();
+		return this._now() - this._elevatedSince >= ELEVATED_GRACE_MS;
 	}
 
 	/** The last layout read, or null if there was nothing to read. */

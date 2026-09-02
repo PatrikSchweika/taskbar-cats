@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
 	coversMonitor,
+	ELEVATED_GRACE_MS,
 	FULLSCREEN_GRACE_MS,
 	selectAppButtons,
 	TaskbarTracker,
@@ -355,6 +356,153 @@ describe("TaskbarTracker", () => {
 		assert.deepEqual(desktop.taskbar, { x: 0, y: 1032, w: 1920, h: 48 });
 		assert.equal(desktop.icons.length, 1);
 		assert.equal(desktop.icons[0].x, 300);
+	});
+
+	describe("the floor", () => {
+		// Windows keeps top-level windows in z-bands, and a window in a higher
+		// band is above every HWND_TOPMOST window in a lower one. The Windows 11
+		// taskbar is lifted into a higher band while a menu is open — and was
+		// observed to stay there indefinitely — at which point nothing the
+		// overlay does can put the cats in front of it. Standing on the bar is
+		// the honest fallback: visible cats that paw at the icons from above.
+		it("is the bottom of the monitor when the bands are equal", () => {
+			const { shell } = fakeShell();
+			const tracker = new TaskbarTracker(shell, fakeBridge());
+			tracker.overlayHandle = 0x40876;
+			tracker.refreshLayout();
+			assert.equal(tracker.desktop?.floor, 1080);
+		});
+
+		it("asks the shell about the overlay it was given", () => {
+			const { shell, state } = fakeShell();
+			const tracker = new TaskbarTracker(shell, fakeBridge());
+			tracker.overlayHandle = 0x40876;
+			tracker.refreshLayout();
+			assert.equal(state.bandsAskedFor, 0x40876);
+		});
+
+		it("does not ask before it knows which window is the overlay", () => {
+			const { shell, state } = fakeShell();
+			new TaskbarTracker(shell, fakeBridge()).refreshLayout();
+			assert.equal(state.bandsAskedFor, null);
+		});
+
+		it("stays at the bottom when Windows will not say", () => {
+			// GetWindowBand is undocumented; a Windows without it is fine.
+			const { shell } = fakeShell({ bands: null });
+			const tracker = new TaskbarTracker(shell, fakeBridge());
+			tracker.overlayHandle = 1;
+			tracker.refreshLayout();
+			assert.equal(tracker.desktop?.floor, 1080);
+		});
+
+		it("moves to the top of the taskbar once it has stayed above us", () => {
+			const { shell, state } = fakeShell();
+			const time = clock();
+			const tracker = new TaskbarTracker(shell, fakeBridge(), time.now);
+			tracker.overlayHandle = 1;
+			tracker.refreshLayout();
+
+			state.bands = { taskbar: 6, overlay: 1 };
+			tracker.refreshLayout();
+			assert.equal(tracker.desktop?.floor, 1080, "first reading: wait");
+			time.advance(ELEVATED_GRACE_MS - 1);
+			tracker.refreshLayout();
+			assert.equal(tracker.desktop?.floor, 1080, "one ms short: wait");
+			time.advance(1);
+			tracker.refreshLayout();
+			assert.equal(tracker.desktop?.floor, 1032, "the taskbar's top edge");
+		});
+
+		it("stays put through a brief elevation", () => {
+			// A menu opening lifts the bar for the length of its animation. The
+			// cats are covered for that moment either way; hopping up and back
+			// down would make it worse.
+			const { shell, state } = fakeShell();
+			const time = clock();
+			const tracker = new TaskbarTracker(shell, fakeBridge(), time.now);
+			tracker.overlayHandle = 1;
+			tracker.refreshLayout();
+
+			state.bands = { taskbar: 6, overlay: 1 };
+			tracker.refreshLayout();
+			time.advance(ELEVATED_GRACE_MS / 2);
+			tracker.refreshLayout();
+			state.bands = { taskbar: 1, overlay: 1 };
+			tracker.refreshLayout();
+			assert.equal(tracker.desktop?.floor, 1080);
+
+			// And the clock starts over next time.
+			state.bands = { taskbar: 6, overlay: 1 };
+			tracker.refreshLayout();
+			time.advance(ELEVATED_GRACE_MS / 2 + 100);
+			tracker.refreshLayout();
+			assert.equal(tracker.desktop?.floor, 1080, "readings must not add up");
+		});
+
+		it("comes back down the moment the taskbar does", () => {
+			const { shell, state } = fakeShell();
+			const time = clock();
+			const tracker = new TaskbarTracker(shell, fakeBridge(), time.now);
+			tracker.overlayHandle = 1;
+			state.bands = { taskbar: 6, overlay: 1 };
+			tracker.refreshLayout();
+			time.advance(ELEVATED_GRACE_MS * 5);
+			tracker.refreshLayout();
+			assert.equal(tracker.desktop?.floor, 1032);
+
+			state.bands = { taskbar: 1, overlay: 1 };
+			tracker.refreshLayout();
+			assert.equal(tracker.desktop?.floor, 1080);
+		});
+
+		it("keeps the icons while standing on the bar", () => {
+			// Clawing is horizontal: a cat above an icon still scratches at it.
+			const { shell, state } = fakeShell({ buttons: [win11Button(300)] });
+			const time = clock();
+			const tracker = new TaskbarTracker(shell, fakeBridge(), time.now);
+			tracker.overlayHandle = 1;
+			state.bands = { taskbar: 6, overlay: 1 };
+			tracker.refreshLayout();
+			time.advance(ELEVATED_GRACE_MS);
+			tracker.refreshLayout();
+			assert.equal(tracker.desktop?.icons.length, 1);
+		});
+
+		it("is in DIP", () => {
+			const { shell, state } = fakeShell();
+			const time = clock();
+			const tracker = new TaskbarTracker(shell, fakeBridge(2), time.now);
+			tracker.overlayHandle = 1;
+			state.bands = { taskbar: 6, overlay: 1 };
+			tracker.refreshLayout();
+			time.advance(ELEVATED_GRACE_MS);
+			tracker.refreshLayout();
+			assert.equal(tracker.desktop?.floor, 516);
+		});
+
+		it("ignores the bands when the taskbar is not along the bottom", () => {
+			// The cats walk the bottom of the screen whatever a side bar does.
+			const { shell, state } = fakeShell({
+				taskbar: taskbarInfo({ x: 0, y: 0, w: 110, h: 1080, edge: "left" }),
+			});
+			const time = clock();
+			const tracker = new TaskbarTracker(shell, fakeBridge(), time.now);
+			tracker.overlayHandle = 1;
+			state.bands = { taskbar: 6, overlay: 1 };
+			tracker.refreshLayout();
+			time.advance(ELEVATED_GRACE_MS);
+			tracker.refreshLayout();
+			assert.equal(tracker.desktop?.floor, 1080);
+		});
+
+		it("is the bottom of the display in the fallback", () => {
+			const { shell } = fakeShell({ taskbar: null });
+			const tracker = new TaskbarTracker(shell, fakeBridge());
+			tracker.overlayHandle = 1;
+			tracker.refreshLayout();
+			assert.equal(tracker.desktop?.floor, 1080);
+		});
 	});
 
 	it("halves every rect at a 2x scale factor", () => {

@@ -13,6 +13,7 @@ import type {
 	TaskbarEdge,
 	TaskbarInfo,
 	Win32Shell,
+	ZBands,
 } from "../../../src/platform/win32/native.ts";
 import type {
 	Display,
@@ -26,6 +27,10 @@ export interface FakeShellState {
 	cursor: { x: number; y: number } | null;
 	/** The window in front, or null when Windows has no foreground window. */
 	foreground: ForegroundWindow | null;
+	/** Z-bands of the taskbar and the overlay; null when Windows will not say. */
+	bands: ZBands | null;
+	/** What bands() was last asked about, so a test can check the handle got through. */
+	bandsAskedFor: number | null;
 	disposed: boolean;
 }
 
@@ -39,6 +44,8 @@ export function fakeShell(over: Partial<FakeShellState> = {}): {
 		notification: null,
 		cursor: { x: 0, y: 0 },
 		foreground: null,
+		bands: { taskbar: 1, overlay: 1 },
+		bandsAskedFor: null,
 		disposed: false,
 		...over,
 	};
@@ -48,6 +55,10 @@ export function fakeShell(over: Partial<FakeShellState> = {}): {
 		notificationArea: () => state.notification,
 		cursor: () => state.cursor,
 		foreground: () => state.foreground,
+		bands: (overlay) => {
+			state.bandsAskedFor = overlay;
+			return state.bands;
+		},
 		dispose: () => {
 			state.disposed = true;
 		},
