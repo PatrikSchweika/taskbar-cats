@@ -278,10 +278,14 @@ creating a release — useful for exercising the packaging without cutting one.
 
 ### About the size
 
-Roughly 85MB to download and 210MB installed, which is Electron. There is no
-configuration that meaningfully changes that; it would take a native rewrite of
-the renderer, and at that point the C#/WPF approach that was considered and
-rejected for this port becomes the better trade.
+Measured on a real release rather than estimated: the installer is **181MB** and
+the portable zip **132MB**. The zip is a compressed copy of exactly what the
+installer lays down, so installed it comes to more again.
+
+That is Electron, and no configuration meaningfully changes it. Shrinking it
+would take a native rewrite of the renderer, and at that point the C#/WPF
+approach that was considered and rejected for this port becomes the better
+trade.
 
 ## Verification checklist
 
