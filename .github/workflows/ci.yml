@@ -54,6 +54,23 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Packing is Node-only now — tools/zip.ts writes the archive rather than
+      # calling `gnome-extensions pack` — so the zip a release attaches can be
+      # built and checked on every pull request instead of only at release time.
+      - name: Pack the extension
+        run: npm run ext:pack
+
+      - name: The zip is shaped like an extension
+        run: |
+          zip=dist/ubuntu-cats.shell-extension.zip
+          unzip -t "$zip"
+          for required in metadata.json extension.js prefs.js; do
+            if ! unzip -Z1 "$zip" | grep -qx "$required"; then
+              echo "::error::$required is missing from the root of $zip"
+              exit 1
+            fi
+          done
+
       # The overlay's TypeScript is platform-independent even though it only
       # runs on Windows, so compiling it here catches breakage without needing
       # a Windows runner. The native helper is the only part that cannot.
@@ -119,6 +136,25 @@ jobs:
           }
           $found | ForEach-Object { Write-Host "found $($_.FullName)" }
 
+      # Auto-update depends on two files electron-builder only writes when a
+      # publish provider is configured. Nothing about the app looks different
+      # without them; it just never updates again. Checked here so that losing
+      # the publish block fails a pull request rather than a release.
+      - name: The update metadata was written
+        shell: pwsh
+        run: |
+          $channel = Get-ChildItem -Path dist/win32 -Filter "latest*.yml"
+          if (-not $channel) {
+            Write-Error "no latest*.yml in dist/win32 — an installed app would never see a new release"
+            exit 1
+          }
+          $inApp = Get-ChildItem -Path dist/win32 -Recurse -Filter app-update.yml
+          if (-not $inApp) {
+            Write-Error "app-update.yml is not in the package — the installed app would not know where to look"
+            exit 1
+          }
+          $channel | ForEach-Object { Write-Host "channel: $($_.Name)" }
+
       - name: The GNOME extension's output directory is untouched
         shell: pwsh
         run: |
@@ -135,6 +171,8 @@ jobs:
           path: |
             dist/win32/*.exe
             dist/win32/*.zip
+            dist/win32/*.blockmap
+            dist/win32/latest*.yml
           if-no-files-found: error
           retention-days: 14
 
