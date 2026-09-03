@@ -4,6 +4,7 @@ import { type Cat, State } from "../../src/core/cat.ts";
 import {
 	boundsOfMonitor,
 	Colony,
+	interleaveProps,
 	PointerTracker,
 } from "../../src/core/colony.ts";
 import {
@@ -13,6 +14,7 @@ import {
 	makeIcon,
 	makeSettings,
 	makeWorld,
+	shownPropFrame,
 	viewOf,
 	withRandom,
 } from "../support/core/harness.ts";
@@ -590,6 +592,437 @@ describe("Colony", () => {
 			colony.sync(makeSettings({ count: 2 }), [], makeBounds());
 			colony.destroy();
 			assert.doesNotThrow(() => colony.destroy());
+		});
+	});
+
+	describe("furniture", () => {
+		/** Two icons in the middle of a 0..1200 floor. */
+		const dock = () => [makeIcon(500), makeIcon(650)];
+
+		it("alternates beds and posts", () => {
+			assert.deepEqual(interleaveProps(2, 1), ["bed", "scratcher", "bed"]);
+			assert.deepEqual(interleaveProps(0, 2), ["scratcher", "scratcher"]);
+			assert.deepEqual(interleaveProps(0, 0), []);
+		});
+
+		it("puts out the configured beds and posts, on prop views", () => {
+			const host = fakeHost();
+			const colony = new Colony(host);
+			colony.sync(
+				makeSettings({ count: 2, beds: 2, scratchers: 1 }),
+				[],
+				makeBounds(),
+			);
+
+			assert.deepEqual(
+				colony.props.map((p) => p.kind),
+				["bed", "scratcher", "bed"],
+			);
+			assert.equal(colony.beds.length, 2);
+			assert.equal(colony.scratchers.length, 1);
+			assert.equal(host.propViews.length, 3, "props go under the cats");
+			assert.equal(host.views.length, 2, "cats do not");
+		});
+
+		it("keeps them off the dock's icons", () => {
+			const colony = new Colony(fakeHost());
+			colony.sync(
+				makeSettings({ beds: 3, scratchers: 3 }),
+				dock(),
+				makeBounds(),
+			);
+			for (const prop of colony.props)
+				assert.ok(
+					prop.x < 500 - 20 || prop.x > 698 + 20,
+					`${prop.kind} at ${prop.x} is on the dock`,
+				);
+		});
+
+		it("stands them on the floor at the cats' size", () => {
+			const colony = new Colony(fakeHost());
+			const settings = makeSettings({ beds: 1, scratchers: 1 });
+			colony.sync(settings, [], makeBounds());
+			colony.update(1 / 30, makeWorld(), settings);
+			for (const prop of colony.props) {
+				const view = prop.view as FakeCatView;
+				assert.equal(view.y + prop.size, 900);
+				assert.equal(view.x, Math.round(prop.x - prop.size / 2));
+				assert.equal(prop.iconSize, 40, "the fallback cat size");
+			}
+		});
+
+		it("resizes the furniture when the dock turns up", () => {
+			const colony = new Colony(fakeHost());
+			const settings = makeSettings({ beds: 1 });
+			colony.sync(settings, [], makeBounds());
+			const icons = [64, 64].map((n) => ({ ...makeIcon(500), logicalSize: n }));
+			colony.update(1 / 30, makeWorld({ icons }), settings);
+			assert.equal(colony.props[0].iconSize, 64);
+		});
+
+		it("lays the furniture out afresh when the dock first appears", () => {
+			const colony = new Colony(fakeHost());
+			const settings = makeSettings({ beds: 1 });
+			colony.sync(settings, [], makeBounds());
+			const before = colony.props[0].x;
+			assert.equal(before, 600, "centred while there is no dock");
+
+			colony.update(1 / 30, makeWorld({ icons: dock() }), settings);
+			const after = colony.props[0].x;
+			assert.notEqual(after, before);
+			assert.ok(after < 480 || after > 718, `${after} is on the dock`);
+		});
+
+		it("does not shuffle the furniture when an app is launched", () => {
+			// The icon span grows with every new app; a bed that slid along the
+			// floor would wake the cat asleep in it to walk after it.
+			const colony = new Colony(fakeHost());
+			const settings = makeSettings({ beds: 2, scratchers: 1 });
+			const icons = dock();
+			colony.sync(settings, icons, makeBounds());
+			colony.update(1 / 30, makeWorld({ icons }), settings);
+			const placed = colony.props.map((p) => p.x);
+
+			const more = [...icons, makeIcon(800)];
+			colony.update(1 / 30, makeWorld({ icons: more }), settings);
+			assert.deepEqual(
+				colony.props.map((p) => p.x),
+				placed,
+			);
+		});
+
+		it("moves the furniture to a new monitor", () => {
+			const colony = new Colony(fakeHost());
+			const settings = makeSettings({ beds: 1 });
+			colony.sync(settings, [], makeBounds());
+			colony.update(
+				1 / 30,
+				makeWorld({ roam: { min: 1920, max: 3200 } }),
+				settings,
+			);
+			assert.equal(colony.props[0].x, 2560);
+		});
+
+		it("removes them again, destroying their views", () => {
+			const host = fakeHost();
+			const colony = new Colony(host);
+			colony.sync(makeSettings({ beds: 2 }), [], makeBounds());
+			colony.sync(makeSettings({ beds: 0 }), [], makeBounds());
+			assert.equal(colony.props.length, 0);
+			for (const view of host.propViews) assert.equal(view.destroyed, true);
+		});
+
+		it("keeps the same props across a sync that changes nothing", () => {
+			// A cat's claimed bed is an object reference; rebuilding the props
+			// on every settings change would evict it for no reason.
+			const colony = new Colony(fakeHost());
+			colony.sync(makeSettings({ beds: 1, count: 1 }), [], makeBounds());
+			const [bed] = colony.props;
+			colony.sync(makeSettings({ beds: 1, count: 2 }), [], makeBounds());
+			assert.equal(colony.props[0], bed);
+		});
+
+		it("rocks a post while a cat claws it", () => {
+			const colony = new Colony(fakeHost());
+			const settings = makeSettings({
+				count: 1,
+				scratchers: 1,
+				attraction: 0,
+				sleepAfter: 0,
+			});
+			const world = makeWorld();
+			const frames = new Set<number>();
+			withRandom([0.0], () => {
+				colony.sync(settings, [], world);
+				const [post] = colony.props;
+				colony.cats[0].x = post.x - 17;
+				for (let t = 0; t < 2; t += 1 / 30) {
+					colony.update(1 / 30, world, settings);
+					frames.add(shownPropFrame(post));
+				}
+				assert.equal(colony.cats[0].scratchingProp, post);
+			});
+			assert.ok(frames.size > 1, "the post never moved");
+		});
+
+		describe("pinned positions", () => {
+			it("stands a bed exactly where the settings put it", () => {
+				const colony = new Colony(fakeHost());
+				colony.sync(
+					makeSettings({ beds: 1, bedPositions: [25] }),
+					dock(),
+					makeBounds(),
+				);
+				assert.equal(colony.props[0].pinned, 25);
+				assert.equal(colony.props[0].x, 300, "25% of a 1200px floor");
+			});
+
+			it("is measured from the monitor's own left edge", () => {
+				const colony = new Colony(fakeHost());
+				colony.sync(
+					makeSettings({ scratchers: 1, scratcherPositions: [50] }),
+					[],
+					makeBounds({ roam: { min: 1920, max: 3200 } }),
+				);
+				assert.equal(colony.props[0].x, 2560);
+			});
+
+			it("honours a position on top of the dock", () => {
+				// The automatic layout avoids the icons; the user's choice is the
+				// user's choice.
+				const colony = new Colony(fakeHost());
+				colony.sync(
+					makeSettings({ beds: 1, bedPositions: [50] }),
+					dock(),
+					makeBounds(),
+				);
+				assert.equal(colony.props[0].x, 600);
+			});
+
+			it("leaves a blank entry, and anything past the list, automatic", () => {
+				const colony = new Colony(fakeHost());
+				colony.sync(
+					makeSettings({ beds: 3, bedPositions: [-1, 10] }),
+					[],
+					makeBounds(),
+				);
+				const [first, second, third] = colony.props;
+				assert.equal(first.pinned, null);
+				assert.equal(second.pinned, 10);
+				assert.equal(second.x, 120);
+				assert.equal(third.pinned, null);
+			});
+
+			it("indexes positions by bed and by post separately", () => {
+				const colony = new Colony(fakeHost());
+				colony.sync(
+					makeSettings({
+						beds: 1,
+						scratchers: 1,
+						bedPositions: [10],
+						scratcherPositions: [90],
+					}),
+					[],
+					makeBounds(),
+				);
+				assert.equal(colony.beds[0].x, 120);
+				assert.equal(colony.scratchers[0].x, 1080);
+			});
+
+			it("lays the automatic ones out around the pinned ones", () => {
+				const colony = new Colony(fakeHost());
+				const settings = makeSettings({ beds: 3, bedPositions: [-1, 50, -1] });
+				colony.sync(settings, [], makeBounds());
+				const [a, pinned, b] = colony.props;
+				assert.equal(pinned.x, 600);
+				for (const prop of [a, b])
+					assert.ok(
+						Math.abs(prop.x - 600) > 40,
+						`automatic bed at ${prop.x} overlaps the pinned one`,
+					);
+				assert.ok(a.x < 600 && b.x > 600, "one to each side");
+			});
+
+			it("moves when the position is changed", () => {
+				const colony = new Colony(fakeHost());
+				colony.sync(
+					makeSettings({ beds: 1, bedPositions: [25] }),
+					[],
+					makeBounds(),
+				);
+				assert.equal(colony.props[0].x, 300);
+				colony.sync(
+					makeSettings({ beds: 1, bedPositions: [75] }),
+					[],
+					makeBounds(),
+				);
+				assert.equal(colony.props[0].x, 900);
+				colony.sync(
+					makeSettings({ beds: 1, bedPositions: [] }),
+					[],
+					makeBounds(),
+				);
+				assert.equal(colony.props[0].pinned, null);
+				assert.equal(colony.props[0].x, 600, "back to automatic");
+			});
+
+			it("keeps a pinned bed put when the dock appears", () => {
+				const colony = new Colony(fakeHost());
+				const settings = makeSettings({ beds: 1, bedPositions: [50] });
+				colony.sync(settings, [], makeBounds());
+				colony.update(1 / 30, makeWorld({ icons: dock() }), settings);
+				assert.equal(colony.props[0].x, 600);
+			});
+		});
+
+		it("lets a cat sleep in a bed", () => {
+			// End to end: the bed the colony made is the one the cat finds.
+			const colony = new Colony(fakeHost());
+			const settings = makeSettings({ count: 1, beds: 1, sleepAfter: 1 });
+			const world = makeWorld({
+				pointer: { x: -5000, y: -5000, idleTime: 60 },
+			});
+			colony.sync(settings, [], world);
+			for (let t = 0; t < 12; t += 1 / 30)
+				colony.update(1 / 30, world, settings);
+			assert.equal(colony.cats[0].bed, colony.props[0]);
+			assert.equal(colony.cats[0].state, State.SLEEP);
+			assert.equal(colony.allAsleep(settings), true);
+		});
+	});
+
+	describe("the mouse", () => {
+		const every10s = () =>
+			makeSettings({ count: 1, mouseInterval: 10, sleepAfter: 0 });
+
+		function tick(colony: Colony, settings = every10s(), seconds = 1) {
+			const world = makeWorld();
+			for (let t = 0; t < seconds; t += 1 / 30)
+				colony.update(1 / 30, world, settings);
+		}
+
+		it("never appears when visits are switched off", () => {
+			const host = fakeHost();
+			const colony = new Colony(host);
+			const settings = makeSettings({ count: 1, mouseInterval: 0 });
+			colony.sync(settings, [], makeBounds());
+			tick(colony, settings, 60);
+			assert.equal(colony.mouse, null);
+			assert.equal(host.propViews.length, 0);
+		});
+
+		it("appears after roughly the configured interval, on a prop view", () => {
+			const host = fakeHost();
+			const colony = new Colony(host);
+			// 0.5 makes the first wait exactly the interval.
+			withRandom([0.5], () => {
+				colony.sync(every10s(), [], makeBounds());
+				tick(colony, every10s(), 9.5);
+				assert.equal(colony.mouse, null, "too early");
+				tick(colony, every10s(), 1);
+			});
+			assert.ok(colony.mouse, "no mouse");
+			assert.equal(host.propViews.length, 1);
+		});
+
+		it("comes in from a screen edge", () => {
+			const colony = new Colony(fakeHost());
+			withRandom([0.5], () => {
+				colony.sync(every10s(), [], makeBounds());
+				// Tick by tick, so it is caught the moment it appears and before
+				// it has taken a step.
+				for (let i = 0; i < 400 && !colony.mouse; i++)
+					tick(colony, every10s(), 1 / 30);
+			});
+			const mouse = colony.mouse;
+			assert.ok(mouse);
+			// 0.5 is not < 0.5, so it comes in from the right, facing left.
+			assert.equal(mouse.x, 1200 - mouse.size / 2);
+			assert.equal(mouse.facing, -1);
+		});
+
+		it("is taken away once caught, and the wait starts over", () => {
+			const host = fakeHost();
+			const colony = new Colony(host);
+			withRandom([0.5], () => {
+				colony.sync(every10s(), [], makeBounds());
+				tick(colony, every10s(), 10.1);
+				const mouse = colony.mouse;
+				assert.ok(mouse);
+				mouse.caught = true;
+				tick(colony, every10s(), 1 / 30);
+				assert.equal(colony.mouse, null);
+				assert.equal((mouse.view as FakeCatView).destroyed, true);
+
+				tick(colony, every10s(), 5);
+				assert.equal(colony.mouse, null, "came straight back");
+			});
+		});
+
+		it("is taken away once it has left the screen", () => {
+			const colony = new Colony(fakeHost());
+			withRandom([0.5], () => {
+				colony.sync(every10s(), [], makeBounds());
+				tick(colony, every10s(), 10.1);
+				const mouse = colony.mouse;
+				assert.ok(mouse);
+				mouse.gone = true;
+				tick(colony, every10s(), 1 / 30);
+			});
+			assert.equal(colony.mouse, null);
+		});
+
+		it("goes away when visits are switched off mid-visit", () => {
+			const colony = new Colony(fakeHost());
+			withRandom([0.5], () => {
+				colony.sync(every10s(), [], makeBounds());
+				tick(colony, every10s(), 10.1);
+			});
+			assert.ok(colony.mouse);
+			colony.sync(
+				makeSettings({ count: 1, mouseInterval: 0 }),
+				[],
+				makeBounds(),
+			);
+			assert.equal(colony.mouse, null);
+		});
+
+		it("gets caught by the cats", () => {
+			// End to end, with real randomness: one cat, one mouse, a floor to
+			// chase it along. Thirty seconds is generous; it usually takes five.
+			const colony = new Colony(fakeHost());
+			const settings = every10s();
+			colony.sync(settings, [], makeBounds());
+			let appeared = false;
+			let caught = false;
+			const world = makeWorld();
+			for (let t = 0; t < 45 && !caught; t += 1 / 30) {
+				colony.update(1 / 30, world, settings);
+				if (colony.mouse) appeared = true;
+				if (colony.cats[0].state === State.POUNCE) caught = true;
+			}
+			assert.ok(appeared, "no mouse ever came");
+			assert.ok(caught, "the mouse was never caught");
+		});
+
+		it("wakes a sleeping colony", () => {
+			const colony = new Colony(fakeHost());
+			const settings = makeSettings({
+				count: 2,
+				mouseInterval: 10,
+				sleepAfter: 1,
+			});
+			const world = makeWorld({
+				pointer: { x: -5000, y: -5000, idleTime: 60 },
+			});
+			withRandom([0.5], () => {
+				colony.sync(settings, [], world);
+				for (let t = 0; t < 8; t += 1 / 30)
+					colony.update(1 / 30, world, settings);
+				assert.equal(
+					colony.allAsleep(settings),
+					true,
+					"should be asleep first",
+				);
+				for (let t = 0; t < 3; t += 1 / 30)
+					colony.update(1 / 30, world, settings);
+			});
+			assert.ok(colony.mouse, "no mouse");
+			assert.equal(colony.allAsleep(settings), false);
+		});
+
+		it("is cleared by destroy, with the furniture", () => {
+			const host = fakeHost();
+			const colony = new Colony(host);
+			withRandom([0.5], () => {
+				colony.sync(makeSettings({ ...every10s(), beds: 1 }), [], makeBounds());
+				tick(colony, makeSettings({ ...every10s(), beds: 1 }), 10.1);
+			});
+			assert.ok(colony.mouse);
+			colony.destroy();
+			assert.equal(colony.mouse, null);
+			assert.equal(colony.props.length, 0);
+			for (const view of host.propViews) assert.equal(view.destroyed, true);
 		});
 	});
 });

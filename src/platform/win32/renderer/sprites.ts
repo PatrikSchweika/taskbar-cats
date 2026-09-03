@@ -29,20 +29,25 @@ export class WebSpriteSet implements SpriteSource {
 
 		// Wait for the frames to decode. Without this the first few ticks would
 		// assign a src that is not in cache yet and the cats would flicker in.
-		await Promise.all(
-			manifest.palettes.flatMap((palette) =>
+		const decoded = (images: readonly HTMLImageElement[]) =>
+			Promise.all(
+				images.map((image) =>
+					image.decode().catch(() => {
+						// A frame that will not decode is a broken install, not a
+						// reason to show nothing.
+					}),
+				),
+			);
+		await Promise.all([
+			...manifest.palettes.flatMap((palette) =>
 				Object.keys(manifest.animations).map((animation) =>
-					Promise.all(
-						table.frames(palette, animation).map((image) =>
-							image.decode().catch(() => {
-								// A frame that will not decode is a broken install,
-								// not a reason to show nothing.
-							}),
-						),
-					),
+					decoded(table.frames(palette, animation)),
 				),
 			),
-		);
+			...Object.keys(manifest.props ?? {}).map((name) =>
+				decoded(table.propFrames(name)),
+			),
+		]);
 
 		return new WebSpriteSet(table);
 	}
@@ -53,5 +58,9 @@ export class WebSpriteSet implements SpriteSource {
 
 	frames(palette: string, animation: string): readonly HTMLImageElement[] {
 		return this._table.frames(palette, animation);
+	}
+
+	propFrames(name: string): readonly HTMLImageElement[] {
+		return this._table.propFrames(name);
 	}
 }

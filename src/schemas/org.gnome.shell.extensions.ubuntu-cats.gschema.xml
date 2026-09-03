@@ -17,7 +17,7 @@
     </key>
 
     <key name="max-speed" type="i">
-      <default>220</default>
+      <default>160</default>
       <range min="40" max="600"/>
       <summary>Top speed in pixels per second</summary>
       <description>How fast a cat can run along the dock.</description>
@@ -67,6 +67,39 @@
       <default>12</default>
       <range min="4" max="30"/>
       <summary>Sprite animation frame rate</summary>
+    </key>
+
+    <key name="bed-count" type="i">
+      <default>0</default>
+      <range min="0" max="8"/>
+      <summary>Number of cat beds</summary>
+      <description>Beds placed along the floor beside the dock. A sleepy cat walks to a free one and curls up in it.</description>
+    </key>
+
+    <key name="scratcher-count" type="i">
+      <default>0</default>
+      <range min="0" max="8"/>
+      <summary>Number of scratching posts</summary>
+      <description>Posts placed along the floor beside the dock for the cats to claw at.</description>
+    </key>
+
+    <key name="bed-positions" type="ai">
+      <default>[]</default>
+      <summary>Where each bed stands</summary>
+      <description>One entry per bed: a percentage of the floor's width from the left edge of the dock's monitor. -1, or a missing entry, places that bed automatically.</description>
+    </key>
+
+    <key name="scratcher-positions" type="ai">
+      <default>[]</default>
+      <summary>Where each scratching post stands</summary>
+      <description>One entry per post: a percentage of the floor's width from the left edge of the dock's monitor. -1, or a missing entry, places that post automatically.</description>
+    </key>
+
+    <key name="mouse-interval" type="i">
+      <default>120</default>
+      <range min="0" max="3600"/>
+      <summary>Seconds between mouse visits</summary>
+      <description>Roughly how often a mouse runs across the floor for the cats to hunt. 0 means no mice.</description>
     </key>
 
   </schema>

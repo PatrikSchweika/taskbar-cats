@@ -1,5 +1,6 @@
 /**
- * A cat drawn as an `<img>` in the overlay window.
+ * A cat — or a bed, a post, the mouse — drawn as an `<img>` in the overlay
+ * window.
  *
  * One element per cat, moved with a transform: no layout, no repaint of
  * anything but the composited layer, which is what keeps a dozen cats at 60fps
@@ -12,12 +13,17 @@ export class DomCatView implements CatView {
 	private _size = 0;
 	private _shown: string | null = null;
 
-	constructor(parent: HTMLElement) {
+	/**
+	 * @param behind put the sprite under everything already on the stage. Props
+	 * are drawn this way so a cat sleeps on its bed rather than behind it.
+	 */
+	constructor(parent: HTMLElement, { behind = false } = {}) {
 		const element = document.createElement("img");
-		element.className = "cat";
+		element.className = behind ? "cat prop" : "cat";
 		element.draggable = false;
 		element.alt = "";
-		parent.appendChild(element);
+		if (behind) parent.insertBefore(element, parent.firstChild);
+		else parent.appendChild(element);
 		this.element = element;
 	}
 

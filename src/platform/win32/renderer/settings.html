@@ -105,9 +105,23 @@
 				font-size: 13px;
 			}
 
-			.palettes {
+			.palettes,
+			.positions {
 				padding: 14px 0 4px;
 				border-top: 1px solid var(--line);
+			}
+			.positions .row {
+				padding: 6px 0;
+				border-top: none;
+			}
+			.positions .auto {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				margin-left: 4px;
+			}
+			.positions input[type="range"]:disabled {
+				opacity: 0.4;
 			}
 			.grid {
 				display: grid;

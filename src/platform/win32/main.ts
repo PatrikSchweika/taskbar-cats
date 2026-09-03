@@ -346,7 +346,7 @@ class CatsApp {
 		}
 		const window = new BrowserWindow({
 			width: 460,
-			height: 720,
+			height: 880,
 			title: "Ubuntu Cats",
 			icon: join(ASSETS, "icons", "app.ico"),
 			autoHideMenuBar: true,

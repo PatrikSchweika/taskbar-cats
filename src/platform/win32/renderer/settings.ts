@@ -6,6 +6,7 @@
  * same property that makes the GNOME prefs dialog and this one agree on ranges.
  */
 import {
+	AUTO_POSITION,
 	BOOL_SETTINGS,
 	INT_SETTINGS,
 	type Settings,
@@ -39,6 +40,18 @@ const LABELS: Record<string, { title: string; hint?: string }> = {
 		hint: "seconds of stillness; 0 means they never sleep",
 	},
 	fps: { title: "Animation frame rate" },
+	beds: {
+		title: "Cat beds",
+		hint: "on the floor beside the taskbar; a sleepy cat curls up in a free one",
+	},
+	scratchers: {
+		title: "Scratching posts",
+		hint: "something to claw that is not one of your icons",
+	},
+	mouseInterval: {
+		title: "Mouse visits",
+		hint: "roughly this many seconds apart; every cat joins the hunt. 0 means no mice",
+	},
 	scratchIcons: {
 		title: "Claw at taskbar icons",
 		hint: "cats stop at an icon and scratch it",
@@ -144,6 +157,113 @@ async function main(): Promise<void> {
 		if (unsupported) wrapper.classList.add("disabled");
 		form.appendChild(wrapper);
 	}
+
+	// -- positions ---------------------------------------------------------
+	// One slider per bed and post — a percentage of the floor from the left —
+	// with an "Auto" box that hands the placement back to the cats. The rows
+	// follow the count, so they are rebuilt whenever the settings change.
+	const positions = (
+		countName: "beds" | "scratchers",
+		listName: "bedPositions" | "scratcherPositions",
+		noun: string,
+	): void => {
+		const section = element("div", "positions");
+		section.appendChild(element("div", "title", `${noun} positions`));
+		section.appendChild(
+			element(
+				"div",
+				"hint",
+				`Percent of the floor from the left edge. Auto leaves a ${noun.toLowerCase()} where the cats would put it.`,
+			),
+		);
+		const list = element("div", "list");
+		section.appendChild(list);
+		form.appendChild(section);
+
+		interface Controls {
+			slider: HTMLInputElement;
+			readout: HTMLElement;
+			auto: HTMLInputElement;
+			wrapper: HTMLElement;
+		}
+		let shownCount = -1;
+		const controls: Controls[] = [];
+
+		const commit = (): void => {
+			const values = [...current[listName]];
+			controls.forEach(({ slider, auto }, k) => {
+				values[k] = auto.checked ? AUTO_POSITION : Number(slider.value);
+			});
+			for (let k = 0; k < values.length; k++)
+				if (values[k] === undefined) values[k] = AUTO_POSITION;
+			cats.apply({ [listName]: values } as Partial<Settings>);
+		};
+
+		const reflect = (c: Controls): void => {
+			c.slider.disabled = c.auto.checked;
+			c.readout.textContent = c.auto.checked ? "auto" : c.slider.value;
+			c.wrapper.classList.toggle("disabled", c.auto.checked);
+		};
+
+		const render = (settings: Settings): void => {
+			const count = settings[countName];
+			section.hidden = count === 0;
+			if (count !== shownCount) {
+				shownCount = count;
+				list.textContent = "";
+				controls.length = 0;
+				for (let i = 0; i < count; i++) {
+					const slider = element("input");
+					slider.type = "range";
+					slider.min = "0";
+					slider.max = "100";
+					slider.step = "1";
+					// A fresh row starts in the middle, so unticking Auto puts
+					// the prop somewhere visible straight away.
+					slider.value = "50";
+					const readout = element("span", "value");
+					const auto = element("input");
+					auto.type = "checkbox";
+					const autoLabel = element("label", "auto");
+					autoLabel.appendChild(auto);
+					autoLabel.appendChild(element("span", undefined, "Auto"));
+
+					const side = element("div", "control");
+					side.appendChild(readout);
+					side.appendChild(slider);
+					side.appendChild(autoLabel);
+					const wrapper = element("div", "row");
+					const text = element("div", "text");
+					text.appendChild(element("div", "title", `${noun} ${i + 1}`));
+					wrapper.appendChild(text);
+					wrapper.appendChild(side);
+					list.appendChild(wrapper);
+
+					const c: Controls = { slider, readout, auto, wrapper };
+					slider.addEventListener("input", () => {
+						reflect(c);
+						commit();
+					});
+					auto.addEventListener("change", () => {
+						reflect(c);
+						commit();
+					});
+					controls.push(c);
+				}
+			}
+			controls.forEach((c, i) => {
+				const value = settings[listName][i];
+				const isAuto = value === undefined || value === AUTO_POSITION;
+				c.auto.checked = isAuto;
+				if (!isAuto) c.slider.value = String(value);
+				reflect(c);
+			});
+		};
+		render(current);
+		sync.push(render);
+	};
+	positions("beds", "bedPositions", "Bed");
+	positions("scratchers", "scratcherPositions", "Post");
 
 	// -- palettes ----------------------------------------------------------
 	if (description.palettes.length) {

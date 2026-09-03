@@ -36,6 +36,7 @@ async function main(): Promise<void> {
 	const colony = new Colony({
 		sprites,
 		createView: () => new DomCatView(stage),
+		createPropView: () => new DomCatView(stage, { behind: true }),
 	});
 	const pointer = new PointerTracker();
 

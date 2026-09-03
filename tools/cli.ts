@@ -150,24 +150,33 @@ function validate(): boolean {
 	if (!existsSync(manifestPath)) {
 		fail("assets/cats/manifest.json is missing — run `npm run sprites`");
 	} else {
-		const { palettes, animations } = JSON.parse(
-			readFileSync(manifestPath, "utf8"),
-		) as { palettes: string[]; animations: Record<string, number> };
+		const {
+			palettes,
+			animations,
+			props = {},
+		} = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+			palettes: string[];
+			animations: Record<string, number>;
+			props?: Record<string, number>;
+		};
 		let count = 0;
 		let missing = 0;
-		for (const palette of palettes) {
-			for (const [anim, frames] of Object.entries(animations)) {
-				for (let i = 0; i < frames; i++) {
-					count++;
-					if (!existsSync(join(catsDir, palette, `${anim}_${i}.svg`))) {
-						fail(`missing sprite ${palette}/${anim}_${i}.svg`);
-						missing++;
-					}
-				}
+		const expect = (relative: string): void => {
+			count++;
+			if (!existsSync(join(catsDir, relative))) {
+				fail(`missing sprite ${relative}`);
+				missing++;
 			}
-		}
+		};
+		for (const palette of palettes)
+			for (const [anim, frames] of Object.entries(animations))
+				for (let i = 0; i < frames; i++) expect(`${palette}/${anim}_${i}.svg`);
+		for (const [prop, frames] of Object.entries(props))
+			for (let i = 0; i < frames; i++) expect(`props/${prop}_${i}.svg`);
 		if (!missing)
-			console.log(`sprites: ok (${count} frames, ${palettes.length} palettes)`);
+			console.log(
+				`sprites: ok (${count} frames, ${palettes.length} palettes, ${Object.keys(props).length} props)`,
+			);
 	}
 	return ok;
 }

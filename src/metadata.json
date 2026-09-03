@@ -5,5 +5,5 @@
 	"shell-version": ["45", "46", "47", "48"],
 	"settings-schema": "org.gnome.shell.extensions.ubuntu-cats",
 	"gettext-domain": "ubuntu-cats",
-	"version": 1
+	"version": 2
 }
