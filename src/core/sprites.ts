@@ -32,10 +32,10 @@ export function parseManifest(text: string, where: string): SpriteManifest {
 	try {
 		parsed = JSON.parse(text);
 	} catch (e) {
-		throw new Error(`ubuntu-cats: ${where} is not valid JSON: ${e}`);
+		throw new Error(`taskbar-cats: ${where} is not valid JSON: ${e}`);
 	}
 	if (!isSpriteManifest(parsed))
-		throw new Error(`ubuntu-cats: ${where} is not a sprite manifest`);
+		throw new Error(`taskbar-cats: ${where} is not a sprite manifest`);
 	return parsed;
 }
 

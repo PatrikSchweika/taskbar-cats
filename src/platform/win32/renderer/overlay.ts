@@ -30,7 +30,7 @@ const MIN_DT = 0.001;
 
 async function main(): Promise<void> {
 	const stage = document.getElementById("stage");
-	if (!stage) throw new Error("ubuntu-cats: the overlay has no #stage");
+	if (!stage) throw new Error("taskbar-cats: the overlay has no #stage");
 
 	const sprites = await WebSpriteSet.load(await cats.manifest());
 	const colony = new Colony({
@@ -100,5 +100,5 @@ async function main(): Promise<void> {
 
 void main().catch((e) => {
 	// There is no window chrome to show an error in, so the console is it.
-	console.error("ubuntu-cats: the overlay failed to start", e);
+	console.error("taskbar-cats: the overlay failed to start", e);
 });

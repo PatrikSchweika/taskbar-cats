@@ -12,7 +12,7 @@ import { appManifest } from "../../tools/win32.ts";
  */
 describe("appManifest", () => {
 	const root = {
-		name: "ubuntu-cats",
+		name: "taskbar-cats",
 		version: "2.3.4",
 		description: "cats",
 		author: "Someone",
@@ -40,7 +40,7 @@ describe("appManifest", () => {
 	});
 
 	it("keeps the npm name, which is not the product name", () => {
-		assert.equal(appManifest(root).name, "ubuntu-cats");
+		assert.equal(appManifest(root).name, "taskbar-cats");
 	});
 
 	it("carries the author through for the installer's publisher field", () => {

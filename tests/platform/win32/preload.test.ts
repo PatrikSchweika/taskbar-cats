@@ -22,7 +22,7 @@ const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
  * inspects what tsc actually emitted.
  */
 describe("the emitted preload", () => {
-	const out = mkdtempSync(join(tmpdir(), "ubuntu-cats-preload-"));
+	const out = mkdtempSync(join(tmpdir(), "taskbar-cats-preload-"));
 	after(() => rmSync(out, { recursive: true, force: true }));
 
 	const tsc = spawnSync(

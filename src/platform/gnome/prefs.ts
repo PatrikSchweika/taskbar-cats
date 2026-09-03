@@ -39,7 +39,7 @@ function switchRow(
 	return row;
 }
 
-export default class UbuntuCatsPreferences extends ExtensionPreferences {
+export default class TaskbarCatsPreferences extends ExtensionPreferences {
 	override fillPreferencesWindow(window: Adw.PreferencesWindow): Promise<void> {
 		const settings = this.getSettings();
 
@@ -187,7 +187,7 @@ export default class UbuntuCatsPreferences extends ExtensionPreferences {
 				).palettes;
 			}
 		} catch (e) {
-			logError(e as Error, "ubuntu-cats: cannot read sprite manifest");
+			logError(e as Error, "taskbar-cats: cannot read sprite manifest");
 		}
 
 		const enabled = new Set(settings.get_strv("palettes"));

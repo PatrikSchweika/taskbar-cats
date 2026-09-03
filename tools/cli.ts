@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Build and install tasks for ubuntu-cats.
+ * Build and install tasks for taskbar-cats.
  *
  * Written in TypeScript and run directly by Node's native type stripping, so
  * the tooling itself needs no build step. Invoked through `npm run …`.

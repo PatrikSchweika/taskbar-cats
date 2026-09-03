@@ -213,7 +213,7 @@ class CatsApp {
 		this._shellError = loaded.available ? null : (loaded.reason ?? "unknown");
 		if (this._shellError)
 			console.error(
-				`ubuntu-cats: the taskbar helper is unavailable, so the cats will ignore your icons.\n${this._shellError}`,
+				`taskbar-cats: the taskbar helper is unavailable, so the cats will ignore your icons.\n${this._shellError}`,
 			);
 		this._tracker = new TaskbarTracker(this._shell, electronBridge());
 		this._manifest = spriteManifest();

@@ -40,7 +40,7 @@ export class ConfigStore {
 			// a permissions problem — is reported but must not stop the app: the
 			// defaults are always a usable configuration.
 			if ((e as NodeJS.ErrnoException).code !== "ENOENT")
-				console.error(`ubuntu-cats: ignoring ${this.path}: ${e}`);
+				console.error(`taskbar-cats: ignoring ${this.path}: ${e}`);
 			return defaultSettings();
 		}
 	}
@@ -74,7 +74,7 @@ export class ConfigStore {
 			);
 			renameSync(temporary, this.path);
 		} catch (e) {
-			console.error(`ubuntu-cats: could not save ${this.path}: ${e}`);
+			console.error(`taskbar-cats: could not save ${this.path}: ${e}`);
 		}
 	}
 

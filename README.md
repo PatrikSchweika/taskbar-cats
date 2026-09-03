@@ -61,8 +61,8 @@ command -v glib-compile-schemas gnome-extensions
 ### Option A — from source
 
 ```bash
-git clone https://github.com/PatrikSchweika/ubuntu-cats.git
-cd ubuntu-cats
+git clone https://github.com/PatrikSchweika/taskbar-cats.git
+cd taskbar-cats
 npm install
 npm run ext:install
 ```
