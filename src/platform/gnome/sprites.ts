@@ -19,7 +19,7 @@ export class SpriteSet implements SpriteSource {
 		const root = GLib.build_filenamev([extensionPath, "assets", "cats"]);
 		const manifestPath = GLib.build_filenamev([root, "manifest.json"]);
 		const [ok, bytes] = GLib.file_get_contents(manifestPath);
-		if (!ok) throw new Error(`ubuntu-cats: cannot read ${manifestPath}`);
+		if (!ok) throw new Error(`taskbar-cats: cannot read ${manifestPath}`);
 
 		const manifest = parseManifest(
 			new TextDecoder().decode(bytes),

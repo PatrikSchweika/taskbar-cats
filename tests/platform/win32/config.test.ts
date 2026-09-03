@@ -13,7 +13,7 @@ describe("ConfigStore", () => {
 	let dir: string;
 
 	beforeEach(() => {
-		dir = mkdtempSync(join(tmpdir(), "ubuntu-cats-test-"));
+		dir = mkdtempSync(join(tmpdir(), "taskbar-cats-test-"));
 	});
 	afterEach(() => {
 		rmSync(dir, { recursive: true, force: true });

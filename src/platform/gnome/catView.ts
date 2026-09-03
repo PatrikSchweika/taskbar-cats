@@ -16,7 +16,7 @@ export class GnomeCatView implements CatView {
 
 	constructor() {
 		this.actor = new St.Icon({
-			style_class: "ubuntu-cats-cat",
+			style_class: "taskbar-cats-cat",
 			reactive: false, // never intercept clicks meant for the dock
 			can_focus: false,
 			track_hover: false,

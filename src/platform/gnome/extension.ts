@@ -42,7 +42,7 @@ interface Runtime {
 	shaking: Set<Clutter.Actor>;
 }
 
-export default class UbuntuCatsExtension extends Extension {
+export default class TaskbarCatsExtension extends Extension {
 	private _rt: Runtime | null = null;
 	private _cfg: Settings = defaultSettings();
 
@@ -114,7 +114,7 @@ export default class UbuntuCatsExtension extends Extension {
 			try {
 				fn();
 			} catch (e) {
-				logError(e as Error, `ubuntu-cats: teardown step '${what}' failed`);
+				logError(e as Error, `taskbar-cats: teardown step '${what}' failed`);
 			}
 		};
 
@@ -229,7 +229,7 @@ export default class UbuntuCatsExtension extends Extension {
 		this._timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () =>
 			this._tick(),
 		);
-		GLib.Source.set_name_by_id(this._timeoutId, "[ubuntu-cats] tick");
+		GLib.Source.set_name_by_id(this._timeoutId, "[taskbar-cats] tick");
 	}
 
 	private _tick(): boolean {
@@ -273,7 +273,7 @@ export default class UbuntuCatsExtension extends Extension {
 			this._timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, wanted, () =>
 				this._tick(),
 			);
-			GLib.Source.set_name_by_id(this._timeoutId, "[ubuntu-cats] tick");
+			GLib.Source.set_name_by_id(this._timeoutId, "[taskbar-cats] tick");
 			return GLib.SOURCE_REMOVE;
 		}
 		return GLib.SOURCE_CONTINUE;

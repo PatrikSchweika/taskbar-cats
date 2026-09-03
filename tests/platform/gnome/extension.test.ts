@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import UbuntuCatsExtension from "../../../src/extension.ts";
+import TaskbarCatsExtension from "../../../src/extension.ts";
 import { makeDock, resetEnv, testEnv } from "../../support/gnome/env.ts";
 import { Settings } from "../../support/gnome/stubs/Gio.ts";
 import GLib from "../../support/gnome/stubs/GLib.ts";
@@ -18,7 +18,7 @@ const SRC = join(
 );
 const METADATA = JSON.parse(
 	readFileSync(join(SRC, "metadata.json"), "utf8"),
-) as ConstructorParameters<typeof UbuntuCatsExtension>[0];
+) as ConstructorParameters<typeof TaskbarCatsExtension>[0];
 
 const DEFAULTS: Record<string, unknown> = {
 	"cat-count": 3,
@@ -34,7 +34,7 @@ const DEFAULTS: Record<string, unknown> = {
 };
 
 interface Harness {
-	ext: UbuntuCatsExtension;
+	ext: TaskbarCatsExtension;
 	settings: Settings;
 }
 
@@ -43,7 +43,7 @@ function enableExtension(over: Record<string, unknown> = {}): Harness {
 	Main.layoutManager.uiGroup.add_child(dash);
 
 	const settings = new Settings({ ...DEFAULTS, ...over });
-	const ext = new UbuntuCatsExtension(METADATA);
+	const ext = new TaskbarCatsExtension(METADATA);
 	(ext as unknown as { path: string }).path = SRC;
 	(ext as unknown as { __settings: unknown }).__settings = settings;
 	ext.enable();
@@ -54,7 +54,7 @@ function enableExtension(over: Record<string, unknown> = {}): Harness {
 function catActors(): unknown[] {
 	const layer = Main.layoutManager.uiGroup
 		.get_children()
-		.find((c) => c.style_class === "ubuntu-cats-layer");
+		.find((c) => c.style_class === "taskbar-cats-layer");
 	return layer ? layer.get_children() : [];
 }
 
@@ -65,7 +65,7 @@ function tick(times = 1, dt = 1 / 30): void {
 	}
 }
 
-describe("UbuntuCatsExtension", () => {
+describe("TaskbarCatsExtension", () => {
 	beforeEach(() => resetEnv());
 
 	describe("enable", () => {
@@ -79,7 +79,7 @@ describe("UbuntuCatsExtension", () => {
 			enableExtension();
 			const layer = Main.layoutManager.uiGroup
 				.get_children()
-				.find((c) => c.style_class === "ubuntu-cats-layer");
+				.find((c) => c.style_class === "taskbar-cats-layer");
 			assert.ok(layer, "overlay not parented into uiGroup");
 			assert.equal(layer.reactive, false);
 			for (const cat of layer.get_children())
@@ -93,7 +93,7 @@ describe("UbuntuCatsExtension", () => {
 
 		it("survives having no dock at all", () => {
 			const settings = new Settings({ ...DEFAULTS });
-			const ext = new UbuntuCatsExtension(METADATA);
+			const ext = new TaskbarCatsExtension(METADATA);
 			(ext as unknown as { path: string }).path = SRC;
 			(ext as unknown as { __settings: unknown }).__settings = settings;
 			assert.doesNotThrow(() => ext.enable());
@@ -153,7 +153,7 @@ describe("UbuntuCatsExtension", () => {
 			tick(2);
 			const layer = Main.layoutManager.uiGroup
 				.get_children()
-				.find((c) => c.style_class === "ubuntu-cats-layer");
+				.find((c) => c.style_class === "taskbar-cats-layer");
 			assert.ok(layer, "overlay missing");
 			assert.equal(layer.visible, true);
 
@@ -184,7 +184,7 @@ describe("UbuntuCatsExtension", () => {
 			assert.equal(
 				Main.layoutManager.uiGroup
 					.get_children()
-					.filter((c) => c.style_class === "ubuntu-cats-layer").length,
+					.filter((c) => c.style_class === "taskbar-cats-layer").length,
 				0,
 				"overlay left behind",
 			);
@@ -246,7 +246,7 @@ describe("UbuntuCatsExtension", () => {
 		});
 
 		it("is safe on an extension that never enabled", () => {
-			const ext = new UbuntuCatsExtension(METADATA);
+			const ext = new TaskbarCatsExtension(METADATA);
 			assert.doesNotThrow(() => ext.disable());
 		});
 

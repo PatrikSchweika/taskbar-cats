@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run ubuntu-cats in a throwaway GNOME Shell that cannot touch your desktop.
+# Run taskbar-cats in a throwaway GNOME Shell that cannot touch your desktop.
 #
 # Uses `gnome-shell --headless --virtual-monitor`, its own D-Bus session, and
 # its own dconf store (via XDG_CONFIG_HOME), so nothing here changes your live
@@ -14,7 +14,7 @@
 # Screenshots go through Screencast because the Screenshot D-Bus API refuses
 # external callers.
 set -u
-DIR="${TMPDIR:-/tmp}/ubuntu-cats-test"
+DIR="${TMPDIR:-/tmp}/taskbar-cats-test"
 mkdir -p "$DIR"
 LOG="$DIR/shell.log"
 BUS="$DIR/bus.env"

@@ -18,7 +18,7 @@ export class CatLayer {
 
 	constructor() {
 		this.actor = new St.Widget({
-			style_class: "ubuntu-cats-layer",
+			style_class: "taskbar-cats-layer",
 			reactive: false,
 			// Fixed layout so children honour the positions the cats set.
 			layout_manager: new Clutter.FixedLayout(),

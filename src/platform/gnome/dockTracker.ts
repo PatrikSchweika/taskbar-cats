@@ -70,7 +70,7 @@ export class DockTracker {
 		try {
 			visit(Main.layoutManager.uiGroup, 0);
 		} catch (e) {
-			logError(e as Error, "ubuntu-cats: dash discovery failed");
+			logError(e as Error, "taskbar-cats: dash discovery failed");
 			return null;
 		}
 
