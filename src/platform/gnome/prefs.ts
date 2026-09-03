@@ -5,6 +5,8 @@ import Gtk from "gi://Gtk";
 
 import { ExtensionPreferences } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
+import { AUTO_POSITION, normalizePositions } from "../../core/config.js";
+
 function spinRow(
 	settings: Gio.Settings,
 	key: string,
@@ -176,6 +178,15 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 				8,
 			),
 		);
+		toys.add(this._positionsRow(settings, "bed-count", "bed-positions", "Bed"));
+		toys.add(
+			this._positionsRow(
+				settings,
+				"scratcher-count",
+				"scratcher-positions",
+				"Post",
+			),
+		);
 		toys.add(
 			spinRow(
 				settings,
@@ -204,6 +215,75 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 		);
 
 		return Promise.resolve();
+	}
+
+	/**
+	 * One entry per bed or post, holding where it stands as a percentage of the
+	 * floor from the left. Blank leaves that one where the cats would put it.
+	 *
+	 * The rows follow the count: turning a bed on adds its entry, turning it
+	 * off takes the entry away (its stored position is kept, so it comes back
+	 * where it was).
+	 */
+	private _positionsRow(
+		settings: Gio.Settings,
+		countKey: string,
+		positionsKey: string,
+		noun: string,
+	): Adw.ExpanderRow {
+		const expander = new Adw.ExpanderRow({
+			title: `${noun} positions`,
+			subtitle:
+				"Percent of the floor from the left edge, 0–100. " +
+				`Blank leaves a ${noun.toLowerCase()} where the cats would put it.`,
+		});
+
+		const stored = (): number[] =>
+			normalizePositions(settings.get_value(positionsKey).deepUnpack());
+		const rows: Adw.EntryRow[] = [];
+		let rebuilding = false;
+
+		const commit = (): void => {
+			if (rebuilding) return;
+			// Entries beyond the current count are kept as they were.
+			const values = stored();
+			rows.forEach((row, i) => {
+				const text = row.get_text().trim();
+				const n = Number(text);
+				const valid = text !== "" && Number.isInteger(n) && n >= 0 && n <= 100;
+				values[i] = valid ? n : AUTO_POSITION;
+				if (text !== "" && !valid) row.add_css_class("error");
+				else row.remove_css_class("error");
+			});
+			for (let i = 0; i < values.length; i++)
+				if (values[i] === undefined) values[i] = AUTO_POSITION;
+			settings.set_value(positionsKey, new GLib.Variant("ai", values));
+		};
+
+		const rebuild = (): void => {
+			rebuilding = true;
+			for (const row of rows) expander.remove(row);
+			rows.length = 0;
+			const values = stored();
+			const count = settings.get_int(countKey);
+			for (let i = 0; i < count; i++) {
+				const value = values[i] ?? AUTO_POSITION;
+				const row = new Adw.EntryRow({
+					title: `${noun} ${i + 1}`,
+					text: value === AUTO_POSITION ? "" : String(value),
+					input_purpose: Gtk.InputPurpose.DIGITS,
+				});
+				row.connect("changed", commit);
+				rows.push(row);
+				expander.add_row(row);
+			}
+			expander.sensitive = count > 0;
+			rebuilding = false;
+		};
+
+		rebuild();
+		settings.connect(`changed::${countKey}`, rebuild);
+		return expander;
 	}
 
 	/** One toggle per fur palette, read from the generated sprite manifest. */

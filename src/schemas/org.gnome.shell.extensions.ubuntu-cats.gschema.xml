@@ -17,7 +17,7 @@
     </key>
 
     <key name="max-speed" type="i">
-      <default>220</default>
+      <default>160</default>
       <range min="40" max="600"/>
       <summary>Top speed in pixels per second</summary>
       <description>How fast a cat can run along the dock.</description>
@@ -81,6 +81,18 @@
       <range min="0" max="8"/>
       <summary>Number of scratching posts</summary>
       <description>Posts placed along the floor beside the dock for the cats to claw at.</description>
+    </key>
+
+    <key name="bed-positions" type="ai">
+      <default>[]</default>
+      <summary>Where each bed stands</summary>
+      <description>One entry per bed: a percentage of the floor's width from the left edge of the dock's monitor. -1, or a missing entry, places that bed automatically.</description>
+    </key>
+
+    <key name="scratcher-positions" type="ai">
+      <default>[]</default>
+      <summary>Where each scratching post stands</summary>
+      <description>One entry per post: a percentage of the floor's width from the left edge of the dock's monitor. -1, or a missing entry, places that post automatically.</description>
     </key>
 
     <key name="mouse-interval" type="i">

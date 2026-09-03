@@ -19,7 +19,18 @@ export interface Settings extends CatConfig {
 	scratchers: number;
 	/** Average seconds between a mouse running across the floor; 0 for none. */
 	mouseInterval: number;
+	/**
+	 * Where each bed stands, as a percentage of the floor's width from the left
+	 * edge of the dock's monitor, indexed by bed. {@link AUTO_POSITION} — or a
+	 * missing entry — leaves that bed where the cats would put it.
+	 */
+	bedPositions: number[];
+	/** The same for the scratching posts. */
+	scratcherPositions: number[];
 }
+
+/** The position value that means "lay this one out automatically". */
+export const AUTO_POSITION = -1;
 
 /** An integer setting: its GSettings key, default, and permitted range. */
 interface IntSpec {
@@ -36,7 +47,7 @@ interface IntSpec {
  */
 export const INT_SETTINGS = {
 	count: { key: "cat-count", default: 3, min: 1, max: 8 },
-	maxSpeed: { key: "max-speed", default: 220, min: 40, max: 600 },
+	maxSpeed: { key: "max-speed", default: 160, min: 40, max: 600 },
 	attraction: { key: "mouse-attraction", default: 60, min: 0, max: 100 },
 	attractRadius: { key: "attract-radius", default: 260, min: 40, max: 1200 },
 	spriteSize: { key: "sprite-size", default: 0, min: 0, max: 128 },
@@ -55,8 +66,31 @@ export const BOOL_SETTINGS = {
 /** The palettes key is a string list; empty means "use every palette". */
 export const PALETTES_KEY = "palettes";
 
+/**
+ * The position lists: integer arrays keyed by property name. Percentages
+ * 0–100, or {@link AUTO_POSITION}; anything else is coerced to one of those.
+ */
+export const POSITION_SETTINGS = {
+	bedPositions: { key: "bed-positions" },
+	scratcherPositions: { key: "scratcher-positions" },
+} as const satisfies Record<string, { key: string }>;
+
+/** Coerce one stored position list: numbers clamped to 0–100, junk to auto. */
+export function normalizePositions(raw: unknown): number[] {
+	if (!Array.isArray(raw)) return [];
+	return raw.map((value) => {
+		const n = typeof value === "number" && Number.isFinite(value) ? value : NaN;
+		if (Number.isNaN(n) || n < 0) return AUTO_POSITION;
+		return Math.min(100, Math.round(n));
+	});
+}
+
 export function defaultSettings(): Settings {
-	const out = { palettes: [] as string[] } as Settings;
+	const out = {
+		palettes: [] as string[],
+		bedPositions: [] as number[],
+		scratcherPositions: [] as number[],
+	} as Settings;
 	for (const [name, spec] of Object.entries(INT_SETTINGS))
 		(out as unknown as Record<string, number>)[name] = spec.default;
 	for (const [name, spec] of Object.entries(BOOL_SETTINGS))
@@ -102,6 +136,10 @@ export function normalizeSettings(raw: unknown): Settings {
 	const palettes = src[PALETTES_KEY];
 	if (Array.isArray(palettes))
 		out.palettes = palettes.filter((p): p is string => typeof p === "string");
+	for (const [name, spec] of Object.entries(POSITION_SETTINGS))
+		(out as unknown as Record<string, number[]>)[name] = normalizePositions(
+			src[spec.key],
+		);
 
 	return out;
 }
@@ -113,5 +151,7 @@ export function toStorage(settings: Settings): Record<string, unknown> {
 		out[spec.key] = (settings as unknown as Record<string, number>)[name];
 	for (const [name, spec] of Object.entries(BOOL_SETTINGS))
 		out[spec.key] = (settings as unknown as Record<string, boolean>)[name];
+	for (const [name, spec] of Object.entries(POSITION_SETTINGS))
+		out[spec.key] = (settings as unknown as Record<string, number[]>)[name];
 	return out;
 }

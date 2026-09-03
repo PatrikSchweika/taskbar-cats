@@ -47,6 +47,16 @@ describe("ConfigStore", () => {
 		assert.equal(raw["scratch-icons"], false);
 	});
 
+	it("persists the furniture positions, keyed as the schema is", () => {
+		const store = new ConfigStore(dir);
+		store.update({ bedPositions: [10, -1, 250] });
+		const raw = JSON.parse(
+			readFileSync(join(dir, "settings.json"), "utf8"),
+		) as Record<string, unknown>;
+		assert.deepEqual(raw["bed-positions"], [10, -1, 100], "clamped on the way");
+		assert.deepEqual(new ConfigStore(dir).settings.bedPositions, [10, -1, 100]);
+	});
+
 	it("clamps what it stores, not just what it serves", () => {
 		const store = new ConfigStore(dir);
 		store.update({ maxSpeed: 100000 });

@@ -4,11 +4,14 @@ import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+	AUTO_POSITION,
 	BOOL_SETTINGS,
 	defaultSettings,
 	INT_SETTINGS,
+	normalizePositions,
 	normalizeSettings,
 	PALETTES_KEY,
+	POSITION_SETTINGS,
 	toStorage,
 } from "../../src/core/config.ts";
 
@@ -90,6 +93,15 @@ describe("settings", () => {
 			assert.equal(key.default, "[]");
 		});
 
+		for (const [name, spec] of Object.entries(POSITION_SETTINGS)) {
+			it(`${spec.key} (${name}) is an integer list defaulting to empty`, () => {
+				const key = schema.get(spec.key);
+				assert.ok(key, `${spec.key} is missing from the schema`);
+				assert.equal(key.type, "ai");
+				assert.equal(key.default, "[]");
+			});
+		}
+
 		it("covers every key the schema declares", () => {
 			// The other direction: a key added to the schema but not to the
 			// shared table would be honoured on GNOME and silently ignored on
@@ -98,6 +110,7 @@ describe("settings", () => {
 				PALETTES_KEY,
 				...Object.values(INT_SETTINGS).map((s) => s.key),
 				...Object.values(BOOL_SETTINGS).map((s) => s.key),
+				...Object.values(POSITION_SETTINGS).map((s) => s.key),
 			]);
 			const unknown = [...schema.keys()].filter((k) => !known.has(k));
 			assert.deepEqual(unknown, [], "schema keys missing from core/config");
@@ -145,8 +158,47 @@ describe("settings", () => {
 				"cat-count": 5,
 				"wiggle-icons": false,
 				palettes: ["siamese"],
+				"bed-positions": [10, -1, 90],
 			});
 			assert.deepEqual(normalizeSettings(toStorage(original)), original);
+		});
+
+		describe("positions", () => {
+			it("keeps percentages and the auto marker, index for index", () => {
+				// The index is the bed number, so a blank in the middle must stay
+				// a blank rather than shifting the rest along.
+				assert.deepEqual(normalizePositions([10, -1, 90]), [10, -1, 90]);
+			});
+
+			it("clamps to a percentage and rounds", () => {
+				assert.deepEqual(normalizePositions([150, 33.6]), [100, 34]);
+			});
+
+			it("turns junk into automatic rather than dropping it", () => {
+				assert.deepEqual(normalizePositions(["left", null, -7, NaN]), [
+					AUTO_POSITION,
+					AUTO_POSITION,
+					AUTO_POSITION,
+					AUTO_POSITION,
+				]);
+			});
+
+			it("treats a non-list as empty", () => {
+				assert.deepEqual(normalizePositions("10,20"), []);
+				assert.deepEqual(
+					normalizeSettings({ "bed-positions": 5 }).bedPositions,
+					[],
+				);
+			});
+
+			it("reads both lists from a config", () => {
+				const s = normalizeSettings({
+					"bed-positions": [20],
+					"scratcher-positions": [80, 90],
+				});
+				assert.deepEqual(s.bedPositions, [20]);
+				assert.deepEqual(s.scratcherPositions, [80, 90]);
+			});
 		});
 	});
 });

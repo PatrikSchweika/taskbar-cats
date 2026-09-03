@@ -16,7 +16,9 @@ import {
 	BOOL_SETTINGS,
 	defaultSettings,
 	INT_SETTINGS,
+	normalizePositions,
 	PALETTES_KEY,
+	POSITION_SETTINGS,
 	type Settings,
 } from "../../core/config.js";
 import { CatLayer } from "./catLayer.js";
@@ -183,6 +185,10 @@ export default class TaskbarCatsExtension extends Extension {
 				spec.key,
 			);
 		cfg.palettes = s.get_strv(PALETTES_KEY);
+		for (const [name, spec] of Object.entries(POSITION_SETTINGS))
+			(cfg as unknown as Record<string, number[]>)[name] = normalizePositions(
+				s.get_value(spec.key).deepUnpack<number[]>(),
+			);
 		this._cfg = cfg;
 	}
 
@@ -196,7 +202,9 @@ export default class TaskbarCatsExtension extends Extension {
 			key === INT_SETTINGS.spriteSize.key ||
 			key === INT_SETTINGS.beds.key ||
 			key === INT_SETTINGS.scratchers.key ||
-			key === INT_SETTINGS.mouseInterval.key
+			key === INT_SETTINGS.mouseInterval.key ||
+			key === POSITION_SETTINGS.bedPositions.key ||
+			key === POSITION_SETTINGS.scratcherPositions.key
 		)
 			this._syncCats(rt);
 		if (key === BOOL_SETTINGS.wiggleIcons.key && !this._cfg.wiggleIcons)

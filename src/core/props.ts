@@ -33,6 +33,11 @@ export class Prop {
 	size: number;
 	/** Beds only: the cat that has claimed it, asleep or on its way. */
 	occupant: Cat | null = null;
+	/**
+	 * Where the user put it, as a percentage of the floor from the left, or
+	 * null to be laid out automatically with the others.
+	 */
+	pinned: number | null = null;
 
 	private readonly _sprites: SpriteSource;
 	private _frame = 0;
@@ -125,15 +130,22 @@ export function iconSpan(icons: readonly IconRect[]): Span | null {
 	return { min, max };
 }
 
+/** The x a pinned prop stands at: a percentage of the floor, kept on-screen. */
+export function pinnedX(percent: number, roam: Span, size: number): number {
+	const x = roam.min + ((roam.max - roam.min) * percent) / 100;
+	const half = size * 0.5;
+	return Math.min(roam.max - half, Math.max(roam.min + half, x));
+}
+
 /**
- * Where `count` props should stand.
+ * Where `count` automatically placed props should stand.
  *
- * The free floor is the monitor's width minus the dock's icons: a bed in front
- * of the browser icon would hide it, and a cat sleeping on it would block the
- * click. So the props are spread over the stretches to either side of the
- * icons, in proportion to how much room each side has, and evenly within a
- * stretch. With no icons (a dock that has not appeared yet, or a side dock) the
- * whole floor is one stretch.
+ * The free floor is the monitor's width minus whatever is `blocked`: the dock's
+ * icons, because a bed in front of the browser icon would hide it and a cat
+ * sleeping on it would block the click, and any prop the user pinned in place.
+ * The props are spread over the stretches left over, in proportion to how much
+ * room each has, and evenly within a stretch. With nothing blocked (a dock that
+ * has not appeared yet, or a side dock) the whole floor is one stretch.
  *
  * @param size the props' on-screen size; sets the margins.
  * @returns x centres, left to right, one per prop.
@@ -141,19 +153,22 @@ export function iconSpan(icons: readonly IconRect[]): Span | null {
 export function layoutProps(
 	count: number,
 	roam: Span,
-	icons: Span | null,
+	blocked: readonly Span[],
 	size: number,
 ): number[] {
 	if (count <= 0) return [];
 	const margin = size * 0.6;
 	const gap = size * 0.5;
 
+	// Cut the floor at every blocked stretch, left to right.
 	let segments: Span[] = [];
-	if (icons)
-		segments = [
-			{ min: roam.min + margin, max: icons.min - gap },
-			{ min: icons.max + gap, max: roam.max - margin },
-		].filter((s) => s.max - s.min >= size);
+	let cursor = roam.min + margin;
+	for (const b of [...blocked].sort((a, b) => a.min - b.min)) {
+		segments.push({ min: cursor, max: b.min - gap });
+		cursor = Math.max(cursor, b.max + gap);
+	}
+	segments.push({ min: cursor, max: roam.max - margin });
+	segments = segments.filter((s) => s.max - s.min >= size);
 	if (!segments.length)
 		segments = [{ min: roam.min + margin, max: roam.max - margin }];
 

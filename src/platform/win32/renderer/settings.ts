@@ -6,6 +6,7 @@
  * same property that makes the GNOME prefs dialog and this one agree on ranges.
  */
 import {
+	AUTO_POSITION,
 	BOOL_SETTINGS,
 	INT_SETTINGS,
 	type Settings,
@@ -156,6 +157,74 @@ async function main(): Promise<void> {
 		if (unsupported) wrapper.classList.add("disabled");
 		form.appendChild(wrapper);
 	}
+
+	// -- positions ---------------------------------------------------------
+	// One text box per bed and post: a percentage of the floor from the left,
+	// or blank to leave it where the cats would put it. The boxes follow the
+	// count, so they are rebuilt whenever the settings change.
+	const positions = (
+		countName: "beds" | "scratchers",
+		listName: "bedPositions" | "scratcherPositions",
+		noun: string,
+	): void => {
+		const section = element("div", "positions");
+		section.appendChild(element("div", "title", `${noun} positions`));
+		section.appendChild(
+			element(
+				"div",
+				"hint",
+				`Percent of the floor from the left edge, 0–100. Blank leaves a ${noun.toLowerCase()} where the cats would put it.`,
+			),
+		);
+		const grid = element("div", "grid");
+		section.appendChild(grid);
+		form.appendChild(section);
+
+		let shownCount = -1;
+		const inputs: HTMLInputElement[] = [];
+		const render = (settings: Settings): void => {
+			const count = settings[countName];
+			section.hidden = count === 0;
+			if (count !== shownCount) {
+				shownCount = count;
+				grid.textContent = "";
+				inputs.length = 0;
+				for (let i = 0; i < count; i++) {
+					const label = element("label", "position");
+					label.appendChild(element("span", undefined, `${noun} ${i + 1}`));
+					const input = element("input");
+					input.type = "number";
+					input.min = "0";
+					input.max = "100";
+					input.placeholder = "auto";
+					input.addEventListener("change", () => {
+						const values = [...current[listName]];
+						inputs.forEach((box, k) => {
+							const n = Number(box.value);
+							values[k] =
+								box.value.trim() === "" || !Number.isFinite(n)
+									? AUTO_POSITION
+									: n;
+						});
+						cats.apply({ [listName]: values } as Partial<Settings>);
+					});
+					inputs.push(input);
+					label.appendChild(input);
+					grid.appendChild(label);
+				}
+			}
+			inputs.forEach((input, i) => {
+				const value = settings[listName][i];
+				const text =
+					value === undefined || value === AUTO_POSITION ? "" : String(value);
+				if (input.value !== text) input.value = text;
+			});
+		};
+		render(current);
+		sync.push(render);
+	};
+	positions("beds", "bedPositions", "Bed");
+	positions("scratchers", "scratcherPositions", "Post");
 
 	// -- palettes ----------------------------------------------------------
 	if (description.palettes.length) {

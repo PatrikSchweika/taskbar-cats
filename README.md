@@ -206,17 +206,20 @@ Every setting applies immediately; none of them need a restart.
 | Fur palettes | all | tabby-orange, grey-tabby, black, white, siamese, calico |
 | Mouse attraction | 60 | How hard they chase the pointer; 0 ignores it |
 | Attraction radius | 260 | How far above the screen's bottom edge the pointer still interests them |
-| Top speed | 220 | Pixels per second at a full run |
+| Top speed | 160 | Pixels per second at a full run |
 | Nap after | 20 | Seconds of stillness before they curl up; 0 keeps them awake |
 | Scratch app icons | on | Cats stop at an icon and claw at it |
 | Shake the scratched icon | on | Rocks the **real** dock icon — turn off to leave the dock untouched |
 | Cat beds | 0 | Beds on the floor beside the dock (0–8); a sleepy cat walks to a free one and curls up in it |
 | Scratching posts | 0 | Posts on the floor beside the dock (0–8) for the cats to claw instead of your icons |
+| Bed positions / Post positions | blank | One entry per bed or post: a percentage of the floor from the left edge (0–100). Blank leaves it where the cats would put it |
 | Mouse visits | 120 | Roughly how many seconds pass between mice (0–3600); every cat joins the hunt. 0 means no mice |
 | Animation frame rate | 12 | Sprite frames per second |
 
 Beds and posts are spread over the free floor to either side of the dock's
-icons, never in front of one, and stay put when apps are launched or quit. The
+icons, never in front of one, and stay put when apps are launched or quit. Give
+one a position and it stands exactly there — on top of the dock if that is
+where you put it — and the automatic ones keep clear of it. The
 mouse comes in from a screen edge, bolts from any cat that gets close, and is
 either pounced on or, after a while, finds its way off the screen again.
 
@@ -441,7 +444,9 @@ its bed rather than behind it. `core/props.ts` decides where furniture stands:
 the free floor to either side of the dock's icon span, shared out in proportion
 to how much room each side has, and recomputed only when the monitor changes or
 the dock first appears — not when an app is launched, or a bed would slide out
-from under a sleeping cat. A sleepy cat claims the nearest free bed, walks to it
+from under a sleeping cat. A prop the user pinned (a percentage of the floor,
+so it means the same on any monitor or scale factor) is placed first and then
+counts as an obstacle for the automatic ones, the way the icons do. A sleepy cat claims the nearest free bed, walks to it
 and sleeps lifted onto the cushion; a post is a wander destination like an icon
 and is clawed with the same animation, with no dock icon shaken. The mouse in
 `core/mouse.ts` is prey rather than a cat: it comes in from a screen edge,

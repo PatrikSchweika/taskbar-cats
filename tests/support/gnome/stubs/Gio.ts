@@ -50,6 +50,15 @@ export class Settings {
 	set_strv(key: string, value: string[]): void {
 		this.values[key] = value;
 	}
+	/** Just enough GLib.Variant to `deepUnpack()` an array key. */
+	get_value(key: string): { deepUnpack<T>(): T } {
+		const value = this.values[key] ?? [];
+		return { deepUnpack: <T>() => value as T };
+	}
+	set_value(key: string, value: { deepUnpack<T>(): T }): boolean {
+		this.values[key] = value.deepUnpack();
+		return true;
+	}
 	connect(_signal: string, cb: SettingsHandler): number {
 		const id = this._nextId++;
 		this._handlers.set(id, cb);

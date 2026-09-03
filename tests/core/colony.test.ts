@@ -745,6 +745,116 @@ describe("Colony", () => {
 			assert.ok(frames.size > 1, "the post never moved");
 		});
 
+		describe("pinned positions", () => {
+			it("stands a bed exactly where the settings put it", () => {
+				const colony = new Colony(fakeHost());
+				colony.sync(
+					makeSettings({ beds: 1, bedPositions: [25] }),
+					dock(),
+					makeBounds(),
+				);
+				assert.equal(colony.props[0].pinned, 25);
+				assert.equal(colony.props[0].x, 300, "25% of a 1200px floor");
+			});
+
+			it("is measured from the monitor's own left edge", () => {
+				const colony = new Colony(fakeHost());
+				colony.sync(
+					makeSettings({ scratchers: 1, scratcherPositions: [50] }),
+					[],
+					makeBounds({ roam: { min: 1920, max: 3200 } }),
+				);
+				assert.equal(colony.props[0].x, 2560);
+			});
+
+			it("honours a position on top of the dock", () => {
+				// The automatic layout avoids the icons; the user's choice is the
+				// user's choice.
+				const colony = new Colony(fakeHost());
+				colony.sync(
+					makeSettings({ beds: 1, bedPositions: [50] }),
+					dock(),
+					makeBounds(),
+				);
+				assert.equal(colony.props[0].x, 600);
+			});
+
+			it("leaves a blank entry, and anything past the list, automatic", () => {
+				const colony = new Colony(fakeHost());
+				colony.sync(
+					makeSettings({ beds: 3, bedPositions: [-1, 10] }),
+					[],
+					makeBounds(),
+				);
+				const [first, second, third] = colony.props;
+				assert.equal(first.pinned, null);
+				assert.equal(second.pinned, 10);
+				assert.equal(second.x, 120);
+				assert.equal(third.pinned, null);
+			});
+
+			it("indexes positions by bed and by post separately", () => {
+				const colony = new Colony(fakeHost());
+				colony.sync(
+					makeSettings({
+						beds: 1,
+						scratchers: 1,
+						bedPositions: [10],
+						scratcherPositions: [90],
+					}),
+					[],
+					makeBounds(),
+				);
+				assert.equal(colony.beds[0].x, 120);
+				assert.equal(colony.scratchers[0].x, 1080);
+			});
+
+			it("lays the automatic ones out around the pinned ones", () => {
+				const colony = new Colony(fakeHost());
+				const settings = makeSettings({ beds: 3, bedPositions: [-1, 50, -1] });
+				colony.sync(settings, [], makeBounds());
+				const [a, pinned, b] = colony.props;
+				assert.equal(pinned.x, 600);
+				for (const prop of [a, b])
+					assert.ok(
+						Math.abs(prop.x - 600) > 40,
+						`automatic bed at ${prop.x} overlaps the pinned one`,
+					);
+				assert.ok(a.x < 600 && b.x > 600, "one to each side");
+			});
+
+			it("moves when the position is changed", () => {
+				const colony = new Colony(fakeHost());
+				colony.sync(
+					makeSettings({ beds: 1, bedPositions: [25] }),
+					[],
+					makeBounds(),
+				);
+				assert.equal(colony.props[0].x, 300);
+				colony.sync(
+					makeSettings({ beds: 1, bedPositions: [75] }),
+					[],
+					makeBounds(),
+				);
+				assert.equal(colony.props[0].x, 900);
+				colony.sync(
+					makeSettings({ beds: 1, bedPositions: [] }),
+					[],
+					makeBounds(),
+				);
+				assert.equal(colony.props[0].pinned, null);
+				assert.equal(colony.props[0].x, 600, "back to automatic");
+			});
+
+			it("keeps a pinned bed put when the dock appears", () => {
+				const colony = new Colony(fakeHost());
+				const settings = makeSettings({ beds: 1, bedPositions: [50] });
+				colony.sync(settings, [], makeBounds());
+				colony.update(1 / 30, makeWorld({ icons: dock() }), settings);
+				assert.equal(colony.props[0].x, 600);
+			});
+		});
+
 		it("lets a cat sleep in a bed", () => {
 			// End to end: the bed the colony made is the one the cat finds.
 			const colony = new Colony(fakeHost());

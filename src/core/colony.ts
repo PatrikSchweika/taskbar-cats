@@ -10,8 +10,16 @@
  */
 import { Cat, type CatConfig, State } from "./cat.js";
 import type { Settings } from "./config.js";
+import { AUTO_POSITION } from "./config.js";
 import { Mouse } from "./mouse.js";
-import { iconSpan, layoutProps, Prop, type PropKind } from "./props.js";
+import {
+	iconSpan,
+	layoutProps,
+	Prop,
+	type PropKind,
+	pinnedX,
+	type Span,
+} from "./props.js";
 import { resolvePalettes } from "./sprites.js";
 import type { CatView, IconRect, Rect, SpriteSource } from "./types.js";
 
@@ -246,7 +254,22 @@ export class Colony {
 				);
 			this._layoutKey = "";
 		}
-		for (const prop of this.props) prop.setSize(size);
+		// Pin whichever ones the user placed; the rest are laid out around them.
+		const counters: Record<PropKind, number> = { bed: 0, scratcher: 0 };
+		for (const prop of this.props) {
+			const list =
+				prop.kind === "bed"
+					? settings.bedPositions
+					: settings.scratcherPositions;
+			const percent = list[counters[prop.kind]++];
+			const pinned =
+				percent !== undefined && percent !== AUTO_POSITION ? percent : null;
+			if (pinned !== prop.pinned) {
+				prop.pinned = pinned;
+				this._layoutKey = "";
+			}
+			prop.setSize(size);
+		}
 		this._layout(bounds, icons);
 	}
 
@@ -267,10 +290,29 @@ export class Colony {
 		if (key === this._layoutKey) return;
 		this._layoutKey = key;
 
-		const xs = bounds
-			? layoutProps(this.props.length, bounds.roam, iconSpan(icons), size)
-			: this.props.map((_, i) => 100 + i * 60);
-		this.props.forEach((prop, i) => {
+		if (!bounds) {
+			this.props.forEach((prop, i) => {
+				prop.x = 100 + i * 60;
+			});
+			return;
+		}
+
+		// The pinned ones go exactly where they were put, and count as
+		// obstacles for the automatic ones along with the dock's icons.
+		const blocked: Span[] = [];
+		const span = iconSpan(icons);
+		if (span) blocked.push(span);
+		const automatic: Prop[] = [];
+		for (const prop of this.props) {
+			if (prop.pinned === null) {
+				automatic.push(prop);
+				continue;
+			}
+			prop.x = pinnedX(prop.pinned, bounds.roam, size);
+			blocked.push({ min: prop.x - size * 0.5, max: prop.x + size * 0.5 });
+		}
+		const xs = layoutProps(automatic.length, bounds.roam, blocked, size);
+		automatic.forEach((prop, i) => {
 			prop.x = xs[i] ?? prop.x;
 		});
 	}

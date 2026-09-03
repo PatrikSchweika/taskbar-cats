@@ -24,7 +24,7 @@ const METADATA = JSON.parse(
 const DEFAULTS: Record<string, unknown> = {
 	"cat-count": 3,
 	palettes: [],
-	"max-speed": 220,
+	"max-speed": 160,
 	"mouse-attraction": 60,
 	"attract-radius": 260,
 	"scratch-icons": true,
@@ -35,6 +35,8 @@ const DEFAULTS: Record<string, unknown> = {
 	"bed-count": 0,
 	"scratcher-count": 0,
 	"mouse-interval": 120,
+	"bed-positions": [],
+	"scratcher-positions": [],
 };
 
 interface Harness {
@@ -143,6 +145,18 @@ describe("TaskbarCatsExtension", () => {
 			assert.equal(propActors().length, 3);
 			settings.__change("bed-count", 0);
 			assert.equal(propActors().length, 1);
+		});
+
+		it("moves a bed when its position is set", () => {
+			const { settings } = enableExtension({ "bed-count": 1 });
+			tick(2);
+			const [bed] = propActors();
+			const automatic = bed.x;
+			settings.__change("bed-positions", [10]);
+			tick(2);
+			assert.notEqual(propActors()[0].x, automatic);
+			// 10% of a 1600px stage, less half a 48px bed.
+			assert.equal(propActors()[0].x, 160 - 24);
 		});
 
 		it("keeps the furniture beneath the cats", () => {
