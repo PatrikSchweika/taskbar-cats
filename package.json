@@ -57,5 +57,8 @@
 		"napi_versions": [
 			8
 		]
+	},
+	"dependencies": {
+		"electron-updater": "^6.8.9"
 	}
 }

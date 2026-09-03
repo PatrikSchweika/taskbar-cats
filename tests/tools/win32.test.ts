@@ -46,4 +46,20 @@ describe("appManifest", () => {
 	it("carries the author through for the installer's publisher field", () => {
 		assert.equal(appManifest(root).author, "Someone");
 	});
+
+	it("declares the runtime dependencies, so they are packaged", () => {
+		// electron-builder reads dependencies from *this* manifest to decide what
+		// to put in app.asar, resolving them from the repository's node_modules.
+		// Without them the packaged app throws on `require("electron-updater")`
+		// at startup — which nothing before the first release would catch.
+		assert.deepEqual(
+			appManifest({ ...root, dependencies: { "electron-updater": "^6.8.9" } })
+				.dependencies,
+			{ "electron-updater": "^6.8.9" },
+		);
+	});
+
+	it("declares no dependencies when the repository has none", () => {
+		assert.deepEqual(appManifest(root).dependencies, {});
+	});
 });
