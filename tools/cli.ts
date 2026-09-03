@@ -13,10 +13,13 @@ import {
 	readdirSync,
 	readFileSync,
 	rmSync,
+	writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { writeZipFromDirectory } from "./zip.ts";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const SRC = join(ROOT, "src");
@@ -29,6 +32,26 @@ interface Metadata {
 	description: string;
 	"shell-version": string[];
 	"settings-schema"?: string;
+	/** GNOME compares this integer to decide which copy of an extension is newer. */
+	version?: number;
+	/** Displayed, never compared. Filled in from package.json at build time. */
+	"version-name"?: string;
+}
+
+/**
+ * The metadata.json that goes into the built extension.
+ *
+ * The only thing added to the committed file is `version-name`, so the
+ * Extensions app shows the same version as the release it came from without
+ * that version having to be written down in two places. `version` stays as
+ * committed: it is the integer GNOME orders releases by, and bumping it is a
+ * deliberate act, not something a build should guess from a semver string.
+ */
+export function extensionMetadata(
+	source: Metadata,
+	packageVersion: string,
+): Metadata {
+	return { ...source, "version-name": packageVersion };
 }
 
 /**
@@ -42,8 +65,21 @@ const UUID = metadata.uuid;
 const SCHEMA = metadata["settings-schema"] ?? "";
 const INSTALLDIR = join(homedir(), ".local/share/gnome-shell/extensions", UUID);
 
-/** Everything that is copied into the extension verbatim. */
-const STATIC_SOURCES = ["metadata.json", "stylesheet.css", "schemas", "assets"];
+/**
+ * Everything that is copied into the extension verbatim.
+ *
+ * metadata.json is not among them: build() writes a derived copy carrying the
+ * release version. See extensionMetadata.
+ */
+const STATIC_SOURCES = ["stylesheet.css", "schemas", "assets"];
+
+/** The release version, which only package.json states. */
+function packageVersion(): string {
+	const manifest = JSON.parse(
+		readFileSync(join(ROOT, "package.json"), "utf8"),
+	) as { version: string };
+	return manifest.version;
+}
 
 function run(
 	cmd: string,
@@ -195,6 +231,10 @@ function build(): void {
 		const from = join(SRC, entry);
 		if (existsSync(from)) cpSync(from, join(BUILD, entry), { recursive: true });
 	}
+	writeFileSync(
+		join(BUILD, "metadata.json"),
+		`${JSON.stringify(extensionMetadata(metadata, packageVersion()), null, 2)}\n`,
+	);
 	const emitted = readdirSync(BUILD).filter((f) => f.endsWith(".js"));
 	if (!emitted.includes("extension.js"))
 		die("tsc did not emit extension.js — check tsconfig rootDir/outDir");
@@ -227,72 +267,83 @@ function install(): void {
 	console.log("Or test without touching your desktop:  npm run test:shell");
 }
 
+/**
+ * The installable zip, in dist/.
+ *
+ * `gnome-extensions pack` would do this, but it lives inside gnome-shell — so
+ * using it meant the zip could only be built on a machine that already had
+ * GNOME, which is the opposite of what the zip is for. Packing it here needs
+ * nothing but Node, so CI can attach one to a release and a developer on any
+ * platform can build one.
+ *
+ * The whole build directory goes in, which is also one fewer thing to keep in
+ * step: the old invocation had to name each directory tsc emits.
+ */
 function pack(): void {
 	build();
 	mkdirSync(DIST, { recursive: true });
-	const args = [
-		"pack",
-		BUILD,
-		// Everything tsc emits beside extension.js and prefs.js. gnome-extensions
-		// pack only includes those two by default.
-		"--extra-source=core",
-		"--extra-source=platform",
-		"--extra-source=assets",
-		"--force",
-		`--out-dir=${DIST}`,
-	];
-	if (SCHEMA) args.push(`--schema=schemas/${SCHEMA}.gschema.xml`);
-	if (run("gnome-extensions", args) !== 0) die("gnome-extensions pack failed");
-	console.log(`packed -> dist/${UUID}.shell-extension.zip`);
+	const out = join(DIST, `${UUID}.shell-extension.zip`);
+	const files = writeZipFromDirectory(BUILD, out);
+	console.log(`packed ${files} files -> dist/${UUID}.shell-extension.zip`);
+	console.log("");
+	console.log("Install it with:");
+	console.log(`  gnome-extensions install --force ${UUID}.shell-extension.zip`);
 }
 
 // -- dispatch ---------------------------------------------------------------
 
-const command = process.argv[2] ?? "help";
+function main(argv: string[]): void {
+	const command = argv[2] ?? "help";
 
-switch (command) {
-	case "validate":
-		process.exit(validate() ? 0 : 1);
-		break;
-	case "check":
-		typecheck();
-		process.exit(validate() ? 0 : 1);
-		break;
-	case "build":
-		build();
-		break;
-	case "install":
-		if (!validate()) die("validation failed");
-		install();
-		break;
-	case "uninstall":
-		run("gnome-extensions", ["disable", UUID], { quiet: true });
-		rmSync(INSTALLDIR, { recursive: true, force: true });
-		console.log(`removed ${INSTALLDIR}`);
-		break;
-	case "enable":
-		requireShellKnows();
-		process.exit(run("gnome-extensions", ["enable", UUID]));
-		break;
-	case "disable":
-		process.exit(run("gnome-extensions", ["disable", UUID]));
-		break;
-	case "prefs":
-		requireShellKnows();
-		process.exit(run("gnome-extensions", ["prefs", UUID]));
-		break;
-	case "pack":
-		pack();
-		break;
-	case "clean":
-		rmSync(BUILD, { recursive: true, force: true });
-		rmSync(DIST, { recursive: true, force: true });
-		console.log("removed build/ and dist/");
-		break;
-	default:
-		console.log(
-			"usage: node tools/cli.ts <check|validate|build|install|uninstall|" +
-				"enable|disable|prefs|pack|clean>",
-		);
-		process.exit(1);
+	switch (command) {
+		case "validate":
+			process.exit(validate() ? 0 : 1);
+			break;
+		case "check":
+			typecheck();
+			process.exit(validate() ? 0 : 1);
+			break;
+		case "build":
+			build();
+			break;
+		case "install":
+			if (!validate()) die("validation failed");
+			install();
+			break;
+		case "uninstall":
+			run("gnome-extensions", ["disable", UUID], { quiet: true });
+			rmSync(INSTALLDIR, { recursive: true, force: true });
+			console.log(`removed ${INSTALLDIR}`);
+			break;
+		case "enable":
+			requireShellKnows();
+			process.exit(run("gnome-extensions", ["enable", UUID]));
+			break;
+		case "disable":
+			process.exit(run("gnome-extensions", ["disable", UUID]));
+			break;
+		case "prefs":
+			requireShellKnows();
+			process.exit(run("gnome-extensions", ["prefs", UUID]));
+			break;
+		case "pack":
+			pack();
+			break;
+		case "clean":
+			rmSync(BUILD, { recursive: true, force: true });
+			rmSync(DIST, { recursive: true, force: true });
+			console.log("removed build/ and dist/");
+			break;
+		default:
+			console.log(
+				"usage: node tools/cli.ts <check|validate|build|install|uninstall|" +
+					"enable|disable|prefs|pack|clean>",
+			);
+			process.exit(1);
+	}
 }
+
+// Only when run directly, so tests can import the helpers above.
+const invoked = process.argv[1];
+if (invoked && fileURLToPath(import.meta.url) === resolve(invoked))
+	main(process.argv);
