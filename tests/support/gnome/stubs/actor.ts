@@ -56,6 +56,10 @@ export class FakeActor {
 		this.children = this.children.filter((c) => c !== child);
 		child.parent = null;
 	}
+	insert_child_at_index(child: FakeActor, index: number): void {
+		child.parent = this;
+		this.children.splice(index, 0, child);
+	}
 	set_child_above_sibling(child: FakeActor, _sibling: FakeActor | null): void {
 		this.remove_child(child);
 		this.add_child(child);

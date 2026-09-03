@@ -59,6 +59,17 @@ export class CatLayer {
 		return view;
 	}
 
+	/**
+	 * A view for a prop or the mouse, parented *under* every cat so a cat
+	 * sleeps on its bed rather than behind it. Clutter paints children in
+	 * order, so the bottom of the list is the back.
+	 */
+	createPropView(): GnomeCatView {
+		const view = new GnomeCatView("taskbar-cats-prop");
+		this.actor.insert_child_at_index(view.actor, 0);
+		return view;
+	}
+
 	show(): void {
 		this.actor.show();
 	}

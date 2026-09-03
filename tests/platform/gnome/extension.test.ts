@@ -5,6 +5,7 @@ import { beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import TaskbarCatsExtension from "../../../src/extension.ts";
 import { makeDock, resetEnv, testEnv } from "../../support/gnome/env.ts";
+import type { FakeActor } from "../../support/gnome/stubs/actor.ts";
 import { Settings } from "../../support/gnome/stubs/Gio.ts";
 import GLib from "../../support/gnome/stubs/GLib.ts";
 import * as Main from "../../support/gnome/stubs/shellMain.ts";
@@ -31,6 +32,9 @@ const DEFAULTS: Record<string, unknown> = {
 	"sprite-size": 0,
 	"sleep-after": 20,
 	"animation-fps": 12,
+	"bed-count": 0,
+	"scratcher-count": 0,
+	"mouse-interval": 120,
 };
 
 interface Harness {
@@ -50,12 +54,22 @@ function enableExtension(over: Record<string, unknown> = {}): Harness {
 	return { ext, settings };
 }
 
-/** The cat actors currently parented into the overlay. */
-function catActors(): unknown[] {
+/** Everything parented into the overlay, back to front. */
+function layerChildren(): FakeActor[] {
 	const layer = Main.layoutManager.uiGroup
 		.get_children()
 		.find((c) => c.style_class === "taskbar-cats-layer");
 	return layer ? layer.get_children() : [];
+}
+
+/** The cat actors currently parented into the overlay. */
+function catActors(): FakeActor[] {
+	return layerChildren().filter((c) => c.style_class === "taskbar-cats-cat");
+}
+
+/** The beds, posts and mice currently parented into the overlay. */
+function propActors(): FakeActor[] {
+	return layerChildren().filter((c) => c.style_class === "taskbar-cats-prop");
 }
 
 function tick(times = 1, dt = 1 / 30): void {
@@ -119,6 +133,47 @@ describe("TaskbarCatsExtension", () => {
 			tick(2);
 			for (const cat of catActors())
 				assert.equal((cat as { icon_size: number }).icon_size, 72);
+		});
+
+		it("adds and removes furniture live", () => {
+			const { settings } = enableExtension();
+			assert.equal(propActors().length, 0);
+			settings.__change("bed-count", 2);
+			settings.__change("scratcher-count", 1);
+			assert.equal(propActors().length, 3);
+			settings.__change("bed-count", 0);
+			assert.equal(propActors().length, 1);
+		});
+
+		it("keeps the furniture beneath the cats", () => {
+			// Clutter paints children in order, so every prop has to come
+			// before every cat or a cat would sleep behind its bed.
+			const { settings } = enableExtension({ "cat-count": 2 });
+			settings.__change("bed-count", 1);
+			settings.__change("scratcher-count", 1);
+			const children = layerChildren();
+			const lastProp = Math.max(
+				...propActors().map((a) => children.indexOf(a)),
+			);
+			const firstCat = Math.min(...catActors().map((a) => children.indexOf(a)));
+			assert.ok(lastProp < firstCat, "a prop is drawn over a cat");
+			for (const prop of propActors()) assert.equal(prop.reactive, false);
+		});
+
+		it("lets a mouse in on the configured interval", () => {
+			const { settings } = enableExtension({
+				"mouse-interval": 5,
+				"mouse-attraction": 0,
+			});
+			assert.equal(propActors().length, 0);
+			let seen = false;
+			for (let i = 0; i < 400 && !seen; i++) {
+				tick();
+				if (propActors().length) seen = true;
+			}
+			assert.ok(seen, "no mouse in 13 seconds");
+			settings.__change("mouse-interval", 0);
+			assert.equal(propActors().length, 0, "switching mice off removes it");
 		});
 
 		it("matches the dock's logical icon size when set to auto", () => {

@@ -2,7 +2,9 @@
 
 A colony of pixel-art cats that live on your Ubuntu dock. They chase the mouse
 pointer, sit and stare up at it, nap when you ignore them, and periodically
-claw at your app icons — which visibly shake when they do.
+claw at your app icons — which visibly shake when they do. Give them beds and
+scratching posts from the settings, and every so often a mouse runs across the
+floor for the whole colony to hunt.
 
 Built as a GNOME Shell extension, because that is the only way to get at where
 the dock icons actually are, and the only way to shake one.
@@ -15,6 +17,9 @@ instead of the dash's actor tree, and that it cannot shake them, because the
 taskbar belongs to `explorer.exe`.
 
 ![six fur palettes across seven animations](docs/sprites.png)
+
+The picture predates the pounce animation and the props (a bed, a scratching
+post and the mouse), which come out of the same generator.
 
 ## Prerequisites
 
@@ -205,7 +210,15 @@ Every setting applies immediately; none of them need a restart.
 | Nap after | 20 | Seconds of stillness before they curl up; 0 keeps them awake |
 | Scratch app icons | on | Cats stop at an icon and claw at it |
 | Shake the scratched icon | on | Rocks the **real** dock icon — turn off to leave the dock untouched |
+| Cat beds | 0 | Beds on the floor beside the dock (0–8); a sleepy cat walks to a free one and curls up in it |
+| Scratching posts | 0 | Posts on the floor beside the dock (0–8) for the cats to claw instead of your icons |
+| Mouse visits | 120 | Roughly how many seconds pass between mice (0–3600); every cat joins the hunt. 0 means no mice |
 | Animation frame rate | 12 | Sprite frames per second |
+
+Beds and posts are spread over the free floor to either side of the dock's
+icons, never in front of one, and stay put when apps are launched or quit. The
+mouse comes in from a screen edge, bolts from any cat that gets close, and is
+either pounced on or, after a while, finds its way off the screen again.
 
 ## Scripts
 
@@ -239,7 +252,7 @@ particular, a script named `install` would run on every `npm install`.
 npm test
 ```
 
-223 tests, no dependencies beyond Node — `node:test` runs the TypeScript
+328 tests, no dependencies beyond Node — `node:test` runs the TypeScript
 directly, the same way `tools/cli.ts` does.
 
 **Layout.** `tests/` mirrors `src/`, so the test for a file is at the same path
@@ -249,7 +262,7 @@ simulates:
 ```
 tests/
   assets.test.ts              invariants of the generated art in src/assets/
-  core/                       cat.test.ts, colony.test.ts, config.test.ts
+  core/                       cat, colony, config, mouse, props, sprites
   platform/gnome/             catView, dockTracker, extension, iconWiggle, sprites
   platform/win32/             config, native, taskbarTracker
   tools/                      gen-sprites, gen-icons, win32
@@ -282,9 +295,12 @@ What is covered:
 
 | Area | What is checked |
 |---|---|
-| `core/cat.ts` | Placement on the floor, roaming bounds and the icon bias, pointer chasing and fan-out, sleeping and waking, sitting, scratching and its cooldown, gaits, facing, frame advance, and the HiDPI unit handling |
-| `core/colony.ts` | Cat count changes and that the cats already out are kept, even spread, palette cycling and fallbacks, auto-sizing against the dock including a late-arriving one, sleep detection, teardown, and the pointer's jitter threshold |
+| `core/cat.ts` | Placement on the floor, roaming bounds and the icon bias, pointer chasing and fan-out, sleeping and waking, sitting, scratching and its cooldown, gaits, facing, frame advance, and the HiDPI unit handling; claiming a bed and sleeping lifted in it without sharing, clawing a post, and hunting — running a mouse down, pouncing, waking for it, ignoring the pointer meanwhile |
+| `core/colony.ts` | Cat count changes and that the cats already out are kept, even spread, palette cycling and fallbacks, auto-sizing against the dock including a late-arriving one, sleep detection, teardown, and the pointer's jitter threshold; furniture put out beneath the cats and off the icons, laid out again only when the floor changes, a post that rocks while clawed, and the mouse's timer, entry, removal and effect on sleepers |
 | `core/config.ts` | That the shared settings table and the GSettings schema agree in both directions, and that hostile values are clamped or rejected rather than reaching the simulation |
+| `core/props.ts` | Sharing the free floor out to either side of the dock, and a prop that stands on the floor and rocks only while in use |
+| `core/mouse.ts` | Scurrying, bolting from a nearby cat, turning back at the screen edge while fresh and leaving by it once old, and stopping dead when caught |
+| `core/sprites.ts` | The manifest with and without a props section, and that prop frames load beside the cats' without falling back to one another |
 | `gnome/dockTracker.ts` | Dash discovery, ignoring the overview's dash, measuring the painted background, logical vs stage icon sizes, and degrading to empty rather than throwing when the dock's internals move |
 | `gnome/iconWiggle.ts` | Bounded rotation, exact restoration of rotation and pivot, no leaked destroy handlers, and surviving an actor that throws |
 | `gnome/extension.ts` | Enable/disable lifecycle, live setting changes, one tick source across interval changes, drowsy throttling, and that disable restores every icon and disconnects every signal |
@@ -296,7 +312,7 @@ What is covered:
 | `tools/gen-sprites.ts` | Python's rounding and truncation semantics, which the committed frames depend on |
 | `tools/gen-icons.ts` | The hand-rolled PNG and ICO writers, read back rather than trusted |
 | `tools/win32.ts` | The manifest that goes inside the packaged app — `main` and `type` decide whether an installed app starts at all, and neither can be checked without building an installer |
-| Generated art | Every frame present, on a 32×32 grid, clear of the left/right/top edges, and with feet on the bottom row |
+| Generated art | Every frame present — the props' too — on a 32×32 grid, clear of the left/right/top edges, and with feet on the bottom row |
 
 The Windows rows all run on any OS: everything platform-specific about that
 backend is either a pure function over plain data or takes its shell and display
@@ -417,6 +433,23 @@ targets the inner icon rather than the button, records every actor's original
 rotation and pivot, drops references when an actor is destroyed, and restores
 everything in `disable()`.
 
+**Furniture and prey.** Beds, scratching posts and the mouse belong to the
+colony, not the platform, so both backends get them by calling the same
+`sync()` and `update()` they already did; the only platform addition is a
+`createPropView()` that inserts a sprite *beneath* the cats, so a cat sleeps on
+its bed rather than behind it. `core/props.ts` decides where furniture stands:
+the free floor to either side of the dock's icon span, shared out in proportion
+to how much room each side has, and recomputed only when the monitor changes or
+the dock first appears — not when an app is launched, or a bed would slide out
+from under a sleeping cat. A sleepy cat claims the nearest free bed, walks to it
+and sleeps lifted onto the cushion; a post is a wander destination like an icon
+and is clawed with the same animation, with no dock icon shaken. The mouse in
+`core/mouse.ts` is prey rather than a cat: it comes in from a screen edge,
+scurries, bolts from any cat within a few body lengths, and is cornered by the
+screen edge until it has been out long enough for an edge to become an exit. A
+live mouse overrides the pointer and wakes every sleeper; the first cat to
+reach it pounces, and the mouse is gone.
+
 **Staying cheap.** The tick runs at 30Hz while something is happening and drops
 to 4Hz once every cat is asleep or the dock is hidden.
 
@@ -445,7 +478,10 @@ type stripping, so it needs no build step of its own.
 
 The art is generated, not hand-drawn, by `tools/gen-sprites.ts`, which writes
 SVG directly with no dependencies. Anatomy is code, poses are data, so tweaking
-the cats means editing numbers in `POSES` rather than 114 files.
+the cats means editing numbers in `POSES` rather than 126 files. The props — a
+bed, a two-frame scratching post and a two-frame mouse — are drawn on the same
+grid by `PROP_POSES`, into `assets/cats/props/`, and listed in the manifest's
+`props` section.
 
 ```bash
 npm run sprites

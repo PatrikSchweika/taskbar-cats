@@ -13,6 +13,12 @@ export interface Settings extends CatConfig {
 	palettes: string[];
 	wiggleIcons: boolean;
 	spriteSize: number;
+	/** Cat beds standing on the floor for sleepy cats to curl up in. */
+	beds: number;
+	/** Scratching posts on the floor, clawed instead of (or as well as) icons. */
+	scratchers: number;
+	/** Average seconds between a mouse running across the floor; 0 for none. */
+	mouseInterval: number;
 }
 
 /** An integer setting: its GSettings key, default, and permitted range. */
@@ -36,6 +42,9 @@ export const INT_SETTINGS = {
 	spriteSize: { key: "sprite-size", default: 0, min: 0, max: 128 },
 	sleepAfter: { key: "sleep-after", default: 20, min: 0, max: 600 },
 	fps: { key: "animation-fps", default: 12, min: 4, max: 30 },
+	beds: { key: "bed-count", default: 0, min: 0, max: 8 },
+	scratchers: { key: "scratcher-count", default: 0, min: 0, max: 8 },
+	mouseInterval: { key: "mouse-interval", default: 120, min: 0, max: 3600 },
 } as const satisfies Record<string, IntSpec>;
 
 export const BOOL_SETTINGS = {

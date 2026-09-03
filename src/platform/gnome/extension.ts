@@ -66,6 +66,7 @@ export default class TaskbarCatsExtension extends Extension {
 			colony: new Colony({
 				sprites,
 				createView: () => layer.createView(),
+				createPropView: () => layer.createPropView(),
 			}),
 			shaking: new Set(),
 		};
@@ -192,7 +193,10 @@ export default class TaskbarCatsExtension extends Extension {
 		if (
 			key === INT_SETTINGS.count.key ||
 			key === PALETTES_KEY ||
-			key === INT_SETTINGS.spriteSize.key
+			key === INT_SETTINGS.spriteSize.key ||
+			key === INT_SETTINGS.beds.key ||
+			key === INT_SETTINGS.scratchers.key ||
+			key === INT_SETTINGS.mouseInterval.key
 		)
 			this._syncCats(rt);
 		if (key === BOOL_SETTINGS.wiggleIcons.key && !this._cfg.wiggleIcons)

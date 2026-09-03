@@ -1,6 +1,8 @@
 import type { Cat, CatConfig, CatContext } from "../../../src/core/cat.ts";
 import type { Bounds, ColonyHost, World } from "../../../src/core/colony.ts";
 import { defaultSettings, type Settings } from "../../../src/core/config.ts";
+import { Mouse } from "../../../src/core/mouse.ts";
+import { Prop, type PropKind } from "../../../src/core/props.ts";
 import type {
 	CatView,
 	FrameHandle,
@@ -14,6 +16,8 @@ export function fakeSprites(palettes = ["tabby-orange"]): SpriteSource {
 		palettes,
 		frames: (palette: string, animation: string) =>
 			[0, 1, 2, 3].map((frame) => ({ palette, animation, frame })),
+		propFrames: (name: string) =>
+			[0, 1].map((frame) => ({ prop: name, frame })),
 	};
 }
 
@@ -73,6 +77,33 @@ export function shownAnimation(cat: Cat): string {
 	return (viewOf(cat).frame as { animation: string }).animation;
 }
 
+/** The frame number a prop or mouse view is showing. */
+export function shownPropFrame(thing: { view: CatView }): number {
+	return ((thing.view as FakeCatView).frame as { frame: number }).frame;
+}
+
+/** A bed or scratching post standing at `x`, drawn on a recording view. */
+export function makeProp(kind: PropKind, x: number, size = 48): Prop {
+	return new Prop({
+		kind,
+		view: new FakeCatView(),
+		sprites: fakeSprites(),
+		size,
+		x,
+	});
+}
+
+/** A mouse at `x`, setting off in `facing`, drawn on a recording view. */
+export function makeMouse(x: number, facing = 1, size = 48): Mouse {
+	return new Mouse({
+		view: new FakeCatView(),
+		sprites: fakeSprites(),
+		size,
+		x,
+		facing,
+	});
+}
+
 export const DEFAULT_CFG: CatConfig = {
 	maxSpeed: 220,
 	attraction: 60,
@@ -102,6 +133,9 @@ export function makeContext(over: Partial<CatContext> = {}): CatContext {
 		// far away and long still: uninteresting by default
 		pointer: { x: -5000, y: -5000, idleTime: 0 },
 		neighbours: [],
+		beds: [],
+		scratchers: [],
+		mouse: null,
 		cfg: { ...DEFAULT_CFG },
 		...over,
 	};
@@ -133,18 +167,27 @@ export function withRandom<T>(values: number[], fn: () => T): T {
 
 /**
  * A ColonyHost whose views are kept, so a test can inspect what the colony
- * drew without reaching through the cats.
+ * drew without reaching through the cats. Cat views and prop views are kept
+ * apart, the way the platforms keep them in separate layers.
  */
 export function fakeHost(palettes = ["tabby-orange"]): ColonyHost & {
 	views: FakeCatView[];
+	propViews: FakeCatView[];
 } {
 	const views: FakeCatView[] = [];
+	const propViews: FakeCatView[] = [];
 	return {
 		views,
+		propViews,
 		sprites: fakeSprites(palettes),
 		createView: () => {
 			const view = new FakeCatView();
 			views.push(view);
+			return view;
+		},
+		createPropView: () => {
+			const view = new FakeCatView();
+			propViews.push(view);
 			return view;
 		},
 	};

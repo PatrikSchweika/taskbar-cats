@@ -50,13 +50,20 @@ export interface SpriteSource {
 	readonly palettes: readonly string[];
 	/** Frames for one animation, falling back to 'idle' for unknown names. */
 	frames(palette: string, animation: string): readonly FrameHandle[];
+	/**
+	 * Frames for one prop — a bed, a scratching post, the mouse. Empty when the
+	 * install has no art for it, in which case the prop is simply not drawn.
+	 */
+	propFrames(name: string): readonly FrameHandle[];
 }
 
 /**
- * The surface one cat is drawn on.
+ * The surface one sprite is drawn on: a cat, but also a bed, a scratching post
+ * or the mouse, which are all drawn the same way on the same grid.
  *
- * This is the entire rendering contract: the simulation computes where a cat is
- * and which frame it should show, and pushes that through here once per tick.
+ * This is the entire rendering contract: the simulation computes where a sprite
+ * is and which frame it should show, and pushes that through here once per
+ * tick.
  */
 export interface CatView {
 	/**

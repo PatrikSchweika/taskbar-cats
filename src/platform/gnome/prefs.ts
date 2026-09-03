@@ -148,6 +148,47 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 			Gio.SettingsBindFlags.GET | Gio.SettingsBindFlags.NO_SENSITIVITY,
 		);
 
+		// -- Furniture and toys ---------------------------------------------
+		const toys = new Adw.PreferencesGroup({
+			title: "Furniture and toys",
+			description:
+				"Beds and scratching posts stand on the floor to either side of " +
+				"the dock, never in front of an icon.",
+		});
+		page.add(toys);
+		toys.add(
+			spinRow(
+				settings,
+				"bed-count",
+				"Cat beds",
+				"A sleepy cat walks to a free bed and curls up in it.",
+				0,
+				8,
+			),
+		);
+		toys.add(
+			spinRow(
+				settings,
+				"scratcher-count",
+				"Scratching posts",
+				"Something to claw that is not one of your icons.",
+				0,
+				8,
+			),
+		);
+		toys.add(
+			spinRow(
+				settings,
+				"mouse-interval",
+				"Mouse visits",
+				"Roughly how many seconds pass between mice running across the " +
+					"floor. Every cat joins the hunt. 0 means no mice.",
+				0,
+				3600,
+				10,
+			),
+		);
+
 		// -- Rendering ------------------------------------------------------
 		const rendering = new Adw.PreferencesGroup({ title: "Rendering" });
 		page.add(rendering);

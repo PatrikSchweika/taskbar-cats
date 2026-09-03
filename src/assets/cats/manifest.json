@@ -3,10 +3,16 @@
   "animations": {
     "alert": 1,
     "idle": 2,
+    "pounce": 2,
     "run": 4,
     "scratch": 4,
     "sit": 2,
     "sleep": 2,
     "walk": 4
+  },
+  "props": {
+    "bed": 1,
+    "mouse": 2,
+    "scratcher": 2
   }
 }

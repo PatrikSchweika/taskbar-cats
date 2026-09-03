@@ -4,11 +4,14 @@
  *
  * Extracted so the GNOME extension and the Windows overlay share cat count,
  * palette cycling, auto-sizing against the dock, sleep detection and pointer
- * idle tracking. Both platforms then reduce to "find the dock, build a World,
- * call update()".
+ * idle tracking — and now the furniture and the mouse, which are the colony's
+ * too. Both platforms then reduce to "find the dock, build a World, call
+ * update()".
  */
 import { Cat, type CatConfig, State } from "./cat.js";
 import type { Settings } from "./config.js";
+import { Mouse } from "./mouse.js";
+import { iconSpan, layoutProps, Prop, type PropKind } from "./props.js";
 import { resolvePalettes } from "./sprites.js";
 import type { CatView, IconRect, Rect, SpriteSource } from "./types.js";
 
@@ -82,15 +85,49 @@ export interface ColonyHost {
 	readonly sprites: SpriteSource;
 	/** Make a view for one more cat, already attached to the overlay. */
 	createView(): CatView;
+	/**
+	 * Make a view for a prop or the mouse, attached to the overlay *beneath*
+	 * the cats, so a cat sleeps on its bed rather than under it.
+	 */
+	createPropView(): CatView;
+}
+
+/**
+ * Beds and posts alternate along the floor rather than clustering by kind, so
+ * one of each ends up on opposite sides of the dock instead of side by side.
+ */
+export function interleaveProps(beds: number, scratchers: number): PropKind[] {
+	const out: PropKind[] = [];
+	for (let i = 0; i < Math.max(beds, scratchers); i++) {
+		if (i < beds) out.push("bed");
+		if (i < scratchers) out.push("scratcher");
+	}
+	return out;
 }
 
 export class Colony {
 	readonly cats: Cat[] = [];
+	/** Beds and scratching posts, left to right. */
+	readonly props: Prop[] = [];
+	/** The mouse currently out, if any. */
+	mouse: Mouse | null = null;
+
 	private readonly _host: ColonyHost;
 	private _size = 0;
+	private _layoutKey = "";
+	private _mouseInterval = -1;
+	private _mouseIn = 0;
 
 	constructor(host: ColonyHost) {
 		this._host = host;
+	}
+
+	get beds(): Prop[] {
+		return this.props.filter((p) => p.kind === "bed");
+	}
+
+	get scratchers(): Prop[] {
+		return this.props.filter((p) => p.kind === "scratcher");
 	}
 
 	/**
@@ -126,7 +163,7 @@ export class Colony {
 
 	/**
 	 * Add or remove cats to match the settings, and reapply palette and size to
-	 * the ones that stay.
+	 * the ones that stay. The same for the furniture, and the mouse timer.
 	 *
 	 * @param onRemove called for each cat about to be destroyed, so a platform
 	 * can undo anything it did on that cat's behalf (GNOME releases the dock
@@ -174,6 +211,96 @@ export class Colony {
 			cat.setSize(size);
 		});
 		this._size = size;
+
+		this._syncProps(settings, size, icons, bounds);
+		this._syncMouse(settings);
+	}
+
+	private _syncProps(
+		settings: Settings,
+		size: number,
+		icons: readonly IconRect[],
+		bounds: Bounds | null,
+	): void {
+		const wanted = interleaveProps(settings.beds, settings.scratchers);
+		const current = this.props.map((p) => p.kind);
+		const same =
+			wanted.length === current.length &&
+			wanted.every((kind, i) => kind === current[i]);
+
+		if (!same) {
+			// Rebuild wholesale: the layout shifts anyway, and a cat holding a
+			// destroyed bed drops it on its next tick when it is no longer in
+			// the list it is given.
+			for (const prop of this.props) prop.destroy();
+			this.props.length = 0;
+			for (const kind of wanted)
+				this.props.push(
+					new Prop({
+						kind,
+						view: this._host.createPropView(),
+						sprites: this._host.sprites,
+						size,
+						x: 0,
+					}),
+				);
+			this._layoutKey = "";
+		}
+		for (const prop of this.props) prop.setSize(size);
+		this._layout(bounds, icons);
+	}
+
+	/**
+	 * Place the props, but only when the floor itself has changed shape.
+	 *
+	 * The icon span moves a little every time an app is launched or quit, and
+	 * a bed that slid sideways under a sleeping cat would wake it to walk after
+	 * it. So the layout reacts to the monitor changing and to the dock first
+	 * turning up, not to every icon coming and going.
+	 */
+	private _layout(bounds: Bounds | null, icons: readonly IconRect[]): void {
+		if (!this.props.length) return;
+		const size = this.props[0].size;
+		const key = bounds
+			? `${bounds.roam.min}:${bounds.roam.max}:${icons.length > 0}:${size}`
+			: "none";
+		if (key === this._layoutKey) return;
+		this._layoutKey = key;
+
+		const xs = bounds
+			? layoutProps(this.props.length, bounds.roam, iconSpan(icons), size)
+			: this.props.map((_, i) => 100 + i * 60);
+		this.props.forEach((prop, i) => {
+			prop.x = xs[i] ?? prop.x;
+		});
+	}
+
+	private _syncMouse(settings: Settings): void {
+		if (settings.mouseInterval !== this._mouseInterval) {
+			this._mouseInterval = settings.mouseInterval;
+			this._mouseIn = this._nextMouseIn();
+		}
+		if (settings.mouseInterval <= 0 && this.mouse) {
+			this.mouse.destroy();
+			this.mouse = null;
+		}
+	}
+
+	/** Seconds until the next mouse: the setting, give or take half of it. */
+	private _nextMouseIn(): number {
+		return this._mouseInterval * (0.5 + Math.random());
+	}
+
+	private _spawnMouse(bounds: Bounds, size: number): void {
+		const fromLeft = Math.random() < 0.5;
+		const half = size * 0.5;
+		this.mouse = new Mouse({
+			view: this._host.createPropView(),
+			sprites: this._host.sprites,
+			size,
+			x: fromLeft ? bounds.roam.min + half : bounds.roam.max - half,
+			facing: fromLeft ? 1 : -1,
+		});
 	}
 
 	/** Advance every cat one tick against the desktop as it is right now. */
@@ -184,6 +311,23 @@ export class Colony {
 		if (size !== this._size) {
 			this._size = size;
 			for (const cat of this.cats) cat.setSize(size);
+			for (const prop of this.props) prop.setSize(size);
+			this.mouse?.setSize(size);
+		}
+		this._layout(world, world.icons);
+
+		// The mouse moves first, so the cats chase where it is, not where it was.
+		if (this.mouse) {
+			this.mouse.update(dt, {
+				roam: world.roam,
+				floorY: world.floorY,
+				cats: this.cats,
+				topSpeed: settings.maxSpeed,
+				fps: settings.fps,
+			});
+		} else if (settings.mouseInterval > 0 && this.cats.length) {
+			this._mouseIn -= dt;
+			if (this._mouseIn <= 0) this._spawnMouse(world, size);
 		}
 
 		const ctx = {
@@ -192,10 +336,28 @@ export class Colony {
 			icons: world.icons,
 			pointer: world.pointer,
 			neighbours: this.cats,
+			beds: this.beds,
+			scratchers: this.scratchers,
+			mouse: this.mouse,
 			cfg: settings as CatConfig,
 		};
 
 		for (const cat of this.cats) cat.update(dt, ctx);
+
+		for (const prop of this.props)
+			prop.update(
+				dt,
+				world.floorY,
+				settings.fps,
+				prop.kind === "scratcher" &&
+					this.cats.some((cat) => cat.scratchingProp === prop),
+			);
+
+		if (this.mouse && (this.mouse.caught || this.mouse.gone)) {
+			this.mouse.destroy();
+			this.mouse = null;
+			this._mouseIn = this._nextMouseIn();
+		}
 	}
 
 	/** True when nothing is going to move until the user does. */
@@ -210,6 +372,11 @@ export class Colony {
 	destroy(): void {
 		for (const cat of this.cats) cat.destroy();
 		this.cats.length = 0;
+		for (const prop of this.props) prop.destroy();
+		this.props.length = 0;
+		this.mouse?.destroy();
+		this.mouse = null;
 		this._size = 0;
+		this._layoutKey = "";
 	}
 }

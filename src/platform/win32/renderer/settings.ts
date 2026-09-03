@@ -39,6 +39,18 @@ const LABELS: Record<string, { title: string; hint?: string }> = {
 		hint: "seconds of stillness; 0 means they never sleep",
 	},
 	fps: { title: "Animation frame rate" },
+	beds: {
+		title: "Cat beds",
+		hint: "on the floor beside the taskbar; a sleepy cat curls up in a free one",
+	},
+	scratchers: {
+		title: "Scratching posts",
+		hint: "something to claw that is not one of your icons",
+	},
+	mouseInterval: {
+		title: "Mouse visits",
+		hint: "roughly this many seconds apart; every cat joins the hunt. 0 means no mice",
+	},
 	scratchIcons: {
 		title: "Claw at taskbar icons",
 		hint: "cats stop at an icon and scratch it",

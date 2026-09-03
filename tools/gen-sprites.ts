@@ -7,7 +7,11 @@
  * the draw* functions), so tweaking the art means editing numbers, not 100+
  * hand-authored files.
  *
+ * The props — a bed, a scratching post and the mouse — are drawn on the same
+ * grid with the same tools, so they scale with the cats and share the outline.
+ *
  * Output: src/assets/cats/<palette>/<anim>_<n>.svg
+ *         src/assets/cats/props/<prop>_<n>.svg
  * Run:    npm run sprites
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -702,6 +706,123 @@ export const POSES: Record<string, [PlanName, Pose[]]> = {
 		[{ reach: 0.0 }, { reach: 0.55 }, { reach: 1.0 }, { reach: 0.4 }],
 	],
 	sleep: ["sleep", [{ breathe: 0.0 }, { breathe: 1.0 }]],
+	// Pouncing on a mouse: wound up flat to the floor, then the spring.
+	pounce: [
+		"quad",
+		[
+			{
+				phase: 0.0,
+				swing: 0.0,
+				crouch: 1.0,
+				bob: 1.5,
+				earPerk: 0.0,
+				tailAngle: 128,
+				tailCurl: 0.4,
+				tailLen: 6,
+				headDy: 1.5,
+				lookUp: -0.2,
+			},
+			{
+				phase: 0.25,
+				swing: 3.0,
+				crouch: 0.3,
+				bodyDx: 0.8,
+				earPerk: 0.6,
+				tailAngle: 145,
+				tailCurl: 0.6,
+				tailLen: 6,
+				headDy: -0.5,
+			},
+		],
+	],
+};
+
+// -- props -------------------------------------------------------------------
+// Furniture and prey. They reuse the cell roles — B for the main colour, D for
+// shading, L for highlights, K for the outline — so the canvas, the outline
+// pass and the SVG emitter serve them unchanged; only the colours differ.
+
+export const PROP_PALETTES: Record<string, Palette> = {
+	bed: {
+		B: "#b8654a",
+		D: "#8a4a36",
+		L: "#f1dcbc",
+		K: "#4d3027",
+		E: "#000000",
+		P: "#000000",
+		W: "#ffffff",
+	},
+	scratcher: {
+		B: "#cfae72",
+		D: "#8f6f3f",
+		L: "#eadcb8",
+		K: "#4b3a22",
+		E: "#000000",
+		P: "#000000",
+		W: "#ffffff",
+	},
+	mouse: {
+		B: "#9a9aa6",
+		D: "#6f6f7c",
+		L: "#d2d2da",
+		K: "#3a3a44",
+		E: "#1e1e24",
+		P: "#e9a3ad",
+		W: "#ffffff",
+	},
+};
+
+/** A low oval cushion. The cat's sleep loaf is drawn on top of it. */
+function drawBed(c: Canvas, _p: Pose): void {
+	c.rect(5, 29, 22, 3, "D"); // underside, down to the floor
+	c.ellipse(16, 27.5, 13, 3.4, "B"); // bolster
+	c.ellipse(16, 28.2, 9.4, 1.9, "L"); // cushion inside the rim
+	c.ellipse(16, 30.5, 8.5, 0.9, "D"); // the front lip's shadow
+}
+
+/**
+ * A sisal-wrapped post on a round base. `reach` leans the top, for the frame
+ * shown while a cat is clawing it.
+ */
+function drawScratcher(c: Canvas, p: Pose): void {
+	const lean = p.reach ?? 0.0;
+	// 16.25, not 16: a 4-wide brush centred on a whole number lands on .5
+	// offsets, which Python's half-to-even rounding sends to alternate columns.
+	const x = 16.25;
+	c.ellipse(16, 29.6, 7.2, 2.0, "D"); // base
+	c.ellipse(16, 28.8, 5.4, 1.1, "B"); // base top
+	c.thickLine(x, 29, x + lean, 7, "B", 4); // post
+	for (let y = 10; y < 27; y += 4) c.rect(10, y, 12, 1, "D", ["B"]); // wraps
+	c.ellipse(x + lean, 6.4, 3.4, 1.6, "L"); // cap
+}
+
+/** A small mouse facing right; `phase` alternates the legs and tail. */
+function drawMouse(c: Canvas, p: Pose): void {
+	const step = p.phase ?? 0.0;
+	c.thickLine(11, 28.5, 5, 26 + step * 3, "D", 1); // tail
+	c.ellipse(16, 28.5, 5.2, 2.6, "B"); // body
+	c.ellipse(21.5, 28.2, 2.8, 2.3, "B"); // head
+	c.ellipse(17, 29.6, 3.6, 1.1, "L"); // belly
+	c.rect(20, 25, 2, 2, "P"); // ear
+	c.put(22.5, 28, "E"); // eye
+	c.put(24.5, 28.5, "P"); // nose
+	c.rect(13 + step, 30, 2, 2, "D"); // legs
+	c.rect(19 - step, 30, 2, 2, "D");
+}
+
+export type PropName = keyof typeof PROP_PALETTES;
+
+const PROP_PLANS: Record<PropName, (c: Canvas, p: Pose) => void> = {
+	bed: drawBed,
+	scratcher: drawScratcher,
+	mouse: drawMouse,
+};
+
+/** Prop name -> frames. */
+export const PROP_POSES: Record<PropName, Pose[]> = {
+	bed: [{}],
+	scratcher: [{ reach: 0.0 }, { reach: 1.4 }],
+	mouse: [{ phase: 0 }, { phase: 1 }],
 };
 
 // -- SVG emission ------------------------------------------------------------
@@ -750,6 +871,13 @@ export function buildFrame(pal: Palette, plan: PlanName, params: Pose): Canvas {
 	return c;
 }
 
+export function buildPropFrame(name: PropName, params: Pose): Canvas {
+	const c = new Canvas();
+	PROP_PLANS[name](c, params);
+	c.outline("K");
+	return c;
+}
+
 /**
  * Art must not touch the left/right/top border. The bottom row is where the
  * feet legitimately sit, so it is exempt.
@@ -788,14 +916,34 @@ function main(): void {
 	const palettes = Object.keys(PALETTES).length;
 	console.log(`wrote ${total} frames for ${palettes} palettes into ${root}`);
 
+	const propsDir = join(root, "props");
+	mkdirSync(propsDir, { recursive: true });
+	let props = 0;
+	for (const [name, frames] of Object.entries(PROP_POSES)) {
+		const pal = PROP_PALETTES[name] as Palette;
+		frames.forEach((params, i) => {
+			const c = buildPropFrame(name as PropName, params);
+			checkFrame(c, `props/${name}_${i}`);
+			writeFileSync(join(propsDir, `${name}_${i}.svg`), toSvg(c, pal));
+			props += 1;
+		});
+	}
+	console.log(`wrote ${props} prop frames into ${propsDir}`);
+
 	// A manifest the extension reads so it never has to guess frame counts.
+	const byName = ([a]: [string, unknown], [b]: [string, unknown]) =>
+		a < b ? -1 : 1;
 	const names = Object.keys(PALETTES).sort();
-	const anims = Object.entries(POSES).sort(([a], [b]) => (a < b ? -1 : 1));
+	const anims = Object.entries(POSES).sort(byName);
+	const propList = Object.entries(PROP_POSES).sort(byName);
 	const manifest =
 		"{\n" +
 		`  "palettes": [${names.map((p) => `"${p}"`).join(", ")}],\n` +
 		'  "animations": {\n' +
 		`${anims.map(([a, [, fr]]) => `    "${a}": ${fr.length}`).join(",\n")}` +
+		"\n  },\n" +
+		'  "props": {\n' +
+		`${propList.map(([a, fr]) => `    "${a}": ${fr.length}`).join(",\n")}` +
 		"\n  }\n}\n";
 	const manifestPath = join(root, "manifest.json");
 	writeFileSync(manifestPath, manifest);

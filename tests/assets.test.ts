@@ -17,7 +17,11 @@ const CATS = join(
 );
 const manifest = JSON.parse(
 	readFileSync(join(CATS, "manifest.json"), "utf8"),
-) as { palettes: string[]; animations: Record<string, number> };
+) as {
+	palettes: string[];
+	animations: Record<string, number>;
+	props: Record<string, number>;
+};
 
 const GRID = 32;
 
@@ -35,15 +39,19 @@ function paintedRects(svg: string): Rect[] {
 	return out;
 }
 
+/** Every frame the manifest promises: the cats' and the props'. */
 function everyFrame(): { name: string; svg: string }[] {
-	const frames: { name: string; svg: string }[] = [];
+	const names: string[] = [];
 	for (const palette of manifest.palettes)
 		for (const [animation, count] of Object.entries(manifest.animations))
-			for (let i = 0; i < count; i++) {
-				const name = `${palette}/${animation}_${i}.svg`;
-				frames.push({ name, svg: readFileSync(join(CATS, name), "utf8") });
-			}
-	return frames;
+			for (let i = 0; i < count; i++)
+				names.push(`${palette}/${animation}_${i}.svg`);
+	for (const [prop, count] of Object.entries(manifest.props))
+		for (let i = 0; i < count; i++) names.push(`props/${prop}_${i}.svg`);
+	return names.map((name) => ({
+		name,
+		svg: readFileSync(join(CATS, name), "utf8"),
+	}));
 }
 
 describe("generated sprites", () => {
@@ -54,19 +62,34 @@ describe("generated sprites", () => {
 					const file = join(CATS, palette, `${animation}_${i}.svg`);
 					assert.ok(existsSync(file), `missing ${file}`);
 				}
+		for (const [prop, count] of Object.entries(manifest.props))
+			for (let i = 0; i < count; i++) {
+				const file = join(CATS, "props", `${prop}_${i}.svg`);
+				assert.ok(existsSync(file), `missing ${file}`);
+			}
+	});
+
+	it("has the furniture and the mouse the simulation asks for", () => {
+		// The cats look these up by name; a renamed prop would leave them
+		// sleeping on and clawing at nothing.
+		assert.equal(manifest.props.bed, 1);
+		assert.equal(manifest.props.scratcher, 2, "upright and rocking");
+		assert.equal(manifest.props.mouse, 2, "two running frames");
+		assert.equal(manifest.animations.pounce, 2);
 	});
 
 	it("has no stray frames the manifest does not know about", () => {
-		const expected = Object.entries(manifest.animations).reduce(
-			(n, [, count]) => n + count,
-			0,
-		);
-		for (const palette of manifest.palettes) {
-			const files = readdirSync(join(CATS, palette)).filter((f) =>
-				f.endsWith(".svg"),
+		const count = (table: Record<string, number>) =>
+			Object.values(table).reduce((n, c) => n + c, 0);
+		const svgs = (dir: string) =>
+			readdirSync(join(CATS, dir)).filter((f) => f.endsWith(".svg")).length;
+		for (const palette of manifest.palettes)
+			assert.equal(
+				svgs(palette),
+				count(manifest.animations),
+				`${palette} has ${svgs(palette)}`,
 			);
-			assert.equal(files.length, expected, `${palette} has ${files.length}`);
-		}
+		assert.equal(svgs("props"), count(manifest.props));
 	});
 
 	it("draws every frame on the same 32x32 grid", () => {

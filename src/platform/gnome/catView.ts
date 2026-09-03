@@ -3,7 +3,8 @@ import St from "gi://St";
 import type { CatView, FrameHandle } from "../../core/types.js";
 
 /**
- * A cat drawn as an `St.Icon` on the shell's stage.
+ * A cat — or a bed, a post, the mouse — drawn as an `St.Icon` on the shell's
+ * stage.
  *
  * The one platform subtlety worth its own type: St sizes icons in *logical*
  * pixels but Clutter positions them in stage pixels, and on a HiDPI display
@@ -14,9 +15,10 @@ import type { CatView, FrameHandle } from "../../core/types.js";
 export class GnomeCatView implements CatView {
 	readonly actor: St.Icon;
 
-	constructor() {
+	/** @param styleClass distinguishes cats from props in the stylesheet. */
+	constructor(styleClass = "taskbar-cats-cat") {
 		this.actor = new St.Icon({
-			style_class: "taskbar-cats-cat",
+			style_class: styleClass,
 			reactive: false, // never intercept clicks meant for the dock
 			can_focus: false,
 			track_hover: false,
