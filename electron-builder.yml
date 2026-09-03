@@ -1,0 +1,56 @@
+# Packaging for the Windows backend.
+#
+# The point of this file is that an end user needs no toolchain: CI compiles the
+# native taskbar helper once per release and it ships as a prebuilt binary
+# inside the package. Nothing here is used by the GNOME extension, which is
+# installed by tools/cli.ts instead.
+
+appId: com.github.patrikschweika.ubuntu-cats
+# Shown in the installer, the Start menu and Task Manager. Note this also
+# decides app.getName(), and so where settings.json lives
+# (%APPDATA%\Ubuntu Cats). Changing it later would orphan everyone's settings.
+productName: Ubuntu Cats
+copyright: Copyright © 2026 PatrikSchweika
+
+directories:
+  # The packaged app is exactly what `npm run win:build` emitted, including the
+  # package.json that build writes.
+  app: build-win32
+  # Both of these must be stated. electron-builder defaults them to build/ and
+  # dist/, which this repository already uses for the GNOME extension and its
+  # packed zip — it would otherwise treat the extension's output as installer
+  # resources and write installers over the zip.
+  buildResources: packaging
+  output: dist/win32
+
+# The taskbar helper, kept out of the asar archive entirely.
+#
+# A .node file has to be a real file on disk for LoadLibrary to open it, so it
+# cannot live inside app.asar. asarUnpack would also work, but a plain file in
+# resources/ is one less layer between the loader and the binary.
+extraResources:
+  - from: native/win32-shell/build/Release/win32_shell.node
+    to: win32_shell.node
+
+win:
+  icon: src/assets/icons/app.ico
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: zip
+      arch: [x64]
+
+nsis:
+  # A per-user install: no UAC prompt at all, which is the single biggest
+  # difference to how much friction an end user meets.
+  oneClick: true
+  perMachine: false
+  allowElevation: false
+  createDesktopShortcut: false
+  createStartMenuShortcut: true
+  runAfterFinish: true
+  artifactName: ${productName} Setup ${version}.${ext}
+
+# Releases are attached by .github/workflows/release.yml with the gh CLI, so
+# electron-builder never needs a token of its own.
+publish: null

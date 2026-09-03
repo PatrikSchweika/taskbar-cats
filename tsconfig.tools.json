@@ -3,6 +3,9 @@
 	"compilerOptions": {
 		"noEmit": true,
 		"rootDir": ".",
+		// The tools run under Node's type stripping, which resolves the real
+		// file, so they import each other by their actual '.ts' names.
+		"allowImportingTsExtensions": true,
 		"lib": ["ES2023"],
 		"types": ["node"]
 	},

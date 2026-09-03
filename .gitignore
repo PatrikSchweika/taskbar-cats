@@ -1,5 +1,10 @@
 node_modules/
 build/
+build-win32/
 dist/
+# node-gyp's output for the Windows taskbar helper
+native/*/build/
 __pycache__/
 *.pyc
+# JetBrains project files
+.idea/

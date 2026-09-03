@@ -9,38 +9,53 @@
 		"node": ">=22.18.0"
 	},
 	"scripts": {
-		"sprites": "node tools/gen-sprites.ts",
-		"format": "biome format --write .",
-		"lint": "biome lint --error-on-warnings .",
-		"fix": "biome check --write .",
-		"typecheck": "tsc --noEmit && tsc -p tsconfig.tools.json && tsc -p tsconfig.tests.json",
-		"check": "biome check --error-on-warnings . && node tools/cli.ts check && npm test",
-		"test": "node --import ./tests/support/hooks.ts --test \"tests/*.test.ts\"",
 		"build": "node tools/cli.ts build",
+		"check": "biome check --error-on-warnings . && node tools/cli.ts check && npm test",
 		"clean": "node tools/cli.ts clean",
-		"ext:install": "node tools/cli.ts install",
-		"ext:uninstall": "node tools/cli.ts uninstall",
-		"ext:enable": "node tools/cli.ts enable",
-		"ext:disable": "node tools/cli.ts disable",
-		"ext:prefs": "node tools/cli.ts prefs",
-		"ext:pack": "node tools/cli.ts pack",
-		"logs": "journalctl -f -o cat /usr/bin/gnome-shell",
 		"dev": "npm run ext:install && dbus-run-session -- gnome-shell --nested --wayland",
+		"ext:disable": "node tools/cli.ts disable",
+		"ext:enable": "node tools/cli.ts enable",
+		"ext:install": "node tools/cli.ts install",
+		"ext:pack": "node tools/cli.ts pack",
+		"ext:prefs": "node tools/cli.ts prefs",
+		"ext:uninstall": "node tools/cli.ts uninstall",
+		"fix": "biome check --write .",
+		"format": "biome format --write .",
+		"format:check": "biome format .",
+		"lint": "biome lint --error-on-warnings .",
+		"logs": "journalctl -f -o cat /usr/bin/gnome-shell",
+		"sprites": "node tools/gen-sprites.ts && node tools/gen-icons.ts",
+		"test": "node --import ./tests/support/hooks.ts --test \"tests/**/*.test.ts\"",
 		"test:shell": "npm run ext:install && tools/test-shell.sh restart",
 		"test:shell:stop": "tools/test-shell.sh stop",
-		"test:watch": "node --import ./tests/support/hooks.ts --test --watch \"tests/*.test.ts\"",
-		"format:check": "biome format .",
-		"validate": "node tools/cli.ts validate"
+		"test:watch": "node --import ./tests/support/hooks.ts --test --watch \"tests/**/*.test.ts\"",
+		"typecheck": "tsc --noEmit && tsc -p tsconfig.win32.json --noEmit && tsc -p tsconfig.win32.preload.json --noEmit && tsc -p tsconfig.tools.json && tsc -p tsconfig.tests.json",
+		"validate": "node tools/cli.ts validate",
+		"win:build": "node tools/win32.ts build",
+		"win:clean": "node tools/win32.ts clean",
+		"win:dev": "node tools/win32.ts dev",
+		"win:native": "node tools/win32.ts native",
+		"win:pack": "node tools/win32.ts pack"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.11",
 		"@girs/gnome-shell": "^46.0.2",
 		"@types/node": "^26.4.0",
+		"electron": "^38.8.6",
+		"electron-builder": "^26.15.3",
+		"node-addon-api": "^8.9.2",
+		"node-gyp": "^12.4.0",
 		"typescript": "^7.0.2"
 	},
 	"overrides": {
 		"@girs/glib-2.0": "2.88.0-4.0.0-rc.17",
 		"@girs/gobject-2.0": "2.88.0-4.0.0-rc.17",
 		"@girs/gio-2.0": "2.88.0-4.0.0-rc.17"
+	},
+	"author": "PatrikSchweika",
+	"binary": {
+		"napi_versions": [
+			8
+		]
 	}
 }

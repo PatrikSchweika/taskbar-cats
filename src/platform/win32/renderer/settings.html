@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta
+			http-equiv="Content-Security-Policy"
+			content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'"
+		/>
+		<title>Ubuntu Cats</title>
+		<style>
+			:root {
+				color-scheme: light dark;
+				--bg: #ffffff;
+				--fg: #1b1b1b;
+				--muted: #666666;
+				--line: #e2e2e2;
+				--accent: #e8913c;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--bg: #1f1f1f;
+					--fg: #f2f2f2;
+					--muted: #a0a0a0;
+					--line: #383838;
+				}
+			}
+
+			body {
+				margin: 0;
+				padding: 20px 22px 12px;
+				font:
+					14px/1.45 "Segoe UI Variable Text",
+					"Segoe UI",
+					system-ui,
+					sans-serif;
+				background: var(--bg);
+				color: var(--fg);
+			}
+
+			h1 {
+				margin: 0 0 4px;
+				font-size: 19px;
+				font-weight: 600;
+			}
+
+			.subtitle {
+				margin: 0 0 18px;
+				color: var(--muted);
+			}
+
+			.row {
+				display: flex;
+				align-items: center;
+				gap: 16px;
+				padding: 11px 0;
+				border-top: 1px solid var(--line);
+			}
+
+			.text {
+				flex: 1;
+				min-width: 0;
+			}
+			.title {
+				font-weight: 500;
+			}
+			.hint {
+				color: var(--muted);
+				font-size: 12px;
+			}
+
+			.control {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				flex-shrink: 0;
+			}
+
+			.value {
+				min-width: 3ch;
+				text-align: right;
+				font-variant-numeric: tabular-nums;
+				color: var(--muted);
+			}
+
+			input[type="range"] {
+				width: 150px;
+				accent-color: var(--accent);
+			}
+			input[type="checkbox"] {
+				width: 16px;
+				height: 16px;
+				accent-color: var(--accent);
+			}
+
+			.row.disabled .title,
+			.row.disabled .hint {
+				opacity: 0.55;
+			}
+
+			.warning {
+				margin-bottom: 14px;
+				padding: 10px 12px;
+				border-radius: 6px;
+				background: color-mix(in srgb, var(--accent) 18%, transparent);
+				font-size: 13px;
+			}
+
+			.palettes {
+				padding: 14px 0 4px;
+				border-top: 1px solid var(--line);
+			}
+			.grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 6px 14px;
+				margin-top: 10px;
+			}
+			.palette {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+
+			footer {
+				margin-top: 16px;
+				padding-top: 10px;
+				border-top: 1px solid var(--line);
+				color: var(--muted);
+				font-size: 11px;
+				word-break: break-all;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Ubuntu Cats</h1>
+		<p class="subtitle">Changes apply immediately.</p>
+		<div id="form"></div>
+		<footer id="footer"></footer>
+		<script type="module" src="./settings.js"></script>
+	</body>
+</html>

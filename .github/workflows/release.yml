@@ -1,0 +1,94 @@
+name: Release
+
+# Packaging the Windows backend, so an end user needs no toolchain.
+#
+# The native taskbar helper is compiled here, once per architecture, and shipped
+# prebuilt inside the installer. That is the whole point: node-gyp, MSVC and
+# Python are build-time concerns that never reach anyone downloading a release.
+on:
+  push:
+    tags: ["v*"]
+  # A dry run: builds and uploads the installers as workflow artifacts without
+  # touching a release, so the packaging can be exercised without cutting one.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows ${{ matrix.arch }}
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            required: true
+          # Cross-compiled from the x64 runner, which needs the ARM64 MSVC
+          # target installed. It is not guaranteed to be on the runner image, so
+          # a failure here must not withhold the x64 release that does work.
+          - arch: arm64
+            required: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build the taskbar helper
+        id: native
+        continue-on-error: ${{ !matrix.required }}
+        run: npm run win:native -- --arch=${{ matrix.arch }}
+
+      - name: Package
+        id: package
+        if: steps.native.outcome == 'success'
+        continue-on-error: ${{ !matrix.required }}
+        run: npm run win:pack -- --arch=${{ matrix.arch }}
+
+      # Proof that the helper actually made it into the package. Without it a
+      # release could ship an app that silently ignores the taskbar, which is
+      # exactly the failure the loader is designed to survive — and therefore
+      # exactly the failure nobody would notice.
+      - name: The helper is in the package
+        if: steps.package.outcome == 'success'
+        shell: pwsh
+        run: |
+          $found = Get-ChildItem -Path dist/win32 -Recurse -Filter win32_shell.node
+          if (-not $found) {
+            Write-Error "win32_shell.node is not in the unpacked output"
+            exit 1
+          }
+          $found | ForEach-Object { Write-Host "found $($_.FullName)" }
+
+      - name: Upload the installers as artifacts
+        if: steps.package.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.arch }}
+          path: |
+            dist/win32/*.exe
+            dist/win32/*.zip
+          if-no-files-found: error
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v') && steps.package.outcome == 'success'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag \
+            || echo "release already exists, uploading into it"
+          gh release upload "${GITHUB_REF_NAME}" dist/win32/*.exe dist/win32/*.zip --clobber

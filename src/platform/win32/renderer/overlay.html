@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta
+			http-equiv="Content-Security-Policy"
+			content="default-src 'none'; img-src 'self'; script-src 'self'; style-src 'unsafe-inline'"
+		/>
+		<title>Ubuntu Cats</title>
+		<style>
+			/*
+			 * The window is transparent and click-through; nothing here may
+			 * paint a background or the whole strip would go opaque.
+			 */
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+				overflow: hidden;
+				background: transparent;
+				cursor: default;
+				user-select: none;
+			}
+
+			#stage {
+				position: absolute;
+				inset: 0;
+			}
+
+			.cat {
+				position: absolute;
+				top: 0;
+				left: 0;
+				/* Flip about the sprite's centre, so a turning cat stays put. */
+				transform-origin: 50% 50%;
+				/* Pixel art: never smooth it. */
+				image-rendering: pixelated;
+				will-change: transform;
+				pointer-events: none;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="stage"></div>
+		<script type="module" src="./overlay.js"></script>
+	</body>
+</html>

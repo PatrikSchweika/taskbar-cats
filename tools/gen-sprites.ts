@@ -23,7 +23,7 @@ const BASELINE = 31; // y of the ground; the cat's feet rest here
  *   'L' light fur     'K' outline       'E' eye      'P' pink (nose/ears/paws)
  *   'W' eye highlight
  */
-type Cell = "." | "B" | "D" | "L" | "K" | "E" | "P" | "W";
+export type Cell = "." | "B" | "D" | "L" | "K" | "E" | "P" | "W";
 const TRANSPARENT: Cell = ".";
 
 // -- numeric semantics -------------------------------------------------------
@@ -51,7 +51,7 @@ const radians = (deg: number): number => (deg * Math.PI) / 180;
 
 type Point = [number, number];
 
-class Canvas {
+export class Canvas {
 	readonly size: number;
 	readonly g: Cell[][];
 
@@ -193,7 +193,7 @@ function inTriangle(
 // `points` draws extremities (ears/muzzle/legs/tail) in D, siamese-style.
 // `patches` paints fixed calico-style blotches over the body.
 
-interface Palette {
+export interface Palette {
 	B: string;
 	D: string;
 	L: string;
@@ -206,7 +206,7 @@ interface Palette {
 	patches?: boolean;
 }
 
-const PALETTES: Record<string, Palette> = {
+export const PALETTES: Record<string, Palette> = {
 	"tabby-orange": {
 		B: "#e8913c",
 		D: "#c26a1e",
@@ -268,13 +268,13 @@ const PALETTES: Record<string, Palette> = {
 };
 
 /** Paint order, back to front. */
-const ORDER: Cell[] = ["K", "D", "B", "L", "P", "E", "W"];
+export const ORDER: Cell[] = ["K", "D", "B", "L", "P", "E", "W"];
 
 // -- anatomy -----------------------------------------------------------------
 
 type Eye = "open" | "closed" | "half";
 
-interface Pose {
+export interface Pose {
 	phase?: number;
 	swing?: number;
 	crouch?: number;
@@ -628,7 +628,7 @@ function drawSleeping(c: Canvas, pal: Palette, p: Pose): void {
 
 // -- poses: animation name -> frames -----------------------------------------
 
-type PlanName = "quad" | "sit" | "scratch" | "sleep";
+export type PlanName = "quad" | "sit" | "scratch" | "sleep";
 
 const PLANS: Record<PlanName, (c: Canvas, pal: Palette, p: Pose) => void> = {
 	quad: drawQuadruped,
@@ -637,7 +637,7 @@ const PLANS: Record<PlanName, (c: Canvas, pal: Palette, p: Pose) => void> = {
 	sleep: drawSleeping,
 };
 
-const POSES: Record<string, [PlanName, Pose[]]> = {
+export const POSES: Record<string, [PlanName, Pose[]]> = {
 	idle: [
 		"quad",
 		[
@@ -743,7 +743,7 @@ function toSvg(c: Canvas, pal: Palette): string {
 	return `${out.join("\n")}\n`;
 }
 
-function buildFrame(pal: Palette, plan: PlanName, params: Pose): Canvas {
+export function buildFrame(pal: Palette, plan: PlanName, params: Pose): Canvas {
 	const c = new Canvas();
 	PLANS[plan](c, pal, params);
 	c.outline("K");

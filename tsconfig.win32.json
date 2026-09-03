@@ -1,0 +1,17 @@
+{
+	// The Windows backend: the shared core plus the Electron overlay.
+	//
+	// One project rather than two despite spanning main process and renderer.
+	// They need different libs in principle — Node for one, DOM for the other —
+	// but splitting them would emit src/core twice into one outDir, and the
+	// looseness costs less than that does.
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"outDir": "build-win32",
+		"lib": ["ES2023", "DOM", "DOM.Iterable"],
+		"types": ["node"]
+	},
+	"include": ["src/core/**/*.ts", "src/platform/win32/**/*.ts"],
+	// The preload is built separately, as CommonJS. See tsconfig.win32.preload.json.
+	"exclude": ["src/platform/win32/preload.ts"]
+}

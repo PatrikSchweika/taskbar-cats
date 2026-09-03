@@ -190,7 +190,7 @@ function build(): void {
 	if (!emitted.includes("extension.js"))
 		die("tsc did not emit extension.js — check tsconfig rootDir/outDir");
 	console.log(
-		`build: ok -> build/ (${emitted.join(", ")} + lib/, assets/, schemas/)`,
+		`build: ok -> build/ (${emitted.join(", ")} + core/, platform/, assets/, schemas/)`,
 	);
 }
 
@@ -224,7 +224,10 @@ function pack(): void {
 	const args = [
 		"pack",
 		BUILD,
-		"--extra-source=lib",
+		// Everything tsc emits beside extension.js and prefs.js. gnome-extensions
+		// pack only includes those two by default.
+		"--extra-source=core",
+		"--extra-source=platform",
 		"--extra-source=assets",
 		"--force",
 		`--out-dir=${DIST}`,
