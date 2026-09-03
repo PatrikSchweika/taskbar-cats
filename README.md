@@ -212,13 +212,13 @@ Every setting applies immediately; none of them need a restart.
 | Shake the scratched icon | on | Rocks the **real** dock icon — turn off to leave the dock untouched |
 | Cat beds | 0 | Beds on the floor beside the dock (0–8); a sleepy cat walks to a free one and curls up in it |
 | Scratching posts | 0 | Posts on the floor beside the dock (0–8) for the cats to claw instead of your icons |
-| Bed positions / Post positions | blank | One entry per bed or post: a percentage of the floor from the left edge (0–100). Blank leaves it where the cats would put it |
+| Bed positions / Post positions | Auto | One row per bed or post: a percentage of the floor from the left edge (0–100), or Auto to leave it where the cats would put it |
 | Mouse visits | 120 | Roughly how many seconds pass between mice (0–3600); every cat joins the hunt. 0 means no mice |
 | Animation frame rate | 12 | Sprite frames per second |
 
 Beds and posts are spread over the free floor to either side of the dock's
-icons, never in front of one, and stay put when apps are launched or quit. Give
-one a position and it stands exactly there — on top of the dock if that is
+icons, never in front of one, and stay put when apps are launched or quit. Switch
+one off Auto and give it a position and it stands exactly there — on top of the dock if that is
 where you put it — and the automatic ones keep clear of it. The
 mouse comes in from a screen edge, bolts from any cat that gets close, and is
 either pounced on or, after a while, finds its way off the screen again.

@@ -159,9 +159,9 @@ async function main(): Promise<void> {
 	}
 
 	// -- positions ---------------------------------------------------------
-	// One text box per bed and post: a percentage of the floor from the left,
-	// or blank to leave it where the cats would put it. The boxes follow the
-	// count, so they are rebuilt whenever the settings change.
+	// One slider per bed and post — a percentage of the floor from the left —
+	// with an "Auto" box that hands the placement back to the cats. The rows
+	// follow the count, so they are rebuilt whenever the settings change.
 	const positions = (
 		countName: "beds" | "scratchers",
 		listName: "bedPositions" | "scratcherPositions",
@@ -173,51 +173,90 @@ async function main(): Promise<void> {
 			element(
 				"div",
 				"hint",
-				`Percent of the floor from the left edge, 0–100. Blank leaves a ${noun.toLowerCase()} where the cats would put it.`,
+				`Percent of the floor from the left edge. Auto leaves a ${noun.toLowerCase()} where the cats would put it.`,
 			),
 		);
-		const grid = element("div", "grid");
-		section.appendChild(grid);
+		const list = element("div", "list");
+		section.appendChild(list);
 		form.appendChild(section);
 
+		interface Controls {
+			slider: HTMLInputElement;
+			readout: HTMLElement;
+			auto: HTMLInputElement;
+			wrapper: HTMLElement;
+		}
 		let shownCount = -1;
-		const inputs: HTMLInputElement[] = [];
+		const controls: Controls[] = [];
+
+		const commit = (): void => {
+			const values = [...current[listName]];
+			controls.forEach(({ slider, auto }, k) => {
+				values[k] = auto.checked ? AUTO_POSITION : Number(slider.value);
+			});
+			for (let k = 0; k < values.length; k++)
+				if (values[k] === undefined) values[k] = AUTO_POSITION;
+			cats.apply({ [listName]: values } as Partial<Settings>);
+		};
+
+		const reflect = (c: Controls): void => {
+			c.slider.disabled = c.auto.checked;
+			c.readout.textContent = c.auto.checked ? "auto" : c.slider.value;
+			c.wrapper.classList.toggle("disabled", c.auto.checked);
+		};
+
 		const render = (settings: Settings): void => {
 			const count = settings[countName];
 			section.hidden = count === 0;
 			if (count !== shownCount) {
 				shownCount = count;
-				grid.textContent = "";
-				inputs.length = 0;
+				list.textContent = "";
+				controls.length = 0;
 				for (let i = 0; i < count; i++) {
-					const label = element("label", "position");
-					label.appendChild(element("span", undefined, `${noun} ${i + 1}`));
-					const input = element("input");
-					input.type = "number";
-					input.min = "0";
-					input.max = "100";
-					input.placeholder = "auto";
-					input.addEventListener("change", () => {
-						const values = [...current[listName]];
-						inputs.forEach((box, k) => {
-							const n = Number(box.value);
-							values[k] =
-								box.value.trim() === "" || !Number.isFinite(n)
-									? AUTO_POSITION
-									: n;
-						});
-						cats.apply({ [listName]: values } as Partial<Settings>);
+					const slider = element("input");
+					slider.type = "range";
+					slider.min = "0";
+					slider.max = "100";
+					slider.step = "1";
+					// A fresh row starts in the middle, so unticking Auto puts
+					// the prop somewhere visible straight away.
+					slider.value = "50";
+					const readout = element("span", "value");
+					const auto = element("input");
+					auto.type = "checkbox";
+					const autoLabel = element("label", "auto");
+					autoLabel.appendChild(auto);
+					autoLabel.appendChild(element("span", undefined, "Auto"));
+
+					const side = element("div", "control");
+					side.appendChild(readout);
+					side.appendChild(slider);
+					side.appendChild(autoLabel);
+					const wrapper = element("div", "row");
+					const text = element("div", "text");
+					text.appendChild(element("div", "title", `${noun} ${i + 1}`));
+					wrapper.appendChild(text);
+					wrapper.appendChild(side);
+					list.appendChild(wrapper);
+
+					const c: Controls = { slider, readout, auto, wrapper };
+					slider.addEventListener("input", () => {
+						reflect(c);
+						commit();
 					});
-					inputs.push(input);
-					label.appendChild(input);
-					grid.appendChild(label);
+					auto.addEventListener("change", () => {
+						reflect(c);
+						commit();
+					});
+					controls.push(c);
 				}
 			}
-			inputs.forEach((input, i) => {
+			controls.forEach((c, i) => {
 				const value = settings[listName][i];
-				const text =
-					value === undefined || value === AUTO_POSITION ? "" : String(value);
-				if (input.value !== text) input.value = text;
+				const isAuto = value === undefined || value === AUTO_POSITION;
+				c.auto.checked = isAuto;
+				if (!isAuto) c.slider.value = String(value);
+				reflect(c);
 			});
 		};
 		render(current);

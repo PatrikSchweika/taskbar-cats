@@ -218,12 +218,14 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 	}
 
 	/**
-	 * One entry per bed or post, holding where it stands as a percentage of the
-	 * floor from the left. Blank leaves that one where the cats would put it.
+	 * One row per bed or post: a spin button holding where it stands as a
+	 * percentage of the floor from the left, and an "Auto" switch that hands
+	 * the placement back to the cats. While Auto is on the number is greyed
+	 * out but keeps its last value, so switching Auto off puts the prop back
+	 * where it was.
 	 *
-	 * The rows follow the count: turning a bed on adds its entry, turning it
-	 * off takes the entry away (its stored position is kept, so it comes back
-	 * where it was).
+	 * The rows follow the count: turning a bed on adds its row, turning it off
+	 * takes the row away (its stored position is kept for when it comes back).
 	 */
 	private _positionsRow(
 		settings: Gio.Settings,
@@ -234,26 +236,25 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 		const expander = new Adw.ExpanderRow({
 			title: `${noun} positions`,
 			subtitle:
-				"Percent of the floor from the left edge, 0–100. " +
-				`Blank leaves a ${noun.toLowerCase()} where the cats would put it.`,
+				"Percent of the floor from the left edge. " +
+				`Auto leaves a ${noun.toLowerCase()} where the cats would put it.`,
 		});
 
 		const stored = (): number[] =>
 			normalizePositions(settings.get_value(positionsKey).deepUnpack());
-		const rows: Adw.EntryRow[] = [];
+		const rows: {
+			row: Adw.ActionRow;
+			spin: Gtk.SpinButton;
+			auto: Gtk.Switch;
+		}[] = [];
 		let rebuilding = false;
 
 		const commit = (): void => {
 			if (rebuilding) return;
 			// Entries beyond the current count are kept as they were.
 			const values = stored();
-			rows.forEach((row, i) => {
-				const text = row.get_text().trim();
-				const n = Number(text);
-				const valid = text !== "" && Number.isInteger(n) && n >= 0 && n <= 100;
-				values[i] = valid ? n : AUTO_POSITION;
-				if (text !== "" && !valid) row.add_css_class("error");
-				else row.remove_css_class("error");
+			rows.forEach(({ spin, auto }, i) => {
+				values[i] = auto.active ? AUTO_POSITION : Math.round(spin.value);
 			});
 			for (let i = 0; i < values.length; i++)
 				if (values[i] === undefined) values[i] = AUTO_POSITION;
@@ -262,19 +263,53 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 
 		const rebuild = (): void => {
 			rebuilding = true;
-			for (const row of rows) expander.remove(row);
+			for (const { row } of rows) expander.remove(row);
 			rows.length = 0;
 			const values = stored();
 			const count = settings.get_int(countKey);
 			for (let i = 0; i < count; i++) {
 				const value = values[i] ?? AUTO_POSITION;
-				const row = new Adw.EntryRow({
-					title: `${noun} ${i + 1}`,
-					text: value === AUTO_POSITION ? "" : String(value),
-					input_purpose: Gtk.InputPurpose.DIGITS,
+				const isAuto = value === AUTO_POSITION;
+
+				const spin = new Gtk.SpinButton({
+					adjustment: new Gtk.Adjustment({
+						lower: 0,
+						upper: 100,
+						step_increment: 1,
+						page_increment: 10,
+						// A fresh row starts in the middle, so switching Auto
+						// off puts the prop somewhere visible straight away.
+						value: isAuto ? 50 : value,
+					}),
+					numeric: true,
+					valign: Gtk.Align.CENTER,
+					sensitive: !isAuto,
 				});
-				row.connect("changed", commit);
-				rows.push(row);
+				const auto = new Gtk.Switch({
+					active: isAuto,
+					valign: Gtk.Align.CENTER,
+				});
+				const autoBox = new Gtk.Box({
+					spacing: 8,
+					valign: Gtk.Align.CENTER,
+					margin_start: 12,
+				});
+				autoBox.append(new Gtk.Label({ label: "Auto" }));
+				autoBox.append(auto);
+
+				const row = new Adw.ActionRow({
+					title: `${noun} ${i + 1}`,
+					activatable_widget: spin,
+				});
+				row.add_suffix(spin);
+				row.add_suffix(autoBox);
+
+				spin.connect("value-changed", commit);
+				auto.connect("notify::active", () => {
+					spin.sensitive = !auto.active;
+					commit();
+				});
+				rows.push({ row, spin, auto });
 				expander.add_row(row);
 			}
 			expander.sensitive = count > 0;
