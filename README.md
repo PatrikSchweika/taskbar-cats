@@ -436,6 +436,13 @@ targets the inner icon rather than the button, records every actor's original
 rotation and pivot, drops references when an actor is destroyed, and restores
 everything in `disable()`.
 
+**Passing each other.** The cats walk a single line, kept apart by a soft
+separation force, which on its own would have them bounce off one another and
+stay in their starting order for ever. A cat bound for somewhere well beyond
+another cat therefore ignores the separation from it, and is ignored in turn,
+so the two overlap for a moment and carry on; cats walking the same way still
+queue rather than pile up.
+
 **Furniture and prey.** Beds, scratching posts and the mouse belong to the
 colony, not the platform, so both backends get them by calling the same
 `sync()` and `update()` they already did; the only platform addition is a

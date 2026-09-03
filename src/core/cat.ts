@@ -185,6 +185,41 @@ export class Cat {
 		return this._bed;
 	}
 
+	/** Where this cat is heading along the floor. */
+	get target(): number {
+		return this._target;
+	}
+
+	/** True while a scratch or a pounce holds the cat in place. */
+	get rooted(): boolean {
+		return this.state === State.SCRATCH || this.state === State.POUNCE;
+	}
+
+	/**
+	 * Whether this cat is on its way past `other`: heading that way, bound for
+	 * somewhere well beyond it, and not merely following it along.
+	 *
+	 * Cats walk a single line, so without this the separation below would make
+	 * them bounce off each other and keep the colony in the order it started
+	 * in for ever. A cat that is passing ignores the one it passes, and vice
+	 * versa, so neither is shoved; they overlap for a moment and carry on. Two
+	 * cats walking the same way still queue rather than pile up.
+	 */
+	private _isPassing(other: Cat): boolean {
+		if (this.rooted) return false;
+		const dir = Math.sign(this._target - this.x);
+		const toOther = other.x - this.x;
+		if (dir === 0 || Math.sign(toOther) !== dir) return false;
+		// Bound for the far side of the other cat, not for this side of it. A
+		// target only just beyond still counts: once there, separation resumes
+		// and nudges the two apart.
+		if (Math.abs(this._target - this.x) <= Math.abs(toOther) + ARRIVE_PX)
+			return false;
+		// Walking the same way: fall in behind instead.
+		if (Math.abs(other.vx) > 6 && Math.sign(other.vx) === dir) return false;
+		return true;
+	}
+
 	private _setState(next: CatState): void {
 		if (next === this.state) return;
 		if (this.state === State.SCRATCH) {
@@ -371,13 +406,16 @@ export class Cat {
 		if (!rooted && Math.abs(delta) > ARRIVE_PX)
 			desiredVx = clamp(delta * 4, -maxSpeed, maxSpeed);
 
-		// Soft separation so cats do not stack on the same pixel.
+		// Soft separation so cats do not stack on the same pixel — except
+		// between a cat and one it is walking past, or they could never swap
+		// places.
 		for (const other of neighbours) {
 			if (other === this) continue;
 			const gap = this.x - other.x;
 			const room = this.size * 0.95;
-			if (Math.abs(gap) < room && Math.abs(gap) > 0.001)
-				desiredVx += Math.sign(gap) * (room - Math.abs(gap)) * 3;
+			if (Math.abs(gap) >= room || Math.abs(gap) <= 0.001) continue;
+			if (this._isPassing(other) || other._isPassing(this)) continue;
+			desiredVx += Math.sign(gap) * (room - Math.abs(gap)) * 3;
 		}
 		desiredVx = clamp(desiredVx, -topSpeed, topSpeed);
 

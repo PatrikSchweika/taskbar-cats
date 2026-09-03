@@ -382,6 +382,90 @@ describe("Cat", () => {
 		assert.ok(at2x > at1x * 1.6, `1x moved ${at1x}, 2x moved ${at2x}`);
 	});
 
+	describe("passing each other", () => {
+		it("walks past a cat that is standing in the way", () => {
+			// One cat is called to the pointer on the far side of another that
+			// is asleep. Before, the two collided and the sleeper was shoved
+			// along in front of the walker for the rest of the trip.
+			const walker = makeCat({ x: 400, index: 0 });
+			const sleeper = makeCat({ x: 800, index: 1 });
+			const cats = [walker, sleeper];
+			const forWalker = makeContext({
+				pointer: { x: 1200, y: 880, idleTime: 0 },
+				neighbours: cats,
+			});
+			const forSleeper = makeContext({
+				cfg: { ...DEFAULT_CFG, sleepAfter: 1 },
+				pointer: { x: -5000, y: -5000, idleTime: 60 },
+				neighbours: cats,
+			});
+			for (let t = 0; t < 10; t += 1 / 30) {
+				walker.update(1 / 30, forWalker);
+				sleeper.update(1 / 30, forSleeper);
+			}
+			assert.ok(walker.x > 1100, `walker only reached ${walker.x}`);
+			assert.ok(
+				Math.abs(sleeper.x - 800) < 30,
+				`sleeper was shoved to ${sleeper.x}`,
+			);
+		});
+
+		it("lets two cats heading opposite ways cross", () => {
+			const left = makeCat({ x: 300, index: 0 });
+			const right = makeCat({ x: 1300, index: 1 });
+			const cats = [left, right];
+			const forLeft = makeContext({
+				pointer: { x: 1300, y: 880, idleTime: 0 },
+				neighbours: cats,
+			});
+			const forRight = makeContext({
+				pointer: { x: 300, y: 880, idleTime: 0 },
+				neighbours: cats,
+			});
+			for (let t = 0; t < 12; t += 1 / 30) {
+				left.update(1 / 30, forLeft);
+				right.update(1 / 30, forRight);
+			}
+			assert.ok(left.x > 1200, `left-hand cat stuck at ${left.x}`);
+			assert.ok(right.x < 400, `right-hand cat stuck at ${right.x}`);
+		});
+
+		it("still does not stand on a cat it was heading for", () => {
+			// Bound for the spot the other cat occupies, not past it: that is a
+			// case for separation, or the two would share a pixel.
+			const ctx = makeContext({ pointer: { x: 800, y: 880, idleTime: 0 } });
+			const cats = [
+				makeCat({ x: 200, index: 0 }),
+				makeCat({ x: 800, index: 1 }),
+			];
+			ctx.neighbours = cats;
+			run(cats, ctx, 12);
+			const gap = Math.abs(cats[0].x - cats[1].x);
+			assert.ok(gap > 20, `cats stacked, ${gap.toFixed(1)}px apart`);
+		});
+
+		it("falls in behind a cat walking the same way", () => {
+			// Both chase the same mouse; the one behind should not run through
+			// the one in front and stack on it.
+			const mouse = makeMouse(1500, 1);
+			const ctx = makeContext({
+				mouse,
+				cfg: { ...DEFAULT_CFG, sleepAfter: 0 },
+			});
+			const cats = [
+				makeCat({ x: 700, index: 0 }),
+				makeCat({ x: 760, index: 1 }),
+			];
+			ctx.neighbours = cats;
+			let closest = Number.POSITIVE_INFINITY;
+			for (let t = 0; t < 2; t += 1 / 30) {
+				run(cats, ctx, 1 / 30);
+				closest = Math.min(closest, Math.abs(cats[0].x - cats[1].x));
+			}
+			assert.ok(closest > 15, `piled up, ${closest.toFixed(1)}px apart`);
+		});
+	});
+
 	describe("beds", () => {
 		/** Pointer long gone: a cat with a nap timer of 2s is sleepy at once. */
 		const drowsy = () => ({
