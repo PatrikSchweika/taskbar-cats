@@ -17,7 +17,7 @@ describe("extensionMetadata", () => {
 		uuid: "ubuntu-cats",
 		name: "Ubuntu Cats",
 		description: "cats",
-		"shell-version": ["45", "46", "47", "48"],
+		"shell-version": ["45", "46", "47", "48", "49", "50"],
 		"settings-schema": "org.gnome.shell.extensions.ubuntu-cats",
 		version: 2,
 	};

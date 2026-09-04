@@ -27,7 +27,7 @@ post and the mouse), which come out of the same generator.
 
 | Need | Why | Ubuntu 24.04 |
 |---|---|---|
-| GNOME Shell 45–48 | The extension targets this API | preinstalled |
+| GNOME Shell 45–50 | The extension targets this API | preinstalled |
 | A dock | Ubuntu Dock, Dash to Dock, Dash to Panel, or the stock GNOME dash | Ubuntu Dock is preinstalled |
 | `gnome-extensions` | Enabling and configuring | ships with `gnome-shell` |
 | `glib-compile-schemas` | Compiles the settings schema at install time | `sudo apt install libglib2.0-bin` |
