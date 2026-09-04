@@ -59,8 +59,11 @@ inside the package.
 
 | File | What it is |
 |---|---|
-| `Ubuntu Cats Setup <version>.exe` | Installs for the current user only, so there is **no administrator prompt**. Adds a Start-menu entry and an uninstaller, and starts the cats when it finishes. |
-| `Ubuntu Cats-<version>-win-x64.zip` | The same app, unzipped wherever you like. No Start-menu entry, no uninstaller. |
+| `Ubuntu-Cats-Setup-<version>-x64.exe` | Installs for the current user only, so there is **no administrator prompt**. Adds a Start-menu entry and an uninstaller, keeps itself up to date, and starts the cats when it finishes. |
+| `Ubuntu-Cats-<version>-win-x64.zip` | The same app, unzipped wherever you like. No Start-menu entry, no uninstaller, **and no updates**. |
+
+Prefer the installer unless you have a reason not to: it is the only one of the
+two that updates itself. See [Updating](#updating).
 
 Right-click the cat in the notification area for settings, autostart and quit.
 
@@ -75,6 +78,54 @@ should only click through it if you trust the source. Signing it would need a
 certificate on a hardware token or a cloud signing service, which is a running
 cost this project does not have. If that changes, the warning goes away with no
 change to the app itself.
+
+Updates inherit this. The updater checks that a download matches the size and
+hash the release advertises, which catches a corrupted or truncated file, but a
+hash published beside the file it describes proves nothing about *who* built it.
+Trusting an update therefore means the same thing as trusting the first
+install: that this GitHub repository is what you think it is.
+
+### Updating
+
+An installed copy keeps itself up to date. It asks GitHub for the newest
+release when it starts and every six hours after that, downloads it quietly,
+and then offers to restart:
+
+> **Ubuntu Cats 1.2.0 is ready to install.**
+> The cats will disappear for a moment while it installs, then come back.
+> [ Restart now ] [ Later ]
+
+**Later** is not *never*: the update is already downloaded and installs the
+next time you quit the app. Nothing is downloaded over a metered connection any
+differently than anything else — if you would rather it never looked, quit the
+app or uninstall it.
+
+To check by hand, right-click the tray cat and choose **Check for updates…**.
+That one always says what it found, including that you are already up to date;
+the six-hourly checks stay silent unless there is something to install. The
+tray menu also shows the running version, so you can tell whether an update
+actually landed.
+
+Because the install is per-user, updating needs no administrator prompt, and
+your settings are untouched — they live outside the app directory.
+
+**The portable zip does not update itself.** It is the same application, but
+updating it would mean running an installer, which would put a *second* copy
+under `%LOCALAPPDATA%` while you carried on launching the old one from wherever
+you unzipped it. The app can tell the difference, so with the zip the tray item
+tells you so instead of doing that. Download a new zip, or switch to the
+installer.
+
+**The ARM64 build does not update itself either.** Windows publishes one update
+channel per release and electron-builder writes a single `latest.yml` for the
+whole platform, so it can only describe one architecture — and that is x64,
+which is also the only architecture the release is guaranteed to contain. An
+ARM64 install therefore behaves like the zip: it says so rather than offering
+you an x64 installer. Windows runs the x64 build under emulation, so installing
+that one instead is a reasonable trade.
+
+Finally, because the releases are unsigned, an update is exactly as unverified
+as the first install was. See below.
 
 ### Where your settings live
 

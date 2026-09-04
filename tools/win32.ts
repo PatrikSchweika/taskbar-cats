@@ -35,6 +35,7 @@ interface RootManifest {
 	description?: string;
 	author?: string;
 	license?: string;
+	dependencies?: Record<string, string>;
 }
 
 function die(msg: string): never {
@@ -60,6 +61,12 @@ function run(cmd: string, args: string[]): number {
  * one keeps a single source of truth for the version, and means the app is
  * identical in `win:dev` and in an installer — including `productName`, which
  * decides `app.getName()` and therefore where settings.json lives.
+ *
+ * The dependencies come across for electron-builder's benefit: it reads them
+ * from here to decide what goes into app.asar, and resolves them against the
+ * repository's node_modules because build-win32 has none of its own. Only
+ * runtime dependencies are ever listed in the root manifest — everything that
+ * merely builds the app is a devDependency — so the whole set can be copied.
  */
 export function appManifest(root: RootManifest): Record<string, unknown> {
 	return {
@@ -74,6 +81,7 @@ export function appManifest(root: RootManifest): Record<string, unknown> {
 		// overrides it back to commonjs for the preload.
 		main: ENTRY,
 		type: "module",
+		dependencies: root.dependencies ?? {},
 	};
 }
 

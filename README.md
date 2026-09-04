@@ -105,14 +105,20 @@ installed but the shell started before it was.
 
 ### Option B — from a packaged zip (no Node needed)
 
-Useful for installing on a machine you do not want a toolchain on. Build the
-zip once somewhere with Node:
+Useful for installing on a machine you do not want a toolchain on. Every release
+has `ubuntu-cats.shell-extension.zip` attached, so the usual route is to
+download that one from the
+[releases page](https://github.com/PatrikSchweika/taskbar-cats/releases).
+
+To build one yourself instead, from any machine with Node — it needs no GNOME,
+because the zip is written by `tools/zip.ts` rather than by
+`gnome-extensions pack`:
 
 ```bash
 npm run ext:pack        # writes dist/ubuntu-cats.shell-extension.zip
 ```
 
-then on the target machine:
+Either way, on the target machine:
 
 ```bash
 gnome-extensions install --force ubuntu-cats.shell-extension.zip
@@ -136,14 +142,32 @@ Without the repo checked out, the same things are
 
 ### Updating
 
+**The extension does not update itself, and cannot.** GNOME only updates
+extensions it installed from
+[extensions.gnome.org](https://extensions.gnome.org), and this one is not
+published there yet — doing so means changing the UUID to the `name@domain`
+form that site requires, and then waiting on a human review for every release.
+See [A note on the UUID](#a-note-on-the-uuid).
+
+So updating is the same as installing. From a checkout:
+
 ```bash
 git pull
 npm install
 npm run ext:install
 ```
 
+or, from a downloaded release zip:
+
+```bash
+gnome-extensions install --force ubuntu-cats.shell-extension.zip
+```
+
 Then restart the shell. GNOME caches ES modules, so a running shell keeps the
 old code until it restarts — no need to disable and re-enable.
+
+The Windows app is different: an installed copy keeps itself up to date. See
+[docs/windows.md](docs/windows.md#updating).
 
 ### If something goes wrong
 
@@ -236,7 +260,7 @@ either pounced on or, after a while, finds its way off the screen again.
 | `npm run build` | Compile `src/*.ts` → `build/`, copying assets, schemas and metadata alongside |
 | `npm run ext:install` | Build, then install into `~/.local/share/gnome-shell/extensions/` |
 | `npm run ext:enable` / `ext:disable` / `ext:prefs` | Extension lifecycle |
-| `npm run ext:pack` | Distributable zip in `dist/` |
+| `npm run ext:pack` | Distributable zip in `dist/` — needs no GNOME, so it works anywhere Node does |
 | `npm run ext:uninstall` | Disable and remove |
 | `npm run sprites` | Regenerate the sprite frames and the Windows icons |
 | `npm run win:dev` | Windows only: build the taskbar helper and overlay, then run it |
@@ -529,6 +553,43 @@ session. Capture what it is showing with:
 ```bash
 tools/test-shell.sh shot 3 out    # writes out000.png
 ```
+
+## Releasing
+
+Both backends are packaged by
+[`.github/workflows/release.yml`](.github/workflows/release.yml), which runs on
+a `v*` tag: the Windows installer and portable zip from a Windows runner, the
+extension zip from a Linux one, all attached to the GitHub release. Pushing the
+tag is the whole release.
+
+Before tagging, three versions have to be right, and only one of them is
+automatic.
+
+| Where | What | Who sets it |
+|---|---|---|
+| `package.json` `version` | The release version. The tag must match it, and the Windows installer and its update metadata are named from it | you |
+| `src/metadata.json` `version` | An **integer** GNOME compares to decide which copy of the extension is newer. Bump it by one every release | you |
+| `src/metadata.json` `version-name` | The version the Extensions app displays | the build, from `package.json` |
+
+The workflow refuses a tag that disagrees with `package.json`, because the
+symptom otherwise is subtle: the installer would be named after the previous
+version and announce that version to anyone checking for updates, so no
+installed copy would ever take the release.
+
+Nothing checks the integer `version`, because nothing can tell a deliberate
+bump from a forgotten one. Forgetting it costs nothing today — the extension is
+installed by hand either way — but it is what
+[extensions.gnome.org](https://extensions.gnome.org) would order releases by,
+so it is worth keeping honest.
+
+```bash
+# after bumping package.json and src/metadata.json, and committing
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+`workflow_dispatch` runs the same jobs without touching a release, which is the
+way to exercise the packaging without cutting one.
 
 ## Verifying a change
 

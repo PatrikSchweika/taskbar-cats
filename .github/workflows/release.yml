@@ -1,14 +1,19 @@
 name: Release
 
-# Packaging the Windows backend, so an end user needs no toolchain.
+# Packaging both backends, so an end user needs no toolchain.
 #
-# The native taskbar helper is compiled here, once per architecture, and shipped
-# prebuilt inside the installer. That is the whole point: node-gyp, MSVC and
-# Python are build-time concerns that never reach anyone downloading a release.
+# Windows: the native taskbar helper is compiled here, once per architecture,
+# and shipped prebuilt inside the installer. node-gyp, MSVC and Python are
+# build-time concerns that never reach anyone downloading a release. The
+# installer is accompanied by the update metadata that lets an installed copy
+# find the next release on its own.
+#
+# GNOME: the extension is packed into the zip `gnome-extensions install` takes,
+# so it can be installed on a machine with no Node and no checkout.
 on:
   push:
     tags: ["v*"]
-  # A dry run: builds and uploads the installers as workflow artifacts without
+  # A dry run: builds and uploads everything as workflow artifacts without
   # touching a release, so the packaging can be exercised without cutting one.
   workflow_dispatch:
 
@@ -20,8 +25,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Both packages take their version from package.json, not from the tag. A tag
+  # that disagreed would attach an installer named after the *previous* version
+  # and update metadata announcing it, so an installed app would decide it was
+  # already up to date and never take the release. Cheap to check, and
+  # invisible until someone wonders why auto-update stopped working.
+  preflight:
+    name: The tag matches package.json
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "package.json: $version"
+          echo "ref:          ${GITHUB_REF_NAME} (${GITHUB_REF_TYPE})"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "v$version" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match package.json version $version"
+            exit 1
+          fi
+
   windows:
     name: Windows ${{ matrix.arch }}
+    needs: preflight
     runs-on: windows-2022
     strategy:
       fail-fast: false
@@ -70,6 +97,30 @@ jobs:
           }
           $found | ForEach-Object { Write-Host "found $($_.FullName)" }
 
+      # The two files auto-update needs, and the one failure mode that is
+      # invisible at release time: electron-builder only writes them when a
+      # publish provider is configured, so losing that block would produce a
+      # release that installs fine and then never updates again.
+      #
+      # latest.yml sits beside the installer and says what the newest version
+      # is; app-update.yml is baked into the package and tells an installed copy
+      # where to look.
+      - name: The update metadata was written
+        if: matrix.arch == 'x64' && steps.package.outcome == 'success'
+        shell: pwsh
+        run: |
+          $channel = Get-ChildItem -Path dist/win32 -Filter "latest*.yml"
+          if (-not $channel) {
+            Write-Error "no latest*.yml in dist/win32 — an installed app would never see this release"
+            exit 1
+          }
+          $inApp = Get-ChildItem -Path dist/win32 -Recurse -Filter app-update.yml
+          if (-not $inApp) {
+            Write-Error "app-update.yml is not in the package — the installed app would not know where to look"
+            exit 1
+          }
+          $channel | ForEach-Object { Write-Host "channel: $($_.Name)"; Get-Content $_.FullName }
+
       - name: Upload the installers as artifacts
         if: steps.package.outcome == 'success'
         uses: actions/upload-artifact@v4
@@ -78,11 +129,97 @@ jobs:
           path: |
             dist/win32/*.exe
             dist/win32/*.zip
+            dist/win32/*.blockmap
+            dist/win32/latest*.yml
           if-no-files-found: error
 
+      # The blockmap is part of the release, not an extra: electron-updater reads
+      # it to download only the parts of the installer that changed.
+      #
+      # latest.yml is uploaded by the x64 job alone. On Windows electron-builder
+      # writes that one filename whatever the architecture — the -arm64 suffix
+      # it adds to channel files is Linux-only — so uploading it from both jobs
+      # would leave whichever finished last in charge, and every x64 user would
+      # be offered an ARM64 installer. The consequence is that the ARM64 build
+      # does not update itself; docs/windows.md says so.
       - name: Attach to the release
         if: startsWith(github.ref, 'refs/tags/v') && steps.package.outcome == 'success'
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag \
+            || echo "release already exists, uploading into it"
+          shopt -s nullglob
+          files=(dist/win32/*.exe dist/win32/*.zip dist/win32/*.blockmap)
+          if [ "$ARCH" = "x64" ]; then
+            files+=(dist/win32/latest.yml)
+          fi
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::nothing to upload from dist/win32"
+            exit 1
+          fi
+          printf 'uploading %s\n' "${files[@]}"
+          gh release upload "${GITHUB_REF_NAME}" "${files[@]}" --clobber
+
+  gnome:
+    name: GNOME extension
+    needs: preflight
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      # `validate` compiles the GSettings schema. Packing itself needs nothing
+      # beyond Node: tools/zip.ts writes the archive, rather than calling
+      # `gnome-extensions pack`, whose dependency closure on Ubuntu is most of
+      # a desktop.
+      - name: Install glib-compile-schemas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libglib2.0-bin
+
+      - run: npm ci
+
+      - name: Validate schema, metadata and sprites
+        run: npm run validate
+
+      - name: Pack
+        run: npm run ext:pack
+
+      # An extension zip GNOME will not load is worth catching here, since the
+      # symptom on a user's machine is an extension that silently fails to
+      # enable. metadata.json at the root is what the shell reads first.
+      - name: The zip is shaped like an extension
+        run: |
+          zip=dist/ubuntu-cats.shell-extension.zip
+          unzip -l "$zip"
+          for required in metadata.json extension.js prefs.js; do
+            if ! unzip -Z1 "$zip" | grep -qx "$required"; then
+              echo "::error::$required is missing from the root of $zip"
+              exit 1
+            fi
+          done
+          echo "metadata.json says:"
+          unzip -p "$zip" metadata.json
+
+      - name: Upload the extension as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnome-extension
+          path: dist/*.shell-extension.zip
+          if-no-files-found: error
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -91,4 +228,4 @@ jobs:
             --generate-notes \
             --verify-tag \
             || echo "release already exists, uploading into it"
-          gh release upload "${GITHUB_REF_NAME}" dist/win32/*.exe dist/win32/*.zip --clobber
+          gh release upload "${GITHUB_REF_NAME}" dist/*.shell-extension.zip --clobber

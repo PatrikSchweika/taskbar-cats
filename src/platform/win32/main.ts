@@ -16,8 +16,8 @@
  * The expensive half of polling is UI Automation, so the taskbar layout is read
  * a few times a second while the pointer is read on every tick.
  */
-import { readFileSync } from "node:fs";
-import { join, relative, resolve, sep } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
@@ -33,6 +33,7 @@ import {
 	screen,
 	Tray,
 } from "electron";
+import electronUpdater from "electron-updater";
 
 import { ACTIVE_INTERVAL_MS } from "../../core/colony.js";
 import type { Settings } from "../../core/config.js";
@@ -46,6 +47,7 @@ import {
 	type DisplayBridge,
 	TaskbarTracker,
 } from "./taskbarTracker.js";
+import { Updater, type UpdaterPort, updateSupport } from "./updater.js";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 /** The root of the compiled output; everything the renderers load is under it. */
@@ -83,6 +85,62 @@ function handleBundleProtocol(): void {
 		if (inside.startsWith("..") || inside.startsWith(`${sep}..`))
 			return new Response("forbidden", { status: 403 });
 		return net.fetch(pathToFileURL(path).toString());
+	});
+}
+
+/**
+ * The updater, wired to electron-updater and to Electron's dialogs.
+ *
+ * `updater.ts` deliberately imports neither, so that the decisions about when
+ * to check and what to say can be tested off Windows. This is the seam where
+ * the real ones are attached.
+ *
+ * electron-updater is CommonJS, so it arrives as a default export rather than
+ * as named bindings.
+ */
+function createUpdater(): Updater {
+	// Its logger is left alone deliberately. electron-updater defaults to
+	// `console`, which lands in the same place the rest of this process logs,
+	// and an update that quietly fails is the one thing here that is hard to
+	// diagnose without it. Setting it to null would install a no-op logger.
+	const { autoUpdater } = electronUpdater;
+
+	return new Updater({
+		// electron-updater's own event typings are narrower than the handful of
+		// events used here, hence the structural cast.
+		port: autoUpdater as unknown as UpdaterPort,
+		support: updateSupport({
+			platform: process.platform,
+			arch: process.arch,
+			packaged: app.isPackaged,
+			installDir: dirname(app.getPath("exe")),
+			siblings: () => readdirSync(dirname(app.getPath("exe"))),
+		}),
+		ui: {
+			log: (message) => console.log(`taskbar-cats: ${message}`),
+			report: (message) => {
+				void dialog.showMessageBox({
+					type: "info",
+					title: "Ubuntu Cats",
+					message,
+					buttons: ["OK"],
+				});
+			},
+			confirmRestart: async (version) => {
+				const { response } = await dialog.showMessageBox({
+					type: "question",
+					title: "Ubuntu Cats",
+					message: `Ubuntu Cats ${version} is ready to install.`,
+					detail:
+						"The cats will disappear for a moment while it installs, " +
+						"then come back.",
+					buttons: ["Restart now", "Later"],
+					defaultId: 0,
+					cancelId: 1,
+				});
+				return response === 0;
+			},
+		},
 	});
 }
 
@@ -201,6 +259,7 @@ class CatsApp {
 	private _overlay: Overlay | null = null;
 	private _settingsWindow: BrowserWindow | null = null;
 	private _tray: Tray | null = null;
+	private _updater: Updater | null = null;
 	private _timer: NodeJS.Timeout | null = null;
 	private _sinceLayout = Number.POSITIVE_INFINITY;
 	private _lastLayoutKey = "";
@@ -221,6 +280,7 @@ class CatsApp {
 
 	start(): void {
 		handleBundleProtocol();
+		this._updater = createUpdater();
 		this._createOverlay();
 		this._createTray();
 		this._config.onChange((settings) => {
@@ -256,11 +316,16 @@ class CatsApp {
 		screen.on("display-removed", () => this._relayout());
 
 		this._timer = setInterval(() => this._tick(), ACTIVE_INTERVAL_MS);
+
+		// Last, so a slow or failing update check cannot delay the cats
+		// appearing.
+		this._updater?.start();
 	}
 
 	stop(): void {
 		if (this._timer) clearInterval(this._timer);
 		this._timer = null;
+		this._updater?.stop();
 		this._shell.dispose();
 		this._tray?.destroy();
 		this._tray = null;
@@ -310,11 +375,16 @@ class CatsApp {
 	}
 
 	private _createTray(): void {
+		const updater = this._updater;
 		const tray = new Tray(trayImage());
 		tray.setToolTip("Ubuntu Cats");
 		tray.setContextMenu(
 			Menu.buildFromTemplate([
 				{ label: "Settings…", click: () => this._openSettings() },
+				{
+					label: "Check for updates…",
+					click: () => void updater?.checkNow(),
+				},
 				{
 					label: "Start with Windows",
 					type: "checkbox",
@@ -331,6 +401,7 @@ class CatsApp {
 					},
 				},
 				{ type: "separator" },
+				{ label: `Version ${app.getVersion()}`, enabled: false },
 				{ label: "Quit", click: () => app.quit() },
 			]),
 		);

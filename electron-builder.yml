@@ -6,6 +6,12 @@
 # installed by tools/cli.ts instead.
 
 appId: com.github.patrikschweika.ubuntu-cats
+# Hyphens rather than spaces, and a literal rather than ${productName}, which
+# contains one: GitHub rewrites spaces in an uploaded asset's name to dots, so
+# a file with a space in it ends up called something other than what latest.yml
+# says it is, and electron-updater cannot find it. This covers the portable
+# zip; nsis overrides it below for the installer.
+artifactName: Ubuntu-Cats-${version}-win-${arch}.${ext}
 # Shown in the installer, the Start menu and Task Manager. Note this also
 # decides app.getName(), and so where settings.json lives
 # (%APPDATA%\Ubuntu Cats). Changing it later would orphan everyone's settings.
@@ -49,8 +55,20 @@ nsis:
   createDesktopShortcut: false
   createStartMenuShortcut: true
   runAfterFinish: true
-  artifactName: ${productName} Setup ${version}.${ext}
+  # The architecture is in the name because the release holds both, under one
+  # latest.yml that names an exact file. Without it an ARM64 build would
+  # overwrite the x64 installer that latest.yml points at.
+  artifactName: Ubuntu-Cats-Setup-${version}-${arch}.${ext}
 
-# Releases are attached by .github/workflows/release.yml with the gh CLI, so
-# electron-builder never needs a token of its own.
-publish: null
+# Where the app looks for updates.
+#
+# Nothing here uploads anything: `win:pack` always passes `--publish never`,
+# and .github/workflows/release.yml attaches the files with the gh CLI. This
+# block exists for the two files it makes electron-builder *write* — the
+# app-update.yml baked into the package, which tells the installed app where to
+# look, and the latest.yml beside the installer, which tells it what the newest
+# release is. Both are only produced when an nsis target is built.
+publish:
+  provider: github
+  owner: PatrikSchweika
+  repo: taskbar-cats
