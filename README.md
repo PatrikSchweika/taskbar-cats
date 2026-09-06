@@ -564,6 +564,12 @@ a `v*` tag: the Windows installer and portable zip from a Windows runner, the
 extension zip from a Linux one, all attached to the GitHub release. Pushing the
 tag is the whole release.
 
+Every asset is named `Taskbar-Cats-<version>-<platform>-<arch>-<kind>`, so a
+release page says which file is for which machine without anyone having to
+guess. A last job then writes a table above the generated notes explaining
+each one — including that `latest.yml` and the `.blockmap` files are what the
+installed Windows app reads to update itself, not things to download.
+
 Before tagging, two versions have to be right, and only one of them is
 automatic.
 

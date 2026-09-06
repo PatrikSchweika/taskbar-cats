@@ -59,11 +59,19 @@ inside the package.
 
 | File | What it is |
 |---|---|
-| `Ubuntu-Cats-Setup-<version>-x64.exe` | Installs for the current user only, so there is **no administrator prompt**. Adds a Start-menu entry and an uninstaller, keeps itself up to date, and starts the cats when it finishes. |
-| `Ubuntu-Cats-<version>-win-x64.zip` | The same app, unzipped wherever you like. No Start-menu entry, no uninstaller, **and no updates**. |
+| `Taskbar-Cats-<version>-windows-x64-setup.exe` | Installs for the current user only, so there is **no administrator prompt**. Adds a Start-menu entry and an uninstaller, keeps itself up to date, and starts the cats when it finishes. |
+| `Taskbar-Cats-<version>-windows-x64-portable.zip` | The same app, unzipped wherever you like. No Start-menu entry, no uninstaller, **and no updates**. |
+| the same two, `-windows-arm64-` | For Windows on ARM. Neither updates itself — see [Updating](#updating) — so unless you have a reason to run native, the x64 installer under emulation is the better trade. |
+| `latest.yml`, `<installer>.blockmap` | Not downloads. An installed copy reads `latest.yml` to find the next release, and the blockmap beside an installer lets it fetch only the parts that changed rather than the whole 90MB. |
+| `Taskbar-Cats-<version>-gnome-shell-extension.zip` | Not for Windows. That one is the GNOME Shell extension. |
 
-Prefer the installer unless you have a reason not to: it is the only one of the
-two that updates itself. See [Updating](#updating).
+Prefer the x64 installer unless you have a reason not to: it is the only build
+that updates itself. See [Updating](#updating).
+
+The downloads are named after the repository, but the app still installs and
+appears as **Ubuntu Cats** — in the Start menu, in Task Manager and in
+`%APPDATA%`. Renaming it there would orphan the settings of everyone already
+on it, so it waits for a release that migrates them.
 
 Right-click the cat in the notification area for settings, autostart and quit.
 

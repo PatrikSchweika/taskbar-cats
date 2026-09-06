@@ -62,7 +62,7 @@ jobs:
 
       - name: The zip is shaped like an extension
         run: |
-          zip="dist/taskbar-cats@patrikschweika.github.io.shell-extension.zip"
+          zip="dist/$(node -p "require('./src/metadata.json').uuid").shell-extension.zip"
           unzip -t "$zip"
           for required in metadata.json extension.js prefs.js; do
             if ! unzip -Z1 "$zip" | grep -qx "$required"; then
