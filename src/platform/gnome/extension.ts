@@ -1,6 +1,8 @@
 import type Clutter from "gi://Clutter";
 import type Gio from "gi://Gio";
 import GLib from "gi://GLib";
+import Meta from "gi://Meta";
+import Shell from "gi://Shell";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
@@ -14,12 +16,18 @@ import {
 } from "../../core/colony.js";
 import {
 	BOOL_SETTINGS,
+	CAT_SIZES_KEY,
 	defaultSettings,
+	HOTKEY_KEY,
 	INT_SETTINGS,
+	normalizeCatSizes,
+	normalizeHotkey,
 	normalizePositions,
+	normalizeStringList,
 	PALETTES_KEY,
 	POSITION_SETTINGS,
 	type Settings,
+	STRING_LIST_SETTINGS,
 } from "../../core/config.js";
 import { CatLayer } from "./catLayer.js";
 import { DockTracker, iconActor } from "./dockTracker.js";
@@ -47,6 +55,8 @@ interface Runtime {
 export default class TaskbarCatsExtension extends Extension {
 	private _rt: Runtime | null = null;
 	private _cfg: Settings = defaultSettings();
+	/** Set by the hotkey. Runtime only: a fresh enable always shows the cats. */
+	private _hidden = false;
 
 	private readonly _pointer = new PointerTracker();
 	private _lastTick = 0;
@@ -87,6 +97,17 @@ export default class TaskbarCatsExtension extends Extension {
 			(_s: Gio.Settings, key: string) => {
 				this._onSettingChanged(key);
 			},
+		);
+
+		this._hidden = false;
+		// GNOME re-reads the accelerator from the settings key whenever it
+		// changes, so the prefs dialog needs no extra wiring to rebind it.
+		Main.wm.addKeybinding(
+			HOTKEY_KEY,
+			rt.settings,
+			Meta.KeyBindingFlags.NONE,
+			Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+			() => this._toggleHidden(),
 		);
 
 		// The dock can be replaced wholesale when extensions are toggled, and
@@ -132,6 +153,9 @@ export default class TaskbarCatsExtension extends Extension {
 				rt?.settings.disconnect(this._settingsId);
 				this._settingsId = 0;
 			}
+		});
+		step("keybinding", () => {
+			Main.wm.removeKeybinding(HOTKEY_KEY);
 		});
 		step("extensionManager", () => {
 			if (this._extensionsId) {
@@ -189,6 +213,14 @@ export default class TaskbarCatsExtension extends Extension {
 			(cfg as unknown as Record<string, number[]>)[name] = normalizePositions(
 				s.get_value(spec.key).deepUnpack<number[]>(),
 			);
+		for (const [name, spec] of Object.entries(STRING_LIST_SETTINGS))
+			(cfg as unknown as Record<string, string[]>)[name] = normalizeStringList(
+				s.get_strv(spec.key),
+			);
+		cfg.catSizes = normalizeCatSizes(
+			s.get_value(CAT_SIZES_KEY).deepUnpack<number[]>(),
+		);
+		cfg.toggleHotkey = normalizeHotkey(s.get_strv(HOTKEY_KEY));
 		this._cfg = cfg;
 	}
 
@@ -204,7 +236,9 @@ export default class TaskbarCatsExtension extends Extension {
 			key === INT_SETTINGS.scratchers.key ||
 			key === INT_SETTINGS.mouseInterval.key ||
 			key === POSITION_SETTINGS.bedPositions.key ||
-			key === POSITION_SETTINGS.scratcherPositions.key
+			key === POSITION_SETTINGS.scratcherPositions.key ||
+			key === STRING_LIST_SETTINGS.catPalettes.key ||
+			key === CAT_SIZES_KEY
 		)
 			this._syncCats(rt);
 		if (key === BOOL_SETTINGS.wiggleIcons.key && !this._cfg.wiggleIcons)
@@ -216,6 +250,13 @@ export default class TaskbarCatsExtension extends Extension {
 	private _rediscover(): void {
 		this._rt?.tracker.invalidate();
 		this._rt?.layer.raise();
+	}
+
+	private _toggleHidden(): void {
+		this._hidden = !this._hidden;
+		// Wake the tick so the change shows at once rather than at the next
+		// drowsy interval.
+		this._setInterval(ACTIVE_INTERVAL_MS);
 	}
 
 	private _syncCats(rt: Runtime): void {
@@ -259,7 +300,10 @@ export default class TaskbarCatsExtension extends Extension {
 		this._pointer.update(dt, px, py);
 
 		let wanted = ACTIVE_INTERVAL_MS;
-		const monitor = rt.tracker.isUsable() ? rt.tracker.getMonitorRect() : null;
+		const monitor =
+			!this._hidden && rt.tracker.isUsable()
+				? rt.tracker.getMonitorRect()
+				: null;
 		if (monitor) {
 			rt.layer.show();
 			rt.colony.update(
