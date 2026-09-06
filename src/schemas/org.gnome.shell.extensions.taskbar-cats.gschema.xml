@@ -102,5 +102,29 @@
       <description>Roughly how often a mouse runs across the floor for the cats to hunt. 0 means no mice.</description>
     </key>
 
+    <key name="cat-palettes" type="as">
+      <default>[]</default>
+      <summary>Fur palette of each cat</summary>
+      <description>One entry per cat: a palette name, or an empty string to follow the "palettes" setting. Missing entries mean the same.</description>
+    </key>
+
+    <key name="cat-names" type="as">
+      <default>[]</default>
+      <summary>Name of each cat</summary>
+      <description>One entry per cat, shown in the settings only. Empty or missing means "Cat N".</description>
+    </key>
+
+    <key name="cat-sizes" type="ai">
+      <default>[]</default>
+      <summary>Size of each cat in pixels</summary>
+      <description>One entry per cat. 0, or a missing entry, uses the "sprite-size" setting. Otherwise 16 to 128.</description>
+    </key>
+
+    <key name="toggle-hotkey" type="as">
+      <default>['&lt;Control&gt;&lt;Alt&gt;c']</default>
+      <summary>Hide or show the cats</summary>
+      <description>Keyboard shortcut that hides every cat and brings them back. An empty list turns the shortcut off.</description>
+    </key>
+
   </schema>
 </schemalist>
