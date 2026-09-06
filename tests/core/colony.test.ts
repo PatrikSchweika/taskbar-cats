@@ -404,6 +404,13 @@ describe("Colony", () => {
 					["b", "b"],
 					"an existing cat should change coat",
 				);
+				assert.deepEqual(
+					colony.cats.map(
+						(c) => (viewOf(c).frame as { palette: string }).palette,
+					),
+					["b", "b"],
+					"the new coat should be drawn without waiting for a frame step",
+				);
 			});
 
 			it("lets one cat wear a palette outside the colony pool", () => {
