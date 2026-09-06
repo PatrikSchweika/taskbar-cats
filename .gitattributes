@@ -1,0 +1,15 @@
+# Every text file is stored with LF and checked out with LF, on every
+# platform, whatever the local core.autocrlf happens to be.
+#
+# Two things depend on it. Biome's formatter writes LF and has no setting
+# that would make it accept anything else, so a CRLF checkout fails
+# `npm run format:check` on files nobody has touched. And tools/test-shell.sh
+# is run by a shell, which reads a CRLF line ending as part of the
+# interpreter path and refuses to start.
+#
+# text=auto still leaves git to detect content it should not touch, so the
+# two binary rules below are belt-and-braces rather than load-bearing.
+* text=auto eol=lf
+
+*.png binary
+*.ico binary

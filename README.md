@@ -77,7 +77,7 @@ All settings apply at once. No restart is needed.
 
 ## Build from source
 
-You need Node 22.18 or newer. Everything in the project is TypeScript,
+You need Node 22.22.2 or newer. Everything in the project is TypeScript,
 including the build tools and the sprite generator.
 
 ```bash

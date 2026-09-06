@@ -20,9 +20,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 22.18 is the floor declared in engines: the first release where Node
-        # strips TypeScript types without a flag, which tools/cli.ts relies on.
-        node: ["22.18", "24"]
+        # The floor declared in engines. Stripping TypeScript types without a
+        # flag, which tools/cli.ts relies on, arrived in 22.18, and that was
+        # the floor until node-gyp 13 raised its own to 22.22.2. node-gyp is
+        # the binding constraint now.
+        node: ["22.22.2", "24"]
     steps:
       - uses: actions/checkout@v4
 

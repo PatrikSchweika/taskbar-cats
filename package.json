@@ -7,7 +7,7 @@
 	"license": "MIT",
 	"description": "Pixel-art cats that live on your dock or taskbar, chase the pointer and scratch app icons.",
 	"engines": {
-		"node": ">=22.18.0"
+		"node": ">=22.22.2"
 	},
 	"scripts": {
 		"build": "node tools/cli.ts build",
@@ -39,19 +39,14 @@
 		"win:pack": "node tools/win32.ts pack"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.5.11",
-		"@girs/gnome-shell": "^46.0.2",
-		"@types/node": "^26.4.0",
-		"electron": "^38.8.6",
+		"@biomejs/biome": "2.5.12",
+		"@girs/gnome-shell": "^50.0.4",
+		"@types/node": "^26.4.1",
+		"electron": "^44.2.0",
 		"electron-builder": "^26.15.3",
 		"node-addon-api": "^8.9.2",
-		"node-gyp": "^12.4.0",
+		"node-gyp": "^13.0.2",
 		"typescript": "^7.0.2"
-	},
-	"overrides": {
-		"@girs/glib-2.0": "2.88.0-4.0.0-rc.17",
-		"@girs/gobject-2.0": "2.88.0-4.0.0-rc.17",
-		"@girs/gio-2.0": "2.88.0-4.0.0-rc.17"
 	},
 	"author": "PatrikSchweika",
 	"binary": {
