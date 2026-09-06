@@ -32,8 +32,8 @@ interface Metadata {
 	description: string;
 	"shell-version": string[];
 	"settings-schema"?: string;
-	/** GNOME compares this integer to decide which copy of an extension is newer. */
-	version?: number;
+	/** The repository extensions.gnome.org links to from the extension's page. */
+	url?: string;
 	/** Displayed, never compared. Filled in from package.json at build time. */
 	"version-name"?: string;
 }
@@ -43,9 +43,9 @@ interface Metadata {
  *
  * The only thing added to the committed file is `version-name`, so the
  * Extensions app shows the same version as the release it came from without
- * that version having to be written down in two places. `version` stays as
- * committed: it is the integer GNOME orders releases by, and bumping it is a
- * deliberate act, not something a build should guess from a semver string.
+ * that version having to be written down in two places. There is deliberately
+ * no `version` key to carry over: extensions.gnome.org assigns that integer
+ * itself, and a hand-written one is deprecated.
  */
 export function extensionMetadata(
 	source: Metadata,
@@ -70,8 +70,12 @@ const INSTALLDIR = join(homedir(), ".local/share/gnome-shell/extensions", UUID);
  *
  * metadata.json is not among them: build() writes a derived copy carrying the
  * release version. See extensionMetadata.
+ *
+ * assets/cats rather than all of assets/: the icons beside it belong to the
+ * Windows build's tray and installer, and extensions.gnome.org rejects
+ * binaries the extension has no use for.
  */
-const STATIC_SOURCES = ["stylesheet.css", "schemas", "assets"];
+const STATIC_SOURCES = ["stylesheet.css", "schemas", "assets/cats"];
 
 /** The release version, which only package.json states. */
 function packageVersion(): string {
@@ -151,12 +155,12 @@ function validate(): boolean {
 		!metadata["shell-version"].length
 	)
 		fail('metadata.json "shell-version" must be a non-empty array');
-	// GNOME's convention is name@domain and extensions.gnome.org requires it,
-	// but the shell itself only requires that the uuid match the directory
-	// name. A bare name is fine for a locally installed extension.
-	if (UUID && !/^[A-Za-z0-9._@-]+$/.test(UUID))
+	// extensions.gnome.org requires name@namespace. The shell itself only
+	// requires that the uuid match the directory name, so this checks both:
+	// the shape the site accepts, and that it is a usable directory name.
+	if (UUID && !/^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+$/.test(UUID))
 		fail(
-			`metadata.json uuid "${UUID}" has characters that cannot appear in a directory name`,
+			`metadata.json uuid "${UUID}" is not of the form name@namespace, using only letters, digits, period, underscore and dash`,
 		);
 	if (ok) console.log("metadata: ok");
 

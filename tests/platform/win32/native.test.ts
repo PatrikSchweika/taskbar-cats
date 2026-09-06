@@ -53,7 +53,7 @@ describe("candidatePaths", () => {
 	it("looks where electron-builder.yml puts it", () => {
 		// extraResources drops it straight into resources/, outside the asar
 		// archive, because LoadLibrary needs a real file on disk.
-		const resources = join("C:", "Program Files", "Ubuntu Cats", "resources");
+		const resources = join("C:", "Program Files", "Taskbar Cats", "resources");
 		assert.equal(
 			candidatePaths(FROM, resources)[2],
 			join(resources, "win32_shell.node"),

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="org.gnome.shell.extensions.ubuntu-cats"
-          path="/org/gnome/shell/extensions/ubuntu-cats/">
+  <schema id="org.gnome.shell.extensions.taskbar-cats"
+          path="/org/gnome/shell/extensions/taskbar-cats/">
 
     <key name="cat-count" type="i">
       <default>3</default>

@@ -1,4 +1,4 @@
-# Ubuntu Cats on Windows
+# Taskbar Cats on Windows
 
 The same cats, the same physics, a different way of getting them on screen.
 
@@ -59,11 +59,19 @@ inside the package.
 
 | File | What it is |
 |---|---|
-| `Ubuntu-Cats-Setup-<version>-x64.exe` | Installs for the current user only, so there is **no administrator prompt**. Adds a Start-menu entry and an uninstaller, keeps itself up to date, and starts the cats when it finishes. |
-| `Ubuntu-Cats-<version>-win-x64.zip` | The same app, unzipped wherever you like. No Start-menu entry, no uninstaller, **and no updates**. |
+| `Taskbar-Cats-<version>-windows-x64-setup.exe` | Installs for the current user only, so there is **no administrator prompt**. Adds a Start-menu entry and an uninstaller, keeps itself up to date, and starts the cats when it finishes. |
+| `Taskbar-Cats-<version>-windows-x64-portable.zip` | The same app, unzipped wherever you like. No Start-menu entry, no uninstaller, **and no updates**. |
+| the same two, `-windows-arm64-` | For Windows on ARM. Neither updates itself — see [Updating](#updating) — so unless you have a reason to run native, the x64 installer under emulation is the better trade. |
+| `latest.yml`, `<installer>.blockmap` | Not downloads. An installed copy reads `latest.yml` to find the next release, and the blockmap beside an installer lets it fetch only the parts that changed rather than the whole 90MB. |
+| `Taskbar-Cats-<version>-gnome-shell-extension.zip` | Not for Windows. That one is the GNOME Shell extension. |
 
-Prefer the installer unless you have a reason not to: it is the only one of the
-two that updates itself. See [Updating](#updating).
+Prefer the x64 installer unless you have a reason not to: it is the only build
+that updates itself. See [Updating](#updating).
+
+Installing 1.3.0 over 1.2.0 upgrades it in place, even though the app was
+called **Ubuntu Cats** until then: the installer recognises a previous copy by
+an id that did not change with the name. Your settings come with it — see
+[Where your settings live](#where-your-settings-live).
 
 Right-click the cat in the notification area for settings, autostart and quit.
 
@@ -91,7 +99,7 @@ An installed copy keeps itself up to date. It asks GitHub for the newest
 release when it starts and every six hours after that, downloads it quietly,
 and then offers to restart:
 
-> **Ubuntu Cats 1.2.0 is ready to install.**
+> **Taskbar Cats 1.3.0 is ready to install.**
 > The cats will disappear for a moment while it installs, then come back.
 > [ Restart now ] [ Later ]
 
@@ -129,9 +137,15 @@ as the first install was. See below.
 
 ### Where your settings live
 
-`%APPDATA%\Ubuntu Cats\settings.json`, keyed exactly as the GNOME version's
+`%APPDATA%\Taskbar Cats\settings.json`, keyed exactly as the GNOME version's
 GSettings schema is. It survives upgrades, and the tray menu can open it.
 Uninstalling leaves it behind; delete it by hand if you want it gone.
+
+Up to 1.2.0 the app was called Ubuntu Cats and this was
+`%APPDATA%\Ubuntu Cats\settings.json`. The first launch after upgrading copies
+that file across rather than starting you back at the defaults. It is copied
+rather than moved, so an older version still installed somewhere keeps
+reading its own.
 
 ## Prerequisites
 
@@ -413,6 +427,9 @@ different executable. Specifically:
 - [ ] **Start with Windows** survives a reboot when installed (the login item
       points at the installed executable, not at `electron.exe`).
 - [ ] Settings written before an upgrade are still there after one.
+- [ ] Installing 1.3.0 over an existing 1.2.0 replaces it rather than adding a
+      second Start-menu entry, and the settings from the old `Ubuntu Cats`
+      directory are the ones the new window shows.
 - [ ] The uninstaller removes the app and leaves no process behind.
 - [ ] The portable zip works unzipped to a path containing a space and a
       non-ASCII character.

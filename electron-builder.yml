@@ -5,17 +5,28 @@
 # inside the package. Nothing here is used by the GNOME extension, which is
 # installed by tools/cli.ts instead.
 
+# Deliberately still says ubuntu-cats, and must keep saying it. NSIS derives
+# the uninstall registry key from this, so it is how an installer finds the
+# copy already on the machine and upgrades it in place. Changing it would
+# leave everyone on 1.2.0 with a second install beside the first. Nobody ever
+# sees it; productName is the name that shows.
 appId: com.github.patrikschweika.ubuntu-cats
 # Hyphens rather than spaces, and a literal rather than ${productName}, which
 # contains one: GitHub rewrites spaces in an uploaded asset's name to dots, so
 # a file with a space in it ends up called something other than what latest.yml
-# says it is, and electron-updater cannot find it. This covers the portable
-# zip; nsis overrides it below for the installer.
-artifactName: Ubuntu-Cats-${version}-win-${arch}.${ext}
-# Shown in the installer, the Start menu and Task Manager. Note this also
-# decides app.getName(), and so where settings.json lives
-# (%APPDATA%\Ubuntu Cats). Changing it later would orphan everyone's settings.
-productName: Ubuntu Cats
+# says it is, and electron-updater cannot find it.
+#
+# Every part of the name earns its place on a release page that also carries
+# the GNOME extension: which platform, which architecture, and which of the two
+# shapes of the same app. This covers the portable zip; nsis overrides it below
+# for the installer.
+artifactName: Taskbar-Cats-${version}-windows-${arch}-portable.${ext}
+# Shown in the installer, the Start menu and Task Manager. It also decides
+# app.getName(), and so where settings.json lives: renaming the product moved
+# that from %APPDATA%\Ubuntu Cats to %APPDATA%\Taskbar Cats, which is why
+# ConfigStore carries the old file across on first run. Keep this in step with
+# package.json's productName; a test checks that it is.
+productName: Taskbar Cats
 copyright: Copyright © 2026 PatrikSchweika
 
 directories:
@@ -40,11 +51,14 @@ extraResources:
 
 win:
   icon: src/assets/icons/app.ico
+  # Shapes only, no architectures. electron-builder *adds* the ones named on
+  # the command line to the ones a target declares rather than replacing them,
+  # so pinning x64 here made `--arm64` build x64 as well, and emit a third
+  # installer carrying both on top of that. The release workflow builds one
+  # architecture per job and says which as `--x64` or `--arm64`.
   target:
-    - target: nsis
-      arch: [x64]
-    - target: zip
-      arch: [x64]
+    - nsis
+    - zip
 
 nsis:
   # A per-user install: no UAC prompt at all, which is the single biggest
@@ -58,7 +72,7 @@ nsis:
   # The architecture is in the name because the release holds both, under one
   # latest.yml that names an exact file. Without it an ARM64 build would
   # overwrite the x64 installer that latest.yml points at.
-  artifactName: Ubuntu-Cats-Setup-${version}-${arch}.${ext}
+  artifactName: Taskbar-Cats-${version}-windows-${arch}-setup.${ext}
 
 # Where the app looks for updates.
 #

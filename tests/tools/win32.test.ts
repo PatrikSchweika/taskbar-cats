@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
+
 import { appManifest } from "../../tools/win32.ts";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 /**
  * The manifest that goes inside the packaged app.
@@ -10,9 +16,25 @@ import { appManifest } from "../../tools/win32.ts";
  * makes the emitted ES modules loadable. Neither can be checked without
  * building an installer, so they are checked here.
  */
+describe("the product name", () => {
+	it("is the same in package.json and electron-builder.yml", () => {
+		// electron-builder names the installer, the Start-menu entry and the
+		// install directory from its own copy; app.getName() comes from the
+		// packaged manifest, which takes package.json's. If they drifted, the
+		// app would write settings.json under a name the installer never used.
+		const manifest = JSON.parse(
+			readFileSync(join(ROOT, "package.json"), "utf8"),
+		) as { productName: string };
+		const yml = readFileSync(join(ROOT, "electron-builder.yml"), "utf8");
+		const declared = /^productName: (.+)$/m.exec(yml)?.[1].trim();
+		assert.equal(declared, manifest.productName);
+	});
+});
+
 describe("appManifest", () => {
 	const root = {
 		name: "taskbar-cats",
+		productName: "Cats of Some Kind",
 		version: "2.3.4",
 		description: "cats",
 		author: "Someone",
@@ -36,7 +58,9 @@ describe("appManifest", () => {
 		// productName decides app.getName(), and so where settings.json lives.
 		// A package that disagreed with `npm run win:dev` would read a
 		// different settings file from the one the developer had been editing.
-		assert.equal(appManifest(root).productName, "Ubuntu Cats");
+		// It comes from the repository manifest rather than a literal here, so
+		// there is one place to change it.
+		assert.equal(appManifest(root).productName, "Cats of Some Kind");
 	});
 
 	it("keeps the npm name, which is not the product name", () => {

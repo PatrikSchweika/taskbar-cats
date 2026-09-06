@@ -121,7 +121,7 @@ function createUpdater(): Updater {
 			report: (message) => {
 				void dialog.showMessageBox({
 					type: "info",
-					title: "Ubuntu Cats",
+					title: app.getName(),
 					message,
 					buttons: ["OK"],
 				});
@@ -129,8 +129,8 @@ function createUpdater(): Updater {
 			confirmRestart: async (version) => {
 				const { response } = await dialog.showMessageBox({
 					type: "question",
-					title: "Ubuntu Cats",
-					message: `Ubuntu Cats ${version} is ready to install.`,
+					title: app.getName(),
+					message: `${app.getName()} ${version} is ready to install.`,
 					detail:
 						"The cats will disappear for a moment while it installs, " +
 						"then come back.",
@@ -266,7 +266,13 @@ class CatsApp {
 	private _visible = false;
 
 	constructor() {
-		this._config = new ConfigStore(app.getPath("userData"));
+		// The second directory is where settings.json lived when the app was
+		// called "Ubuntu Cats". app.getPath("userData") follows productName, so
+		// without this an upgrade from 1.2.0 would look like a first run.
+		this._config = new ConfigStore(
+			app.getPath("userData"),
+			join(app.getPath("appData"), "Ubuntu Cats"),
+		);
 		const loaded = loadShell({ resourcesPath: process.resourcesPath });
 		this._shell = loaded.shell;
 		this._shellError = loaded.available ? null : (loaded.reason ?? "unknown");
@@ -377,7 +383,7 @@ class CatsApp {
 	private _createTray(): void {
 		const updater = this._updater;
 		const tray = new Tray(trayImage());
-		tray.setToolTip("Ubuntu Cats");
+		tray.setToolTip(app.getName());
 		tray.setContextMenu(
 			Menu.buildFromTemplate([
 				{ label: "Settings…", click: () => this._openSettings() },
@@ -418,7 +424,7 @@ class CatsApp {
 		const window = new BrowserWindow({
 			width: 460,
 			height: 880,
-			title: "Ubuntu Cats",
+			title: app.getName(),
 			icon: join(ASSETS, "icons", "app.ico"),
 			autoHideMenuBar: true,
 			webPreferences: {
@@ -555,7 +561,7 @@ if (!app.requestSingleInstanceLock()) {
 			// dialog is the only way a startup failure is anything other than
 			// "I double-clicked it and nothing happened".
 			dialog.showErrorBox(
-				"Ubuntu Cats could not start",
+				`${app.getName()} could not start`,
 				`${(e as Error).message}\n\nThis usually means the build is incomplete. Try \`npm run win:build\`.`,
 			);
 			app.exit(1);

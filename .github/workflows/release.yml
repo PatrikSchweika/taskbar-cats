@@ -200,7 +200,7 @@ jobs:
       # enable. metadata.json at the root is what the shell reads first.
       - name: The zip is shaped like an extension
         run: |
-          zip=dist/ubuntu-cats.shell-extension.zip
+          zip="dist/$(node -p "require('./src/metadata.json').uuid").shell-extension.zip"
           unzip -l "$zip"
           for required in metadata.json extension.js prefs.js; do
             if ! unzip -Z1 "$zip" | grep -qx "$required"; then
@@ -218,6 +218,11 @@ jobs:
           path: dist/*.shell-extension.zip
           if-no-files-found: error
 
+      # The packed zip is named after the UUID, which is what
+      # `gnome-extensions pack` writes and what the README tells people to
+      # install. Beside four Windows files on a release page that name says
+      # nothing about which platform it is for, so the asset is a copy under
+      # one that does.
       - name: Attach to the release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
@@ -228,4 +233,53 @@ jobs:
             --generate-notes \
             --verify-tag \
             || echo "release already exists, uploading into it"
-          gh release upload "${GITHUB_REF_NAME}" dist/*.shell-extension.zip --clobber
+          version=$(node -p "require('./package.json').version")
+          asset="dist/Taskbar-Cats-${version}-gnome-shell-extension.zip"
+          cp dist/*.shell-extension.zip "$asset"
+          gh release upload "${GITHUB_REF_NAME}" "$asset" --clobber
+
+  # A release page is a list of filenames, and filenames alone cannot say that
+  # two of them are not downloads at all. This puts a table above the generated
+  # notes, built from the files that actually got attached rather than from the
+  # ones this workflow meant to attach — an architecture whose build failed is
+  # then absent from both.
+  notes:
+    name: Say what each file is
+    needs: [windows, gnome]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    steps:
+      # No checkout, so gh has no git remote to read the repository from.
+      - name: Describe the downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          marker='<!-- downloads -->'
+          body=$(gh release view "${GITHUB_REF_NAME}" --json body --jq .body)
+          if printf %s "$body" | grep -qF "$marker"; then
+            echo "the notes already describe the downloads"
+            exit 0
+          fi
+          assets=$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name')
+          # One row per file that is actually there, in the order someone
+          # arriving at the page should consider them.
+          row() {
+            name=$(printf %s "$assets" | grep -E "$1" || true)
+            if [ -n "$name" ]; then
+              printf '| `%s` | %s | %s |\n' "$name" "$2" "$3"
+            fi
+          }
+          {
+            printf '%s\n\n' "$marker"
+            printf '### Which file do I want?\n\n'
+            printf '| File | Platform | What it is |\n|---|---|---|\n'
+            row 'windows-x64-setup[.]exe$' 'Windows' '**Start here on Windows.** A per-user installer: no administrator prompt, a Start-menu entry, and it keeps itself up to date.'
+            row 'windows-x64-portable[.]zip$' 'Windows' 'The same app, unzipped wherever you like. No Start-menu entry, no uninstaller, and **no updates**.'
+            row 'windows-arm64-setup[.]exe$' 'Windows on ARM' 'The same installer built for ARM64. It does not update itself — the x64 one, which Windows runs under emulation, does.'
+            row 'windows-arm64-portable[.]zip$' 'Windows on ARM' 'The portable build for ARM64. No updates either.'
+            row 'gnome-shell-extension[.]zip$' 'Linux, GNOME Shell' 'The extension. `gnome-extensions install --force <file>`, then restart the shell.'
+            printf '| `latest.yml`, `*.blockmap` | Windows | **Not downloads.** An installed Windows app reads latest.yml to find the next release, and the blockmap beside an installer lets it fetch only the parts that changed. |\n'
+            printf '\n%s\n' "$body"
+          } > notes.md
+          gh release edit "${GITHUB_REF_NAME}" --notes-file notes.md
