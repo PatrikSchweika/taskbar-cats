@@ -22,6 +22,7 @@ both platforms. The settings and the sprite art are the same too.
 | Settings stored in | GSettings | `%APPDATA%\Taskbar Cats\settings.json` |
 | Cats hide when | Overview open, dock hidden, fullscreen | Taskbar hidden, or a fullscreen window covers the screen |
 | Monitors | The dock's monitor | The primary taskbar's monitor only |
+| Hide/show shortcut | GNOME's keybinding, works in the overview too | Electron global shortcut. If another program already owns the combination, the settings window says so |
 
 **Icons do not shake on Windows.** The taskbar belongs to Windows and another
 program cannot move its buttons. The cats still walk to an icon and claw it, but
@@ -47,6 +48,9 @@ do not need Node or any build tools.
 
 After installing, right-click the cat icon in the notification area for
 settings, autostart, updates, and quit.
+
+The tray menu also has **Hide cats**, which does the same as the keyboard
+shortcut (Ctrl+Alt+C unless you change it in the settings).
 
 ### Windows will warn you
 
