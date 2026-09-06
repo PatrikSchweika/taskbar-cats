@@ -4,7 +4,7 @@
 		<meta charset="utf-8" />
 		<meta
 			http-equiv="Content-Security-Policy"
-			content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'"
+			content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self'"
 		/>
 		<title>Taskbar Cats</title>
 		<style>
@@ -133,6 +133,64 @@
 				display: flex;
 				align-items: center;
 				gap: 8px;
+			}
+
+			.preview {
+				width: 48px;
+				height: 48px;
+				image-rendering: pixelated;
+				flex-shrink: 0;
+			}
+			.cats {
+				padding: 14px 0 4px;
+				border-top: 1px solid var(--line);
+			}
+			.cats .cat {
+				display: grid;
+				grid-template-columns: 48px 1fr;
+				gap: 4px 12px;
+				padding: 10px 0;
+				border-top: 1px solid var(--line);
+			}
+			.cats .cat:first-of-type {
+				border-top: none;
+			}
+			.cats .cat .preview {
+				grid-row: span 4;
+				align-self: center;
+			}
+			.cats .cat .row {
+				padding: 2px 0;
+				border-top: none;
+			}
+			.cats input[type="text"],
+			.cats select {
+				font: inherit;
+				color: var(--fg);
+				background: var(--bg);
+				border: 1px solid var(--line);
+				border-radius: 4px;
+				padding: 3px 6px;
+				min-width: 150px;
+			}
+			.cats .auto {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				margin-left: 4px;
+			}
+			button {
+				font: inherit;
+				color: var(--fg);
+				background: var(--bg);
+				border: 1px solid var(--line);
+				border-radius: 4px;
+				padding: 4px 10px;
+				cursor: pointer;
+			}
+			.error {
+				color: #c0392b;
+				font-size: 12px;
 			}
 
 			footer {
