@@ -29,6 +29,31 @@ const POINTER_EPS = 2; // px of jitter that does not count as movement
 const DEFAULT_SIZE = 40; // used only until the dock can be measured
 const FALLBACK_PALETTE = "tabby-orange";
 
+/**
+ * The palette cat `index` wears: its own, if it has one that exists on disk,
+ * otherwise its turn in the colony's pool. Shared with the settings UIs so a
+ * cat on Auto previews exactly what it will get.
+ */
+export function resolveCatPalette(
+	settings: Pick<Settings, "palettes" | "catPalettes">,
+	index: number,
+	available: readonly string[],
+): string {
+	const own = settings.catPalettes[index];
+	if (own && available.includes(own)) return own;
+	const pool = resolvePalettes(settings.palettes, available);
+	return pool[index % pool.length] ?? FALLBACK_PALETTE;
+}
+
+/** The size cat `index` is drawn at: its own, or the colony's. */
+export function resolveCatSize(
+	settings: Pick<Settings, "catSizes">,
+	index: number,
+	colonySize: number,
+): number {
+	return settings.catSizes[index] || colonySize;
+}
+
 /** How far the cats may walk, and where the floor is. */
 export interface Bounds {
 	/** Horizontal range, inclusive of the cats' own width. */
@@ -157,19 +182,6 @@ export class Colony {
 	}
 
 	/**
-	 * The palettes to draw from: whatever the user chose, minus any that no
-	 * longer exist on disk, falling back to every palette.
-	 */
-	private _palettes(settings: Settings): string[] {
-		return resolvePalettes(settings.palettes, this._host.sprites.palettes);
-	}
-
-	/** Palette for the nth cat, cycling through whatever is enabled. */
-	private _paletteFor(palettes: readonly string[], index: number): string {
-		return palettes[index % palettes.length] ?? FALLBACK_PALETTE;
-	}
-
-	/**
 	 * Add or remove cats to match the settings, and reapply palette and size to
 	 * the ones that stay. The same for the furniture, and the mouse timer.
 	 *
@@ -184,7 +196,7 @@ export class Colony {
 		onRemove?: (cat: Cat) => void,
 	): void {
 		const size = this.sizeFor(settings, icons);
-		const palettes = this._palettes(settings);
+		const available = this._host.sprites.palettes;
 
 		while (this.cats.length > settings.count) {
 			const cat = this.cats.pop();
@@ -204,8 +216,8 @@ export class Colony {
 				new Cat({
 					view: this._host.createView(),
 					sprites: this._host.sprites,
-					palette: this._paletteFor(palettes, i),
-					size,
+					palette: resolveCatPalette(settings, i, available),
+					size: resolveCatSize(settings, i, size),
 					x,
 					index: i,
 				}),
@@ -214,9 +226,9 @@ export class Colony {
 
 		// Palette assignment and size can change without the count changing.
 		this.cats.forEach((cat, i) => {
-			cat.palette = this._paletteFor(palettes, i);
+			cat.palette = resolveCatPalette(settings, i, available);
 			cat.index = i;
-			cat.setSize(size);
+			cat.setSize(resolveCatSize(settings, i, size));
 		});
 		this._size = size;
 

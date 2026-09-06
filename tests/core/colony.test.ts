@@ -6,6 +6,8 @@ import {
 	Colony,
 	interleaveProps,
 	PointerTracker,
+	resolveCatPalette,
+	resolveCatSize,
 } from "../../src/core/colony.ts";
 import {
 	type FakeCatView,
@@ -18,6 +20,47 @@ import {
 	viewOf,
 	withRandom,
 } from "../support/core/harness.ts";
+
+describe("resolveCatPalette", () => {
+	const available = ["a", "b", "c"];
+
+	it("uses the cat's own palette when it exists", () => {
+		const s = makeSettings({ palettes: ["a"], catPalettes: ["", "c"] });
+		assert.equal(resolveCatPalette(s, 1, available), "c");
+	});
+
+	it("falls back to the colony pool for Auto, a missing entry or a stranger", () => {
+		const s = makeSettings({
+			palettes: ["a", "b"],
+			catPalettes: ["", "", "gone"],
+		});
+		assert.equal(resolveCatPalette(s, 0, available), "a");
+		assert.equal(resolveCatPalette(s, 1, available), "b");
+		assert.equal(
+			resolveCatPalette(s, 2, available),
+			"a",
+			"cycles the pool by index",
+		);
+		assert.equal(
+			resolveCatPalette(s, 3, available),
+			"b",
+			"a missing entry is Auto",
+		);
+	});
+
+	it("names a palette even when the install has none at all", () => {
+		assert.equal(resolveCatPalette(makeSettings(), 0, []), "tabby-orange");
+	});
+});
+
+describe("resolveCatSize", () => {
+	it("is the colony size unless the cat has its own", () => {
+		const s = makeSettings({ catSizes: [0, 64] });
+		assert.equal(resolveCatSize(s, 0, 48), 48);
+		assert.equal(resolveCatSize(s, 1, 48), 64);
+		assert.equal(resolveCatSize(s, 5, 48), 48, "a missing entry is Auto");
+	});
+});
 
 describe("boundsOfMonitor", () => {
 	it("turns a monitor rect into somewhere to walk", () => {
@@ -362,6 +405,19 @@ describe("Colony", () => {
 					"an existing cat should change coat",
 				);
 			});
+
+			it("lets one cat wear a palette outside the colony pool", () => {
+				const colony = new Colony(fakeHost(["a", "b", "c"]));
+				colony.sync(
+					makeSettings({ count: 3, palettes: ["a"], catPalettes: ["", "c"] }),
+					[],
+					makeBounds(),
+				);
+				assert.deepEqual(
+					colony.cats.map((c) => c.palette),
+					["a", "c", "a"],
+				);
+			});
 		});
 
 		it("resizes the cats it already had", () => {
@@ -372,6 +428,25 @@ describe("Colony", () => {
 				assert.equal(cat.iconSize, 64);
 				assert.equal(viewOf(cat).logicalSize, 64);
 			}
+		});
+
+		it("gives a cat its own size while the others keep the colony's", () => {
+			const colony = new Colony(fakeHost());
+			colony.sync(
+				makeSettings({ count: 2, spriteSize: 40, catSizes: [0, 72] }),
+				[],
+				makeBounds(),
+			);
+			assert.deepEqual(
+				colony.cats.map((c) => c.iconSize),
+				[40, 72],
+			);
+			// And back to Auto again.
+			colony.sync(makeSettings({ count: 2, spriteSize: 40 }), [], makeBounds());
+			assert.deepEqual(
+				colony.cats.map((c) => c.iconSize),
+				[40, 40],
+			);
 		});
 	});
 
