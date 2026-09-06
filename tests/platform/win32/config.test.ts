@@ -128,3 +128,57 @@ describe("changedKeys", () => {
 		assert.deepEqual(changedKeys(a, b).sort(), ["count", "fps"]);
 	});
 });
+
+/**
+ * Settings surviving a product rename.
+ *
+ * app.getPath("userData") is %APPDATA%\<productName>, so renaming the app
+ * from Ubuntu Cats to Taskbar Cats moved it. Without this, everyone already
+ * running it would have been silently reset to the defaults by an update.
+ */
+describe("ConfigStore, after a rename", () => {
+	let dir: string;
+	let legacy: string;
+
+	beforeEach(() => {
+		dir = mkdtempSync(join(tmpdir(), "taskbar-cats-test-"));
+		legacy = mkdtempSync(join(tmpdir(), "taskbar-cats-old-"));
+	});
+	afterEach(() => {
+		rmSync(dir, { recursive: true, force: true });
+		rmSync(legacy, { recursive: true, force: true });
+	});
+
+	it("takes the settings the old directory had", () => {
+		writeFileSync(
+			join(legacy, "settings.json"),
+			JSON.stringify({ "cat-count": 7 }),
+		);
+		assert.equal(new ConfigStore(dir, legacy).settings.count, 7);
+	});
+
+	it("leaves the old file alone, for an older version still installed", () => {
+		const old = join(legacy, "settings.json");
+		writeFileSync(old, JSON.stringify({ "cat-count": 7 }));
+		new ConfigStore(dir, legacy);
+		assert.equal(JSON.parse(readFileSync(old, "utf8"))["cat-count"], 7);
+	});
+
+	it("prefers what is already here to what the old directory had", () => {
+		// Only a first launch after the rename should copy anything. After it,
+		// the old file is a stale snapshot of settings that have moved on.
+		writeFileSync(
+			join(legacy, "settings.json"),
+			JSON.stringify({ "cat-count": 7 }),
+		);
+		writeFileSync(
+			join(dir, "settings.json"),
+			JSON.stringify({ "cat-count": 2 }),
+		);
+		assert.equal(new ConfigStore(dir, legacy).settings.count, 2);
+	});
+
+	it("starts from the defaults when there is nothing to carry over", () => {
+		assert.deepEqual(new ConfigStore(dir, legacy).settings, defaultSettings());
+	});
+});

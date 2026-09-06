@@ -1,6 +1,7 @@
 {
 	"name": "taskbar-cats",
 	"version": "1.3.0",
+	"productName": "Taskbar Cats",
 	"private": true,
 	"type": "module",
 	"license": "MIT",

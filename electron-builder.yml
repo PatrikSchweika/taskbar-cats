@@ -5,6 +5,11 @@
 # inside the package. Nothing here is used by the GNOME extension, which is
 # installed by tools/cli.ts instead.
 
+# Deliberately still says ubuntu-cats, and must keep saying it. NSIS derives
+# the uninstall registry key from this, so it is how an installer finds the
+# copy already on the machine and upgrades it in place. Changing it would
+# leave everyone on 1.2.0 with a second install beside the first. Nobody ever
+# sees it; productName is the name that shows.
 appId: com.github.patrikschweika.ubuntu-cats
 # Hyphens rather than spaces, and a literal rather than ${productName}, which
 # contains one: GitHub rewrites spaces in an uploaded asset's name to dots, so
@@ -16,10 +21,12 @@ appId: com.github.patrikschweika.ubuntu-cats
 # shapes of the same app. This covers the portable zip; nsis overrides it below
 # for the installer.
 artifactName: Taskbar-Cats-${version}-windows-${arch}-portable.${ext}
-# Shown in the installer, the Start menu and Task Manager. Note this also
-# decides app.getName(), and so where settings.json lives
-# (%APPDATA%\Ubuntu Cats). Changing it later would orphan everyone's settings.
-productName: Ubuntu Cats
+# Shown in the installer, the Start menu and Task Manager. It also decides
+# app.getName(), and so where settings.json lives: renaming the product moved
+# that from %APPDATA%\Ubuntu Cats to %APPDATA%\Taskbar Cats, which is why
+# ConfigStore carries the old file across on first run. Keep this in step with
+# package.json's productName; a test checks that it is.
+productName: Taskbar Cats
 copyright: Copyright © 2026 PatrikSchweika
 
 directories:

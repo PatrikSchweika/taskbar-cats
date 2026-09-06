@@ -190,7 +190,9 @@ export class Updater {
 		);
 		this._port.on("update-not-available", (info) => {
 			if (this._interactive)
-				this._ui.report(`Ubuntu Cats ${info.version} is the latest version.`);
+				this._ui.report(
+					`You already have the latest version (${info.version}).`,
+				);
 		});
 		this._port.on("error", (error) => this._fail(error));
 		this._port.on("update-downloaded", (info) =>

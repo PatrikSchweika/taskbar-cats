@@ -31,6 +31,8 @@ const ENTRY = "platform/win32/main.js";
 
 interface RootManifest {
 	name: string;
+	/** The name people see. Not the npm name, which is the repository's. */
+	productName: string;
 	version: string;
 	description?: string;
 	author?: string;
@@ -58,9 +60,10 @@ function run(cmd: string, args: string[]): number {
  *
  * The build output is its own app root rather than the repository being
  * packaged wholesale, so it needs its own manifest. Deriving it from the root
- * one keeps a single source of truth for the version, and means the app is
- * identical in `win:dev` and in an installer — including `productName`, which
- * decides `app.getName()` and therefore where settings.json lives.
+ * one keeps a single source of truth for the version and the product name,
+ * and means the app is identical in `win:dev` and in an installer —
+ * including `productName`, which decides `app.getName()` and therefore where
+ * settings.json lives.
  *
  * The dependencies come across for electron-builder's benefit: it reads them
  * from here to decide what goes into app.asar, and resolves them against the
@@ -71,7 +74,7 @@ function run(cmd: string, args: string[]): number {
 export function appManifest(root: RootManifest): Record<string, unknown> {
 	return {
 		name: root.name,
-		productName: "Ubuntu Cats",
+		productName: root.productName,
 		version: root.version,
 		description: root.description,
 		author: root.author,
