@@ -78,7 +78,7 @@ and the tray menu can open the file. Uninstalling leaves the file behind.
 You need:
 
 - Windows 10 21H2 or newer, or Windows 11
-- Node 22.18 or newer
+- Node 22.22.2 or newer
 - Visual Studio Build Tools 2022 with the **Desktop development with C++**
   workload. Only the native helper needs this.
 - Python 3, because `node-gyp` needs it

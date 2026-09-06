@@ -7,7 +7,7 @@
 	"license": "MIT",
 	"description": "Pixel-art cats that live on your dock or taskbar, chase the pointer and scratch app icons.",
 	"engines": {
-		"node": ">=22.18.0"
+		"node": ">=22.22.2"
 	},
 	"scripts": {
 		"build": "node tools/cli.ts build",
