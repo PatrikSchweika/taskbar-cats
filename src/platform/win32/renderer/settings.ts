@@ -508,7 +508,10 @@ async function main(): Promise<void> {
 		const onKey = (event: KeyboardEvent): void => {
 			event.preventDefault();
 			event.stopPropagation();
-			if (event.key === "Escape") return stop();
+			if (event.key === "Escape") {
+				stop();
+				return;
+			}
 			const accel = acceleratorFromKeyEvent(event);
 			if (event.key === "Backspace" && accel && !hasModifier(accel)) {
 				cats.apply({ toggleHotkey: [] });
@@ -526,7 +529,10 @@ async function main(): Promise<void> {
 			void refreshStatus();
 		};
 		button.addEventListener("click", () => {
-			if (capturing) return stop();
+			if (capturing) {
+				stop();
+				return;
+			}
 			capturing = true;
 			button.textContent = "Cancel";
 			shown.textContent = "Press the new shortcut…";
