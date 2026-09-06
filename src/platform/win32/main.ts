@@ -266,13 +266,7 @@ class CatsApp {
 	private _visible = false;
 
 	constructor() {
-		// The second directory is where settings.json lived when the app was
-		// called "Ubuntu Cats". app.getPath("userData") follows productName, so
-		// without this an upgrade from 1.2.0 would look like a first run.
-		this._config = new ConfigStore(
-			app.getPath("userData"),
-			join(app.getPath("appData"), "Ubuntu Cats"),
-		);
+		this._config = new ConfigStore(app.getPath("userData"));
 		const loaded = loadShell({ resourcesPath: process.resourcesPath });
 		this._shell = loaded.shell;
 		this._shellError = loaded.available ? null : (loaded.reason ?? "unknown");

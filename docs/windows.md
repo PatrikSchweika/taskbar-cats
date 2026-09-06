@@ -73,9 +73,6 @@ tells you so. Download a new file instead.
 Settings live in `%APPDATA%\Taskbar Cats\settings.json`. They survive updates,
 and the tray menu can open the file. Uninstalling leaves the file behind.
 
-Before 1.3.0 the app was called Ubuntu Cats. Installing 1.3.0 over 1.2.0 upgrades
-it in place and copies your old settings across.
-
 ## Build from source
 
 You need:

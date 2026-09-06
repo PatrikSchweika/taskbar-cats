@@ -1,11 +1,11 @@
 {
 	"name": "taskbar-cats",
-	"version": "1.3.0",
+	"version": "1.3.1",
 	"productName": "Taskbar Cats",
 	"private": true,
 	"type": "module",
 	"license": "MIT",
-	"description": "Pixel-art cats that live on your Ubuntu dock, chase the pointer and scratch app icons.",
+	"description": "Pixel-art cats that live on your dock or taskbar, chase the pointer and scratch app icons.",
 	"engines": {
 		"node": ">=22.18.0"
 	},

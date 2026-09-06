@@ -6,14 +6,7 @@
  * defaults and ranges all come from core/config.ts — this file only does I/O
  * and change notification.
  */
-import {
-	copyFileSync,
-	existsSync,
-	mkdirSync,
-	readFileSync,
-	renameSync,
-	writeFileSync,
-} from "node:fs";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import {
@@ -25,43 +18,14 @@ import {
 
 export type ConfigListener = (settings: Settings, changed: string[]) => void;
 
-/**
- * Carry settings over from the directory a previous product name used.
- *
- * app.getPath("userData") is %APPDATA%\<productName>, so renaming the product
- * moves it and an existing user's next launch would silently be a first run
- * with every setting back at its default. Copying rather than moving leaves
- * the old file where an older version installed alongside would still find
- * it, and only ever happens once, because after it there is a file here.
- *
- * Failing is not fatal: losing the old settings is a nuisance, and the
- * defaults are always a usable configuration.
- */
-function adoptLegacySettings(path: string, legacy: string): void {
-	try {
-		if (existsSync(path) || !existsSync(legacy)) return;
-		mkdirSync(dirname(path), { recursive: true });
-		copyFileSync(legacy, path);
-		console.log(`taskbar-cats: carried settings over from ${legacy}`);
-	} catch (e) {
-		console.error(`taskbar-cats: could not carry over ${legacy}: ${e}`);
-	}
-}
-
 export class ConfigStore {
 	readonly path: string;
 	private _settings: Settings;
 	private _listeners: ConfigListener[] = [];
 
-	/**
-	 * @param userDataDir Where settings.json lives now.
-	 * @param legacyDir Where it lived under a previous product name, if the
-	 * app has ever had one. See {@link adoptLegacySettings}.
-	 */
-	constructor(userDataDir: string, legacyDir?: string) {
+	/** @param userDataDir Where settings.json lives: %APPDATA%\Taskbar Cats. */
+	constructor(userDataDir: string) {
 		this.path = join(userDataDir, "settings.json");
-		if (legacyDir)
-			adoptLegacySettings(this.path, join(legacyDir, "settings.json"));
 		this._settings = this._read();
 	}
 
