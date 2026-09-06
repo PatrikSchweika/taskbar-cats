@@ -1,4 +1,4 @@
-# Ubuntu Cats
+# Taskbar Cats
 
 A colony of pixel-art cats that live on your Ubuntu dock. They chase the mouse
 pointer, sit and stare up at it, nap when you ignore them, and periodically
@@ -74,8 +74,9 @@ npm run ext:install
 
 Then **restart GNOME Shell, and only then enable it.** The order matters:
 `gnome-extensions enable` asks the *running* shell to enable the extension, and
-the shell only scans the extensions directory when it starts. Enabling before a
-restart fails with `Extension "ubuntu-cats" does not exist`.
+the shell only scans the extensions directory when it starts. Enabling before
+a restart fails with
+`Extension "taskbar-cats@patrikschweika.github.io" does not exist`.
 
 1. Restart the shell:
    - **X11**: <kbd>Alt</kbd>+<kbd>F2</kbd>, type `r`, <kbd>Enter</kbd>
@@ -92,7 +93,7 @@ the dock and they will come to it. To change how many there are, how fast they
 run, or whether they scratch, open the settings:
 
 ```bash
-gnome-extensions prefs ubuntu-cats
+gnome-extensions prefs taskbar-cats@patrikschweika.github.io
 ```
 
 See [Opening them](#opening-them) for the graphical route — Ubuntu does not
@@ -105,9 +106,9 @@ installed but the shell started before it was.
 
 ### Option B — from a packaged zip (no Node needed)
 
-Useful for installing on a machine you do not want a toolchain on. Every release
-has `ubuntu-cats.shell-extension.zip` attached, so the usual route is to
-download that one from the
+Useful for installing on a machine you do not want a toolchain on. Every
+release has `taskbar-cats@patrikschweika.github.io.shell-extension.zip`
+attached, so the usual route is to download that one from the
 [releases page](https://github.com/PatrikSchweika/taskbar-cats/releases).
 
 To build one yourself instead, from any machine with Node — it needs no GNOME,
@@ -115,16 +116,17 @@ because the zip is written by `tools/zip.ts` rather than by
 `gnome-extensions pack`:
 
 ```bash
-npm run ext:pack        # writes dist/ubuntu-cats.shell-extension.zip
+npm run ext:pack        # writes the zip into dist/
 ```
 
 Either way, on the target machine:
 
 ```bash
-gnome-extensions install --force ubuntu-cats.shell-extension.zip
+gnome-extensions install --force taskbar-cats@patrikschweika.github.io.shell-extension.zip
 ```
 
-Restart the shell as above, then `gnome-extensions enable ubuntu-cats`.
+Restart the shell as above, then
+`gnome-extensions enable taskbar-cats@patrikschweika.github.io`.
 
 ### Everyday commands
 
@@ -137,17 +139,17 @@ npm run logs             # follow gnome-shell's log
 ```
 
 Without the repo checked out, the same things are
-`gnome-extensions prefs|disable|enable ubuntu-cats`. See
-[Opening them](#opening-them) for the graphical route.
+`gnome-extensions prefs|disable|enable taskbar-cats@patrikschweika.github.io`.
+See [Opening them](#opening-them) for the graphical route.
 
 ### Updating
 
 **The extension does not update itself, and cannot.** GNOME only updates
 extensions it installed from
 [extensions.gnome.org](https://extensions.gnome.org), and this one is not
-published there yet — doing so means changing the UUID to the `name@domain`
-form that site requires, and then waiting on a human review for every release.
-See [A note on the UUID](#a-note-on-the-uuid).
+published there yet — the UUID is in the `name@namespace` form that site
+requires, but every release there waits on a human review. See
+[A note on the UUID](#a-note-on-the-uuid).
 
 So updating is the same as installing. From a checkout:
 
@@ -160,7 +162,7 @@ npm run ext:install
 or, from a downloaded release zip:
 
 ```bash
-gnome-extensions install --force ubuntu-cats.shell-extension.zip
+gnome-extensions install --force taskbar-cats@patrikschweika.github.io.shell-extension.zip
 ```
 
 Then restart the shell. GNOME caches ES modules, so a running shell keeps the
@@ -173,7 +175,7 @@ The Windows app is different: an installed copy keeps itself up to date. See
 
 | Symptom | Cause |
 |---|---|
-| `Extension "ubuntu-cats" does not exist` | The shell has not scanned it yet — restart the shell, then enable |
+| `Extension "taskbar-cats@patrikschweika.github.io" does not exist` | The shell has not scanned it yet — restart the shell, then enable |
 | Enabled, but no cats | No dock found. Confirm a dock extension is enabled, and check `npm run logs` |
 | Cats appear then vanish | Expected: they hide with the dock when intellihide or the overview takes it away |
 | `glib-compile-schemas: not found` | `sudo apt install libglib2.0-bin` |
@@ -181,13 +183,13 @@ The Windows app is different: an installed copy keeps itself up to date. See
 
 ### A note on the UUID
 
-The extension's UUID is a bare `ubuntu-cats`. GNOME's convention is
-`name@domain` and **extensions.gnome.org requires that form**, so publishing
-there would mean changing it. The shell itself only requires that the UUID
-match the installed directory name, which a bare name satisfies — verified
-loading cleanly on GNOME 46.
+The extension's UUID is `taskbar-cats@patrikschweika.github.io`. The shell
+itself only requires that the UUID match the installed directory name, but
+extensions.gnome.org requires the `name@namespace` form, with a namespace the
+author controls — hence the GitHub Pages domain of the account this repository
+belongs to. `npm run validate` checks the shape.
 
-The GSettings schema is `org.gnome.shell.extensions.ubuntu-cats` and is
+The GSettings schema is `org.gnome.shell.extensions.taskbar-cats` and is
 independent of the UUID, so renaming the extension does not lose your settings.
 
 ## Settings
@@ -198,7 +200,7 @@ From a terminal — this always works, because `gnome-extensions` ships with
 GNOME Shell itself:
 
 ```bash
-gnome-extensions prefs ubuntu-cats
+gnome-extensions prefs taskbar-cats@patrikschweika.github.io
 ```
 
 Or, from a checkout of this repo, `npm run ext:prefs`.
@@ -215,7 +217,7 @@ sudo apt install gnome-shell-extension-manager # "Extension Manager", third-part
 ```
 
 Then launch **Extensions** (or **Extension Manager**) from the app grid, find
-*Ubuntu Cats*, and click the gear icon beside it.
+*Taskbar Cats*, and click the gear icon beside it.
 
 Either way the extension has to be one the running shell knows about, so if the
 settings command reports that it does not exist, restart the shell first — see
@@ -562,13 +564,12 @@ a `v*` tag: the Windows installer and portable zip from a Windows runner, the
 extension zip from a Linux one, all attached to the GitHub release. Pushing the
 tag is the whole release.
 
-Before tagging, three versions have to be right, and only one of them is
+Before tagging, two versions have to be right, and only one of them is
 automatic.
 
 | Where | What | Who sets it |
 |---|---|---|
 | `package.json` `version` | The release version. The tag must match it, and the Windows installer and its update metadata are named from it | you |
-| `src/metadata.json` `version` | An **integer** GNOME compares to decide which copy of the extension is newer. Bump it by one every release | you |
 | `src/metadata.json` `version-name` | The version the Extensions app displays | the build, from `package.json` |
 
 The workflow refuses a tag that disagrees with `package.json`, because the
@@ -576,14 +577,15 @@ symptom otherwise is subtle: the installer would be named after the previous
 version and announce that version to anyone checking for updates, so no
 installed copy would ever take the release.
 
-Nothing checks the integer `version`, because nothing can tell a deliberate
-bump from a forgotten one. Forgetting it costs nothing today — the extension is
-installed by hand either way — but it is what
-[extensions.gnome.org](https://extensions.gnome.org) would order releases by,
-so it is worth keeping honest.
+There is no third version to remember. GNOME orders copies of an extension by
+an integer `version` in metadata.json, but
+[extensions.gnome.org](https://extensions.gnome.org) assigns that itself on
+upload and its guidelines treat a hand-written one as deprecated, so the
+committed metadata carries none. A zip installed by hand is replaced by
+`gnome-extensions install --force` regardless of what it says.
 
 ```bash
-# after bumping package.json and src/metadata.json, and committing
+# after bumping package.json, and committing
 git tag v1.2.0
 git push origin v1.2.0
 ```

@@ -44,7 +44,7 @@ start() {
     setsid dbus-run-session -- bash -c '
         dconf write /org/gnome/shell/disable-user-extensions false
         dconf write /org/gnome/shell/enabled-extensions \
-            "[\"ubuntu-dock@ubuntu.com\",\"ubuntu-cats\"]"
+            "[\"ubuntu-dock@ubuntu.com\",\"taskbar-cats@patrikschweika.github.io\"]"
         dconf write /org/gnome/shell/extensions/dash-to-dock/dock-position "\"BOTTOM\""
         dconf write /org/gnome/shell/extensions/dash-to-dock/dock-fixed true
         dconf write /org/gnome/shell/extensions/dash-to-dock/dash-max-icon-size 48

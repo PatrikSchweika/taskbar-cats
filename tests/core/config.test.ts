@@ -19,7 +19,7 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "src");
 const SCHEMA_PATH = join(
 	SRC,
 	"schemas",
-	"org.gnome.shell.extensions.ubuntu-cats.gschema.xml",
+	"org.gnome.shell.extensions.taskbar-cats.gschema.xml",
 );
 
 interface SchemaKey {

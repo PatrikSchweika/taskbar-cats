@@ -1,9 +1,8 @@
 {
-	"uuid": "ubuntu-cats",
-	"name": "Ubuntu Cats",
+	"uuid": "taskbar-cats@patrikschweika.github.io",
+	"name": "Taskbar Cats",
 	"description": "A colony of pixel-art cats lives on your dock. They chase the mouse pointer, sit and stare at it, nap when you ignore them, and scratch your app icons.",
 	"shell-version": ["45", "46", "47", "48", "49", "50"],
-	"settings-schema": "org.gnome.shell.extensions.ubuntu-cats",
-	"gettext-domain": "ubuntu-cats",
-	"version": 3
+	"url": "https://github.com/PatrikSchweika/taskbar-cats",
+	"settings-schema": "org.gnome.shell.extensions.taskbar-cats"
 }
