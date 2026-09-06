@@ -25,6 +25,7 @@ import {
 	BrowserWindow,
 	dialog,
 	shell as electronShell,
+	globalShortcut,
 	ipcMain,
 	Menu,
 	nativeImage,
@@ -37,6 +38,7 @@ import electronUpdater from "electron-updater";
 
 import { ACTIVE_INTERVAL_MS } from "../../core/colony.js";
 import type { Settings } from "../../core/config.js";
+import { parseAccelerator, toElectronAccelerator } from "../../core/hotkey.js";
 import { parseManifest, type SpriteManifest } from "../../core/sprites.js";
 import { ConfigStore } from "./config.js";
 import { CHANNELS, type Layout, type SettingsDescription } from "./ipc.js";
@@ -264,6 +266,10 @@ class CatsApp {
 	private _sinceLayout = Number.POSITIVE_INFINITY;
 	private _lastLayoutKey = "";
 	private _visible = false;
+	private _hidden = false;
+	private _hotkeyError: string | null = null;
+	/** The Electron accelerator currently registered, to unregister it later. */
+	private _registeredHotkey: string | null = null;
 
 	constructor() {
 		this._config = new ConfigStore(app.getPath("userData"));
@@ -283,11 +289,13 @@ class CatsApp {
 		this._updater = createUpdater();
 		this._createOverlay();
 		this._createTray();
-		this._config.onChange((settings) => {
+		this._config.onChange((settings, changed) => {
 			for (const window of [this._overlay?.window, this._settingsWindow])
 				if (window && !window.isDestroyed())
 					window.webContents.send(CHANNELS.settings, settings);
+			if (changed.includes("toggleHotkey")) this._registerHotkey(settings);
 		});
+		this._registerHotkey(this._config.settings);
 
 		ipcMain.on(CHANNELS.ready, () => {
 			// Anything sent before the renderer finished loading was dropped, so
@@ -306,6 +314,7 @@ class CatsApp {
 				palettes: this._manifest.palettes,
 				configPath: this._config.path,
 				shellError: this._shellError,
+				hotkeyError: this._hotkeyError,
 			}),
 		);
 		ipcMain.handle(CHANNELS.manifest, (): SpriteManifest => this._manifest);
@@ -326,6 +335,7 @@ class CatsApp {
 		if (this._timer) clearInterval(this._timer);
 		this._timer = null;
 		this._updater?.stop();
+		globalShortcut.unregisterAll();
 		this._shell.dispose();
 		this._tray?.destroy();
 		this._tray = null;
@@ -375,38 +385,47 @@ class CatsApp {
 	}
 
 	private _createTray(): void {
-		const updater = this._updater;
 		const tray = new Tray(trayImage());
 		tray.setToolTip(app.getName());
-		tray.setContextMenu(
-			Menu.buildFromTemplate([
-				{ label: "Settings…", click: () => this._openSettings() },
-				{
-					label: "Check for updates…",
-					click: () => void updater?.checkNow(),
-				},
-				{
-					label: "Start with Windows",
-					type: "checkbox",
-					checked: app.getLoginItemSettings().openAtLogin,
-					click: (item) => {
-						app.setLoginItemSettings({ openAtLogin: item.checked });
-					},
-				},
-				{ type: "separator" },
-				{
-					label: "Open settings file",
-					click: () => {
-						void electronShell.openPath(this._config.path);
-					},
-				},
-				{ type: "separator" },
-				{ label: `Version ${app.getVersion()}`, enabled: false },
-				{ label: "Quit", click: () => app.quit() },
-			]),
-		);
+		tray.setContextMenu(this._trayMenu());
 		tray.on("double-click", () => this._openSettings());
 		this._tray = tray;
+	}
+
+	/** Rebuilt whenever the hidden state changes, so its checkbox follows. */
+	private _trayMenu(): Menu {
+		const updater = this._updater;
+		return Menu.buildFromTemplate([
+			{ label: "Settings…", click: () => this._openSettings() },
+			{
+				label: "Hide cats",
+				type: "checkbox",
+				checked: this._hidden,
+				click: (item) => this._setHidden(item.checked),
+			},
+			{
+				label: "Check for updates…",
+				click: () => void updater?.checkNow(),
+			},
+			{
+				label: "Start with Windows",
+				type: "checkbox",
+				checked: app.getLoginItemSettings().openAtLogin,
+				click: (item) => {
+					app.setLoginItemSettings({ openAtLogin: item.checked });
+				},
+			},
+			{ type: "separator" },
+			{
+				label: "Open settings file",
+				click: () => {
+					void electronShell.openPath(this._config.path);
+				},
+			},
+			{ type: "separator" },
+			{ label: `Version ${app.getVersion()}`, enabled: false },
+			{ label: "Quit", click: () => app.quit() },
+		]);
 	}
 
 	private _openSettings(): void {
@@ -443,6 +462,49 @@ class CatsApp {
 			window.webContents.send(CHANNELS.settings, this._config.settings);
 	}
 
+	// -- hiding -------------------------------------------------------------
+
+	/**
+	 * (Re)register the global shortcut from the settings. Electron reports a
+	 * clash by returning false rather than throwing, and says nothing about
+	 * who owns the key, so the message is necessarily vague.
+	 */
+	private _registerHotkey(settings: Settings): void {
+		if (this._registeredHotkey) {
+			globalShortcut.unregister(this._registeredHotkey);
+			this._registeredHotkey = null;
+		}
+		this._hotkeyError = null;
+		const accel = settings.toggleHotkey[0]
+			? parseAccelerator(settings.toggleHotkey[0])
+			: null;
+		if (!accel) return;
+		const electronAccel = toElectronAccelerator(accel);
+		let ok = false;
+		try {
+			ok = globalShortcut.register(electronAccel, () => this._toggleHidden());
+		} catch (e) {
+			console.error(`taskbar-cats: cannot register ${electronAccel}: ${e}`);
+		}
+		if (ok) this._registeredHotkey = electronAccel;
+		else
+			this._hotkeyError = `${electronAccel} could not be registered. Another program may already use it.`;
+	}
+
+	private _toggleHidden(): void {
+		this._setHidden(!this._hidden);
+	}
+
+	private _setHidden(hidden: boolean): void {
+		if (hidden === this._hidden) return;
+		this._hidden = hidden;
+		const window = this._overlay?.window;
+		if (window && !window.isDestroyed())
+			window.webContents.send(CHANNELS.visible, !hidden);
+		// The tick hides or shows the window on its next pass.
+		this._tray?.setContextMenu(this._trayMenu());
+	}
+
 	// -- the tick -----------------------------------------------------------
 
 	private _relayout(): void {
@@ -461,7 +523,7 @@ class CatsApp {
 			this._syncOverlay(overlay);
 		}
 
-		const visible = this._tracker.isUsable();
+		const visible = !this._hidden && this._tracker.isUsable();
 		if (visible !== this._visible) {
 			this._visible = visible;
 			if (visible) {

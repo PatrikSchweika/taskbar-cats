@@ -49,6 +49,8 @@ export const enum CHANNELS {
 	layout = "cats:layout",
 	/** main -> overlay: a fresh pointer sample, window-local. */
 	pointer = "cats:pointer",
+	/** main -> overlay: whether the cats should be simulated and drawn. */
+	visible = "cats:visible",
 	/** main -> overlay and settings: the settings changed. */
 	settings = "cats:settings",
 	/** overlay -> main: the renderer is up and wants the current state. */
@@ -82,4 +84,9 @@ export interface SettingsDescription {
 	 * is told why the cats are ignoring the taskbar instead of guessing.
 	 */
 	shellError: string | null;
+	/**
+	 * Null when the hide hotkey is registered (or unbound). Otherwise why it is
+	 * not, usually because another program owns the combination.
+	 */
+	hotkeyError: string | null;
 }

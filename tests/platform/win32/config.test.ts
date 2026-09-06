@@ -57,6 +57,30 @@ describe("ConfigStore", () => {
 		assert.deepEqual(new ConfigStore(dir).settings.bedPositions, [10, -1, 100]);
 	});
 
+	it("persists the per-cat lists and the hotkey, keyed as the schema is", () => {
+		const store = new ConfigStore(dir);
+		store.update({
+			catNames: ["Mochi"],
+			catPalettes: ["siamese"],
+			catSizes: [0, 500],
+			toggleHotkey: ["<Alt><Control>x"],
+		});
+		const raw = JSON.parse(
+			readFileSync(join(dir, "settings.json"), "utf8"),
+		) as Record<string, unknown>;
+		assert.deepEqual(raw["cat-names"], ["Mochi"]);
+		assert.deepEqual(raw["cat-palettes"], ["siamese"]);
+		assert.deepEqual(raw["cat-sizes"], [0, 128], "clamped on the way");
+		assert.deepEqual(
+			raw["toggle-hotkey"],
+			["<Control><Alt>x"],
+			"canonical form",
+		);
+		assert.deepEqual(new ConfigStore(dir).settings.toggleHotkey, [
+			"<Control><Alt>x",
+		]);
+	});
+
 	it("clamps what it stores, not just what it serves", () => {
 		const store = new ConfigStore(dir);
 		store.update({ maxSpeed: 100000 });
