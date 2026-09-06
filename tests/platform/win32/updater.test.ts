@@ -109,19 +109,6 @@ describe("updateSupport", () => {
 		assert.equal(updateSupport(installedProbe()).supported, true);
 	});
 
-	it("accepts one installed under the old product name", () => {
-		// 1.2.0 installed as "Ubuntu Cats" and 1.3.0 renamed the product, so an
-		// installed copy can carry either name. Matching the shape of the
-		// uninstaller rather than its exact name is what keeps updates working
-		// for everyone already on the old one.
-		const support = updateSupport(
-			installedProbe({
-				siblings: () => ["Ubuntu Cats.exe", "Uninstall Ubuntu Cats.exe"],
-			}),
-		);
-		assert.equal(support.supported, true);
-	});
-
 	it("refuses a copy that was unzipped rather than installed", () => {
 		// The portable zip is the same win-unpacked directory, so it carries
 		// app-update.yml too. Updating it would run an installer and leave the

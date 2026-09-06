@@ -5,12 +5,12 @@
 # inside the package. Nothing here is used by the GNOME extension, which is
 # installed by tools/cli.ts instead.
 
-# Deliberately still says ubuntu-cats, and must keep saying it. NSIS derives
-# the uninstall registry key from this, so it is how an installer finds the
-# copy already on the machine and upgrades it in place. Changing it would
-# leave everyone on 1.2.0 with a second install beside the first. Nobody ever
-# sees it; productName is the name that shows.
-appId: com.github.patrikschweika.ubuntu-cats
+# NSIS derives the uninstall registry key from this, so it is how an installer
+# finds the copy already on the machine and upgrades it in place rather than
+# putting a second one beside it. Once a release is out, changing it strands
+# everyone already on that release. Nobody ever sees it; productName is the
+# name that shows.
+appId: com.github.patrikschweika.taskbar-cats
 # Hyphens rather than spaces, and a literal rather than ${productName}, which
 # contains one: GitHub rewrites spaces in an uploaded asset's name to dots, so
 # a file with a space in it ends up called something other than what latest.yml
@@ -22,10 +22,10 @@ appId: com.github.patrikschweika.ubuntu-cats
 # for the installer.
 artifactName: Taskbar-Cats-${version}-windows-${arch}-portable.${ext}
 # Shown in the installer, the Start menu and Task Manager. It also decides
-# app.getName(), and so where settings.json lives: renaming the product moved
-# that from %APPDATA%\Ubuntu Cats to %APPDATA%\Taskbar Cats, which is why
-# ConfigStore carries the old file across on first run. Keep this in step with
-# package.json's productName; a test checks that it is.
+# app.getName(), and so where settings.json lives: %APPDATA%\Taskbar Cats.
+# Changing it moves that directory, so any future rename has to carry the old
+# settings across or everyone is silently reset to the defaults. Keep this in
+# step with package.json's productName; a test checks that it is.
 productName: Taskbar Cats
 copyright: Copyright © 2026 PatrikSchweika
 
