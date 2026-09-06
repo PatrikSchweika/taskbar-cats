@@ -4,7 +4,9 @@ import {
 	eachPropFrame,
 	FrameTable,
 	isSpriteManifest,
+	PREVIEW_FRAME_MS,
 	parseManifest,
+	previewFrames,
 	propFramePath,
 } from "../../src/core/sprites.ts";
 
@@ -90,5 +92,34 @@ describe("FrameTable", () => {
 		const table = new FrameTable({ palettes, animations }, (path) => path);
 		assert.deepEqual(table.propFrames("bed"), []);
 		assert.deepEqual(table.props, {});
+	});
+});
+
+describe("previewFrames", () => {
+	it("lists the walk cycle for a palette, in order", () => {
+		const manifest = { palettes: ["a"], animations: { idle: 2, walk: 3 } };
+		assert.deepEqual(previewFrames(manifest, "a"), [
+			"a/walk_0.svg",
+			"a/walk_1.svg",
+			"a/walk_2.svg",
+		]);
+	});
+
+	it("falls back to idle when the animation is missing", () => {
+		assert.deepEqual(previewFrames(MANIFEST, "b", "dance"), [
+			"b/idle_0.svg",
+			"b/idle_1.svg",
+		]);
+	});
+
+	it("is empty for a manifest with neither", () => {
+		assert.deepEqual(
+			previewFrames({ palettes: ["a"], animations: {} }, "a"),
+			[],
+		);
+	});
+
+	it("plays at 8 frames a second", () => {
+		assert.equal(PREVIEW_FRAME_MS, 125);
 	});
 });

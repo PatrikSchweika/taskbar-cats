@@ -94,6 +94,26 @@ export function resolvePalettes(
 	return valid.length ? valid : [...available];
 }
 
+/** How long each preview frame is shown in the settings UIs. */
+export const PREVIEW_FRAME_MS = 125;
+
+/**
+ * The frames a settings preview loops through for one palette. Walk is the
+ * animation that reads as "a cat" at a glance; idle stands in when a manifest
+ * has no walk.
+ */
+export function previewFrames(
+	manifest: SpriteManifest,
+	palette: string,
+	animation = "walk",
+): string[] {
+	const name = manifest.animations[animation] ? animation : FALLBACK_ANIMATION;
+	const count = manifest.animations[name] ?? 0;
+	return Array.from({ length: count }, (_, frame) =>
+		framePath(palette, name, frame),
+	);
+}
+
 /**
  * A {@link SpriteSource} over frame handles already loaded by a platform.
  *
