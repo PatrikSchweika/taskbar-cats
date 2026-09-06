@@ -37,6 +37,8 @@ directories:
   # dist/, which this repository already uses for the GNOME extension and its
   # packed zip — it would otherwise treat the extension's output as installer
   # resources and write installers over the zip.
+  # packaging/ does not exist yet; electron-builder is fine with that. Create it
+  # when there are installer resources (an NSIS script, a sidebar bitmap) to add.
   buildResources: packaging
   output: dist/win32
 
