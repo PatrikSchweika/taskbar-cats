@@ -8,3 +8,7 @@ __pycache__/
 *.pyc
 # JetBrains project files
 .idea/
+# Claude Code writes per-developer permissions here. Biome reads .gitignore
+# but not the global excludes file, so this has to be stated to keep
+# `npm run check` clean.
+.claude/settings.local.json
