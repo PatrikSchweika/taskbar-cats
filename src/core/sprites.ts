@@ -85,13 +85,24 @@ export function* eachPropFrame(
 		for (let frame = 0; frame < count; frame++) yield { name, frame };
 }
 
-/** Requested palette names filtered to those that actually exist. */
-export function resolvePalettes(
-	requested: readonly string[],
-	available: readonly string[],
+/** How long each preview frame is shown in the settings UIs. */
+export const PREVIEW_FRAME_MS = 125;
+
+/**
+ * The frames a settings preview loops through for one palette. Walk is the
+ * animation that reads as "a cat" at a glance; idle stands in when a manifest
+ * has no walk.
+ */
+export function previewFrames(
+	manifest: SpriteManifest,
+	palette: string,
+	animation = "walk",
 ): string[] {
-	const valid = requested.filter((p) => available.includes(p));
-	return valid.length ? valid : [...available];
+	const name = manifest.animations[animation] ? animation : FALLBACK_ANIMATION;
+	const count = manifest.animations[name] ?? 0;
+	return Array.from({ length: count }, (_, frame) =>
+		framePath(palette, name, frame),
+	);
 }
 
 /**
@@ -133,10 +144,6 @@ export class FrameTable<H> {
 	/** Frames for one prop; empty when the install has no such prop. */
 	propFrames(name: string): readonly H[] {
 		return this._props.get(name) ?? [];
-	}
-
-	resolvePalettes(requested: readonly string[]): string[] {
-		return resolvePalettes(requested, this.palettes);
 	}
 
 	destroy(): void {

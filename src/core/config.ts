@@ -7,12 +7,11 @@
  * from this table.
  */
 import type { CatConfig } from "./cat.js";
+import { formatAccelerator, parseAccelerator } from "./hotkey.js";
 
 export interface Settings extends CatConfig {
 	count: number;
-	palettes: string[];
 	wiggleIcons: boolean;
-	spriteSize: number;
 	/** Cat beds standing on the floor for sleepy cats to curl up in. */
 	beds: number;
 	/** Scratching posts on the floor, clawed instead of (or as well as) icons. */
@@ -27,6 +26,23 @@ export interface Settings extends CatConfig {
 	bedPositions: number[];
 	/** The same for the scratching posts. */
 	scratcherPositions: number[];
+	/**
+	 * Fur palette per cat, indexed by cat. "" or missing means Auto: the cat
+	 * takes its turn through every palette on disk.
+	 */
+	catPalettes: string[];
+	/** Display name per cat, for the settings UI only. "" means "Cat N". */
+	catNames: string[];
+	/**
+	 * Size per cat in logical pixels. 0 or missing means Auto: the dock's own
+	 * icon size.
+	 */
+	catSizes: number[];
+	/**
+	 * The accelerator that hides and shows the cats, in GTK syntax
+	 * ("<Control><Alt>c"). At most one entry; an empty list means unbound.
+	 */
+	toggleHotkey: string[];
 }
 
 /** The position value that means "lay this one out automatically". */
@@ -50,7 +66,6 @@ export const INT_SETTINGS = {
 	maxSpeed: { key: "max-speed", default: 160, min: 40, max: 600 },
 	attraction: { key: "mouse-attraction", default: 60, min: 0, max: 100 },
 	attractRadius: { key: "attract-radius", default: 260, min: 40, max: 1200 },
-	spriteSize: { key: "sprite-size", default: 0, min: 0, max: 128 },
 	sleepAfter: { key: "sleep-after", default: 20, min: 0, max: 600 },
 	fps: { key: "animation-fps", default: 12, min: 4, max: 30 },
 	beds: { key: "bed-count", default: 0, min: 0, max: 8 },
@@ -63,9 +78,6 @@ export const BOOL_SETTINGS = {
 	wiggleIcons: { key: "wiggle-icons", default: true },
 } as const satisfies Record<string, { key: string; default: boolean }>;
 
-/** The palettes key is a string list; empty means "use every palette". */
-export const PALETTES_KEY = "palettes";
-
 /**
  * The position lists: integer arrays keyed by property name. Percentages
  * 0–100, or {@link AUTO_POSITION}; anything else is coerced to one of those.
@@ -74,6 +86,53 @@ export const POSITION_SETTINGS = {
 	bedPositions: { key: "bed-positions" },
 	scratcherPositions: { key: "scratcher-positions" },
 } as const satisfies Record<string, { key: string }>;
+
+/** String lists indexed by cat number; junk entries become "". */
+export const STRING_LIST_SETTINGS = {
+	catPalettes: { key: "cat-palettes" },
+	catNames: { key: "cat-names" },
+} as const satisfies Record<string, { key: string }>;
+
+export const CAT_SIZES_KEY = "cat-sizes";
+export const CAT_SIZE_MIN = 16;
+export const CAT_SIZE_MAX = 128;
+
+export const HOTKEY_KEY = "toggle-hotkey";
+export const DEFAULT_HOTKEY = "<Control><Alt>c";
+
+/** Coerce one stored string list, keeping the index of every entry. */
+export function normalizeStringList(raw: unknown): string[] {
+	if (!Array.isArray(raw)) return [];
+	return raw.map((value) => (typeof value === "string" ? value : ""));
+}
+
+/** Coerce the per-cat sizes: 0 stays Auto, anything else is clamped. */
+export function normalizeCatSizes(raw: unknown): number[] {
+	if (!Array.isArray(raw)) return [];
+	return raw.map((value) => {
+		const n =
+			typeof value === "number" && Number.isFinite(value)
+				? Math.round(value)
+				: 0;
+		if (n <= 0) return 0;
+		return Math.min(CAT_SIZE_MAX, Math.max(CAT_SIZE_MIN, n));
+	});
+}
+
+/**
+ * Coerce the hotkey list: the first entry that parses, written canonically.
+ * An empty list is a deliberate "unbound" and is kept; anything that is not a
+ * list at all falls back to the default.
+ */
+export function normalizeHotkey(raw: unknown): string[] {
+	if (!Array.isArray(raw)) return [DEFAULT_HOTKEY];
+	for (const value of raw) {
+		if (typeof value !== "string") continue;
+		const accel = parseAccelerator(value);
+		if (accel) return [formatAccelerator(accel)];
+	}
+	return [];
+}
 
 /** Coerce one stored position list: numbers clamped to 0–100, junk to auto. */
 export function normalizePositions(raw: unknown): number[] {
@@ -87,9 +146,12 @@ export function normalizePositions(raw: unknown): number[] {
 
 export function defaultSettings(): Settings {
 	const out = {
-		palettes: [] as string[],
 		bedPositions: [] as number[],
 		scratcherPositions: [] as number[],
+		catPalettes: [] as string[],
+		catNames: [] as string[],
+		catSizes: [] as number[],
+		toggleHotkey: [DEFAULT_HOTKEY],
 	} as Settings;
 	for (const [name, spec] of Object.entries(INT_SETTINGS))
 		(out as unknown as Record<string, number>)[name] = spec.default;
@@ -133,25 +195,32 @@ export function normalizeSettings(raw: unknown): Settings {
 		if (typeof value === "boolean")
 			(out as unknown as Record<string, boolean>)[name] = value;
 	}
-	const palettes = src[PALETTES_KEY];
-	if (Array.isArray(palettes))
-		out.palettes = palettes.filter((p): p is string => typeof p === "string");
 	for (const [name, spec] of Object.entries(POSITION_SETTINGS))
 		(out as unknown as Record<string, number[]>)[name] = normalizePositions(
 			src[spec.key],
 		);
+	for (const [name, spec] of Object.entries(STRING_LIST_SETTINGS))
+		(out as unknown as Record<string, string[]>)[name] = normalizeStringList(
+			src[spec.key],
+		);
+	out.catSizes = normalizeCatSizes(src[CAT_SIZES_KEY]);
+	if (HOTKEY_KEY in src) out.toggleHotkey = normalizeHotkey(src[HOTKEY_KEY]);
 
 	return out;
 }
 
 /** Settings back out as the flat, GSettings-keyed object stored on disk. */
 export function toStorage(settings: Settings): Record<string, unknown> {
-	const out: Record<string, unknown> = { [PALETTES_KEY]: settings.palettes };
+	const out: Record<string, unknown> = {};
 	for (const [name, spec] of Object.entries(INT_SETTINGS))
 		out[spec.key] = (settings as unknown as Record<string, number>)[name];
 	for (const [name, spec] of Object.entries(BOOL_SETTINGS))
 		out[spec.key] = (settings as unknown as Record<string, boolean>)[name];
 	for (const [name, spec] of Object.entries(POSITION_SETTINGS))
 		out[spec.key] = (settings as unknown as Record<string, number[]>)[name];
+	for (const [name, spec] of Object.entries(STRING_LIST_SETTINGS))
+		out[spec.key] = (settings as unknown as Record<string, string[]>)[name];
+	out[CAT_SIZES_KEY] = settings.catSizes;
+	out[HOTKEY_KEY] = settings.toggleHotkey;
 	return out;
 }

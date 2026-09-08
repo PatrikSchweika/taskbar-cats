@@ -2,7 +2,7 @@
  * The only bridge between the renderers and Node.
  *
  * Both windows run with context isolation on and node integration off, so this
- * exposes exactly the six messages in ipc.ts and nothing else.
+ * exposes exactly the messages in ipc.ts and nothing else.
  */
 import { contextBridge, ipcRenderer } from "electron";
 
@@ -22,6 +22,9 @@ const api = {
 	},
 	onPointer: (fn: (pointer: { x: number; y: number }) => void): void => {
 		ipcRenderer.on(CHANNELS.pointer, (_event, pointer) => fn(pointer));
+	},
+	onVisible: (fn: (visible: boolean) => void): void => {
+		ipcRenderer.on(CHANNELS.visible, (_event, visible: boolean) => fn(visible));
 	},
 	onSettings: (fn: (settings: Settings) => void): void => {
 		ipcRenderer.on(CHANNELS.settings, (_event, settings: Settings) =>

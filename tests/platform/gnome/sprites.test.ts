@@ -59,23 +59,6 @@ describe("SpriteSet", () => {
 		assert.deepEqual(new SpriteSet(SRC).frames("chartreuse", "walk"), []);
 	});
 
-	describe("resolvePalettes", () => {
-		it("keeps only palettes that exist", () => {
-			const set = new SpriteSet(SRC);
-			assert.deepEqual(set.resolvePalettes(["black", "chartreuse"]), ["black"]);
-		});
-
-		it("treats an empty choice as 'all of them'", () => {
-			const set = new SpriteSet(SRC);
-			assert.deepEqual(set.resolvePalettes([]), set.palettes);
-		});
-
-		it("falls back to all when nothing requested is valid", () => {
-			const set = new SpriteSet(SRC);
-			assert.deepEqual(set.resolvePalettes(["nope"]), set.palettes);
-		});
-	});
-
 	it("fails loudly when the assets are missing", () => {
 		assert.throws(
 			() => new SpriteSet("/nonexistent/path"),

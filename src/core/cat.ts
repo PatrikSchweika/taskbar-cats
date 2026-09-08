@@ -95,7 +95,6 @@ interface CatOptions {
  */
 export class Cat {
 	readonly view: CatView;
-	palette: string;
 	index: number;
 	/** Logical size handed to the view. */
 	iconSize: number;
@@ -113,6 +112,7 @@ export class Cat {
 	stateTime = 0;
 
 	private readonly _sprites: SpriteSource;
+	private _palette = "";
 	private _frame = 0;
 	private _frameTime = 0;
 	private _target: number;
@@ -146,6 +146,20 @@ export class Cat {
 		this._scratchProp = null;
 		this._releaseBed();
 		this.view.destroy();
+	}
+
+	get palette(): string {
+		return this._palette;
+	}
+
+	/**
+	 * A new coat shows at once rather than at the next animation step, which
+	 * for a sleeping cat could be most of a second away.
+	 */
+	set palette(palette: string) {
+		if (palette === this._palette) return;
+		this._palette = palette;
+		this._applyFrame();
 	}
 
 	/** @param size logical pixels, as the dock and the prefs dialog mean it. */

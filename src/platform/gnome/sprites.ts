@@ -48,11 +48,6 @@ export class SpriteSet implements SpriteSource {
 		return this._table.propFrames(name);
 	}
 
-	/** Palette names filtered to those that actually exist on disk. */
-	resolvePalettes(requested: readonly string[]): string[] {
-		return this._table.resolvePalettes(requested);
-	}
-
 	destroy(): void {
 		this._table.destroy();
 	}

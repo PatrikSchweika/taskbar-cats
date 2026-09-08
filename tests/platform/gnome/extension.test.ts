@@ -23,13 +23,11 @@ const METADATA = JSON.parse(
 
 const DEFAULTS: Record<string, unknown> = {
 	"cat-count": 3,
-	palettes: [],
 	"max-speed": 160,
 	"mouse-attraction": 60,
 	"attract-radius": 260,
 	"scratch-icons": true,
 	"wiggle-icons": true,
-	"sprite-size": 0,
 	"sleep-after": 20,
 	"animation-fps": 12,
 	"bed-count": 0,
@@ -37,6 +35,10 @@ const DEFAULTS: Record<string, unknown> = {
 	"mouse-interval": 120,
 	"bed-positions": [],
 	"scratcher-positions": [],
+	"cat-palettes": [],
+	"cat-names": [],
+	"cat-sizes": [],
+	"toggle-hotkey": ["<Control><Alt>c"],
 };
 
 interface Harness {
@@ -62,6 +64,15 @@ function layerChildren(): FakeActor[] {
 		.get_children()
 		.find((c) => c.style_class === "taskbar-cats-layer");
 	return layer ? layer.get_children() : [];
+}
+
+/** The overlay actor itself. */
+function layer(): FakeActor {
+	const found = Main.layoutManager.uiGroup
+		.get_children()
+		.find((c) => c.style_class === "taskbar-cats-layer");
+	assert.ok(found, "overlay missing");
+	return found;
 }
 
 /** The cat actors currently parented into the overlay. */
@@ -131,7 +142,7 @@ describe("TaskbarCatsExtension", () => {
 
 		it("applies a pinned cat size", () => {
 			const { settings } = enableExtension();
-			settings.__change("sprite-size", 72);
+			settings.__change("cat-sizes", [72, 72, 72]);
 			tick(2);
 			for (const cat of catActors())
 				assert.equal((cat as { icon_size: number }).icon_size, 72);
@@ -190,11 +201,36 @@ describe("TaskbarCatsExtension", () => {
 			assert.equal(propActors().length, 0, "switching mice off removes it");
 		});
 
+		it("gives one cat its own size, live", () => {
+			const { settings } = enableExtension({ "cat-count": 2 });
+			tick(2);
+			settings.__change("cat-sizes", [72]);
+			tick(2);
+			const sizes = catActors().map(
+				(c) => (c as { icon_size: number }).icon_size,
+			);
+			assert.deepEqual(sizes, [72, 48]);
+		});
+
+		it("dresses one cat in its own palette, live", () => {
+			const { settings } = enableExtension({
+				"cat-count": 2,
+				"cat-palettes": ["black", "black"],
+			});
+			settings.__change("cat-palettes", ["black", "siamese"]);
+			tick(2);
+			const worn = catActors().map((c) =>
+				String((c as unknown as { gicon: { path: string } }).gicon.path),
+			);
+			assert.match(worn[0], /\/black\//);
+			assert.match(worn[1], /\/siamese\//);
+		});
+
 		it("matches the dock's logical icon size when set to auto", () => {
 			// Regression: measuring the icon's stage height made cats
 			// scale-factor times too big on HiDPI.
 			resetEnv(2);
-			enableExtension({ "sprite-size": 0 });
+			enableExtension({ "cat-sizes": [0] });
 			tick(2);
 			for (const cat of catActors())
 				assert.equal((cat as { icon_size: number }).icon_size, 48);
@@ -239,6 +275,55 @@ describe("TaskbarCatsExtension", () => {
 			enableExtension();
 			tick(300);
 			assert.deepEqual(testEnv().loggedErrors, []);
+		});
+	});
+
+	describe("the hide hotkey", () => {
+		it("is bound under the settings key while enabled, and unbound after", () => {
+			const { ext } = enableExtension();
+			assert.ok(Main.wm.bindings.has("toggle-hotkey"));
+			ext.disable();
+			assert.equal(Main.wm.bindings.size, 0, "keybinding leaked");
+		});
+
+		it("hides the cats, idles the tick, and brings them back where they were", () => {
+			enableExtension({ "sleep-after": 0, "mouse-attraction": 0 });
+			tick(5);
+			assert.equal(layer().visible, true);
+			const before = catActors().map((c) => c.x);
+			const busy = GLib.__sources()[0].intervalMs;
+
+			Main.wm.__press("toggle-hotkey");
+			tick(5);
+			assert.equal(layer().visible, false);
+			assert.ok(
+				GLib.__sources()[0].intervalMs > busy,
+				"should idle while hidden",
+			);
+			assert.deepEqual(
+				catActors().map((c) => c.x),
+				before,
+				"the simulation should pause while hidden",
+			);
+
+			Main.wm.__press("toggle-hotkey");
+			tick(1);
+			assert.equal(layer().visible, true);
+			assert.equal(GLib.__sources()[0].intervalMs, busy);
+		});
+
+		it("comes back visible after a disable and enable while hidden", () => {
+			const { ext } = enableExtension();
+			Main.wm.__press("toggle-hotkey");
+			tick(2);
+			ext.disable();
+			(ext as unknown as { __settings: unknown }).__settings = new Settings({
+				...DEFAULTS,
+			});
+			ext.enable();
+			tick(2);
+			assert.equal(layer().visible, true);
+			ext.disable();
 		});
 	});
 

@@ -52,9 +52,34 @@ class Overview extends Signalled {
 	visible = false;
 }
 
+/** Main.wm, reduced to the keybinding registry the extension uses. */
+class WindowManager {
+	bindings = new Map<string, () => void>();
+	addKeybinding(
+		name: string,
+		_settings: unknown,
+		_flags: number,
+		_modes: number,
+		handler: () => void,
+	): number {
+		this.bindings.set(name, handler);
+		return this.bindings.size;
+	}
+	removeKeybinding(name: string): void {
+		this.bindings.delete(name);
+	}
+	/** Test control: press the shortcut bound under `name`. */
+	__press(name: string): void {
+		const handler = this.bindings.get(name);
+		if (!handler) throw new Error(`no keybinding named ${name}`);
+		handler();
+	}
+}
+
 export const layoutManager = new LayoutManager();
 export const overview = new Overview();
 export const extensionManager = new Signalled();
+export const wm = new WindowManager();
 export const uiGroup = layoutManager.uiGroup;
 
 /**
@@ -68,6 +93,7 @@ export function __reset(): void {
 	layoutManager.clearHandlers();
 	overview.clearHandlers();
 	extensionManager.clearHandlers();
+	wm.bindings.clear();
 	layoutManager.uiGroup.children = [];
 	layoutManager.overviewGroup.children = [];
 	layoutManager.uiGroup.add_child(layoutManager.overviewGroup);

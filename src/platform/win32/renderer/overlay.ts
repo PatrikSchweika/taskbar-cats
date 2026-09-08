@@ -20,6 +20,7 @@ import { WebSpriteSet } from "./sprites.js";
 declare const cats: {
 	onLayout(fn: (layout: Layout | null) => void): void;
 	onPointer(fn: (pointer: { x: number; y: number }) => void): void;
+	onVisible(fn: (visible: boolean) => void): void;
 	onSettings(fn: (settings: Settings) => void): void;
 	manifest(): Promise<SpriteManifest>;
 	ready(): void;
@@ -45,6 +46,12 @@ async function main(): Promise<void> {
 	let latestPointer = { x: -5000, y: -5000 };
 	/** Set when something arrived that needs the colony rebuilt. */
 	let dirty = true;
+	/** False while the hotkey has hidden the cats; the window is hidden too. */
+	let shown = true;
+
+	cats.onVisible((visible) => {
+		shown = visible;
+	});
 
 	cats.onSettings((next) => {
 		settings = next;
@@ -81,7 +88,8 @@ async function main(): Promise<void> {
 			dirty = false;
 			colony.sync(settings, layout?.icons ?? [], layout);
 		}
-		if (!layout) return;
+		// `last` was refreshed above, so the cats resume without a dt jump.
+		if (!layout || !shown) return;
 
 		const dt = Math.min(MAX_DT, Math.max(MIN_DT, elapsed));
 		pointer.update(dt, latestPointer.x, latestPointer.y);

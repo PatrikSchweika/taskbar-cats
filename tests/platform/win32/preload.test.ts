@@ -68,6 +68,7 @@ describe("the emitted preload", () => {
 		for (const channel of [
 			"cats:layout",
 			"cats:pointer",
+			"cats:visible",
 			"cats:settings",
 			"cats:ready",
 			"cats:apply",
