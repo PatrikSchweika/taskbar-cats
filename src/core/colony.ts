@@ -20,7 +20,6 @@ import {
 	pinnedX,
 	type Span,
 } from "./props.js";
-import { resolvePalettes } from "./sprites.js";
 import type { CatView, IconRect, Rect, SpriteSource } from "./types.js";
 
 export const ACTIVE_INTERVAL_MS = 33; // ~30Hz while anything is happening
@@ -31,27 +30,26 @@ const FALLBACK_PALETTE = "tabby-orange";
 
 /**
  * The palette cat `index` wears: its own, if it has one that exists on disk,
- * otherwise its turn in the colony's pool. Shared with the settings UIs so a
- * cat on Auto previews exactly what it will get.
+ * otherwise its turn through every palette the install has. Shared with the
+ * settings UIs so a cat on Auto previews exactly what it will get.
  */
 export function resolveCatPalette(
-	settings: Pick<Settings, "palettes" | "catPalettes">,
+	settings: Pick<Settings, "catPalettes">,
 	index: number,
 	available: readonly string[],
 ): string {
 	const own = settings.catPalettes[index];
 	if (own && available.includes(own)) return own;
-	const pool = resolvePalettes(settings.palettes, available);
-	return pool[index % pool.length] ?? FALLBACK_PALETTE;
+	return available[index % available.length] ?? FALLBACK_PALETTE;
 }
 
-/** The size cat `index` is drawn at: its own, or the colony's. */
+/** The size cat `index` is drawn at: its own, or the dock's icon size. */
 export function resolveCatSize(
 	settings: Pick<Settings, "catSizes">,
 	index: number,
-	colonySize: number,
+	autoSize: number,
 ): number {
-	return settings.catSizes[index] || colonySize;
+	return settings.catSizes[index] || autoSize;
 }
 
 /** How far the cats may walk, and where the floor is. */
@@ -164,15 +162,15 @@ export class Colony {
 	}
 
 	/**
-	 * Cat size: the dock's own icon size unless the user pinned one.
+	 * The Auto cat size: the dock's own icon size. A cat with a size of its own
+	 * ignores this; the furniture is always drawn at it.
 	 *
 	 * The dock often does not exist yet when we start — on GNOME extension load
 	 * order is not guaranteed, on Windows the taskbar may not have been read
 	 * yet — so this is recomputed from the icons we already measured each tick,
 	 * rather than once at startup.
 	 */
-	sizeFor(settings: Settings, icons: readonly IconRect[]): number {
-		if (settings.spriteSize > 0) return settings.spriteSize;
+	sizeFor(icons: readonly IconRect[]): number {
 		// Match the dock's *logical* icon size. Using the measured on-screen
 		// height would make the cats scale-factor times too big on HiDPI.
 		const sizes = icons.map((i) => i.logicalSize).filter((n) => n > 0);
@@ -195,7 +193,7 @@ export class Colony {
 		bounds: Bounds | null,
 		onRemove?: (cat: Cat) => void,
 	): void {
-		const size = this.sizeFor(settings, icons);
+		const size = this.sizeFor(icons);
 		const available = this._host.sprites.palettes;
 
 		while (this.cats.length > settings.count) {
@@ -361,10 +359,12 @@ export class Colony {
 	update(dt: number, world: World, settings: Settings): void {
 		// The dock may have appeared, or changed icon size, since we last
 		// looked. Cats resize to match rather than staying at the fallback.
-		const size = this.sizeFor(settings, world.icons);
+		const size = this.sizeFor(world.icons);
 		if (size !== this._size) {
 			this._size = size;
-			for (const cat of this.cats) cat.setSize(size);
+			this.cats.forEach((cat, i) => {
+				cat.setSize(resolveCatSize(settings, i, size));
+			});
 			for (const prop of this.props) prop.setSize(size);
 			this.mouse?.setSize(size);
 		}

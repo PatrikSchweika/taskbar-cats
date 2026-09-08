@@ -23,13 +23,11 @@ const METADATA = JSON.parse(
 
 const DEFAULTS: Record<string, unknown> = {
 	"cat-count": 3,
-	palettes: [],
 	"max-speed": 160,
 	"mouse-attraction": 60,
 	"attract-radius": 260,
 	"scratch-icons": true,
 	"wiggle-icons": true,
-	"sprite-size": 0,
 	"sleep-after": 20,
 	"animation-fps": 12,
 	"bed-count": 0,
@@ -144,7 +142,7 @@ describe("TaskbarCatsExtension", () => {
 
 		it("applies a pinned cat size", () => {
 			const { settings } = enableExtension();
-			settings.__change("sprite-size", 72);
+			settings.__change("cat-sizes", [72, 72, 72]);
 			tick(2);
 			for (const cat of catActors())
 				assert.equal((cat as { icon_size: number }).icon_size, 72);
@@ -217,9 +215,9 @@ describe("TaskbarCatsExtension", () => {
 		it("dresses one cat in its own palette, live", () => {
 			const { settings } = enableExtension({
 				"cat-count": 2,
-				palettes: ["black"],
+				"cat-palettes": ["black", "black"],
 			});
-			settings.__change("cat-palettes", ["", "siamese"]);
+			settings.__change("cat-palettes", ["black", "siamese"]);
 			tick(2);
 			const worn = catActors().map((c) =>
 				String((c as unknown as { gicon: { path: string } }).gicon.path),
@@ -232,7 +230,7 @@ describe("TaskbarCatsExtension", () => {
 			// Regression: measuring the icon's stage height made cats
 			// scale-factor times too big on HiDPI.
 			resetEnv(2);
-			enableExtension({ "sprite-size": 0 });
+			enableExtension({ "cat-sizes": [0] });
 			tick(2);
 			for (const cat of catActors())
 				assert.equal((cat as { icon_size: number }).icon_size, 48);

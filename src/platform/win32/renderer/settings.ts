@@ -35,10 +35,6 @@ declare const cats: {
 /** Human wording for each key, in the order they should appear. */
 const LABELS: Record<string, { title: string; hint?: string }> = {
 	count: { title: "Number of cats" },
-	spriteSize: {
-		title: "Cat size",
-		hint: "0 matches your taskbar's own icon size",
-	},
 	maxSpeed: { title: "Top speed", hint: "pixels per second" },
 	attraction: {
 		title: "Mouse attraction",
@@ -183,7 +179,7 @@ async function main(): Promise<void> {
 			element(
 				"div",
 				"hint",
-				"Auto follows the fur palettes and the cat size above.",
+				"Auto matches your taskbar's icon size and takes turns through the fur palettes.",
 			),
 		);
 		const list = element("div", "list");
@@ -426,48 +422,6 @@ async function main(): Promise<void> {
 	};
 	positions("beds", "bedPositions", "Bed");
 	positions("scratchers", "scratcherPositions", "Post");
-
-	// -- palettes ----------------------------------------------------------
-	if (description.palettes.length) {
-		const fieldset = element("div", "palettes");
-		fieldset.appendChild(element("div", "title", "Fur palettes"));
-		fieldset.appendChild(
-			element(
-				"div",
-				"hint",
-				"Cats cycle through the ones you pick. None selected means all of them.",
-			),
-		);
-		const grid = element("div", "grid");
-
-		for (const palette of description.palettes) {
-			const label = element("label", "palette");
-			const preview = new SpritePreview(manifest);
-			preview.setPalette(palette);
-			label.appendChild(preview.element);
-			const input = element("input");
-			input.type = "checkbox";
-			input.checked = current.palettes.includes(palette);
-			input.addEventListener("change", () => {
-				const chosen = description.palettes.filter((name) => {
-					const box = grid.querySelector<HTMLInputElement>(
-						`input[data-palette="${name}"]`,
-					);
-					return box?.checked ?? false;
-				});
-				cats.apply({ palettes: chosen });
-			});
-			input.dataset.palette = palette;
-			label.appendChild(input);
-			label.appendChild(element("span", undefined, palette));
-			grid.appendChild(label);
-			sync.push((settings) => {
-				input.checked = settings.palettes.includes(palette);
-			});
-		}
-		fieldset.appendChild(grid);
-		form.appendChild(fieldset);
-	}
 
 	// -- the hide hotkey ---------------------------------------------------
 	const hotkeyRow = (): void => {

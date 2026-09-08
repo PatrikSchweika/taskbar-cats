@@ -25,26 +25,19 @@ describe("resolveCatPalette", () => {
 	const available = ["a", "b", "c"];
 
 	it("uses the cat's own palette when it exists", () => {
-		const s = makeSettings({ palettes: ["a"], catPalettes: ["", "c"] });
+		const s = makeSettings({ catPalettes: ["", "c"] });
 		assert.equal(resolveCatPalette(s, 1, available), "c");
 	});
 
-	it("falls back to the colony pool for Auto, a missing entry or a stranger", () => {
-		const s = makeSettings({
-			palettes: ["a", "b"],
-			catPalettes: ["", "", "gone"],
-		});
+	it("takes a turn through every palette for Auto, a missing entry or a stranger", () => {
+		const s = makeSettings({ catPalettes: ["", "", "gone"] });
 		assert.equal(resolveCatPalette(s, 0, available), "a");
 		assert.equal(resolveCatPalette(s, 1, available), "b");
-		assert.equal(
-			resolveCatPalette(s, 2, available),
-			"a",
-			"cycles the pool by index",
-		);
+		assert.equal(resolveCatPalette(s, 2, available), "c", "a stranger is Auto");
 		assert.equal(
 			resolveCatPalette(s, 3, available),
-			"b",
-			"a missing entry is Auto",
+			"a",
+			"a missing entry is Auto, cycling by index",
 		);
 	});
 
@@ -54,7 +47,7 @@ describe("resolveCatPalette", () => {
 });
 
 describe("resolveCatSize", () => {
-	it("is the colony size unless the cat has its own", () => {
+	it("is the Auto size unless the cat has its own", () => {
 		const s = makeSettings({ catSizes: [0, 64] });
 		assert.equal(resolveCatSize(s, 0, 48), 48);
 		assert.equal(resolveCatSize(s, 1, 48), 64);
@@ -153,17 +146,10 @@ describe("Colony", () => {
 	describe("sizeFor", () => {
 		const colony = new Colony(fakeHost());
 
-		it("uses a pinned size whatever the dock says", () => {
-			assert.equal(
-				colony.sizeFor(makeSettings({ spriteSize: 72 }), [makeIcon(0, 40)]),
-				72,
-			);
-		});
-
 		it("falls back to 40 before the dock can be measured", () => {
 			// Extension load order is not guaranteed on GNOME, and the taskbar
 			// has not been read yet on Windows.
-			assert.equal(colony.sizeFor(makeSettings(), []), 40);
+			assert.equal(colony.sizeFor([]), 40);
 		});
 
 		it("matches the dock's icon size", () => {
@@ -171,7 +157,7 @@ describe("Colony", () => {
 				...makeIcon(0),
 				logicalSize: n,
 			}));
-			assert.equal(colony.sizeFor(makeSettings(), icons), 48);
+			assert.equal(colony.sizeFor(icons), 48);
 		});
 
 		it("takes the median, so one odd icon does not decide it", () => {
@@ -179,14 +165,14 @@ describe("Colony", () => {
 				...makeIcon(0),
 				logicalSize: n,
 			}));
-			assert.equal(colony.sizeFor(makeSettings(), icons), 48);
+			assert.equal(colony.sizeFor(icons), 48);
 		});
 
 		it("ignores icons whose size could not be read", () => {
 			// dockTracker reports 0 when the actor has no icon_size.
 			const icons = [0, 0, 48].map((n) => ({ ...makeIcon(0), logicalSize: n }));
 			assert.equal(
-				colony.sizeFor(makeSettings(), icons),
+				colony.sizeFor(icons),
 				48,
 				"a zero should not drag the median down",
 			);
@@ -194,23 +180,20 @@ describe("Colony", () => {
 
 		it("clamps to something a cat can actually be", () => {
 			const at = (n: number) =>
-				colony.sizeFor(makeSettings(), [{ ...makeIcon(0), logicalSize: n }]);
+				colony.sizeFor([{ ...makeIcon(0), logicalSize: n }]);
 			assert.equal(at(400), 96, "a huge dock icon");
 			assert.equal(at(8), 20, "a tiny one");
 		});
 
 		it("rounds to whole pixels", () => {
-			assert.equal(
-				colony.sizeFor(makeSettings(), [{ ...makeIcon(0), logicalSize: 47.6 }]),
-				48,
-			);
+			assert.equal(colony.sizeFor([{ ...makeIcon(0), logicalSize: 47.6 }]), 48);
 		});
 
 		it("does not reorder the icons it was given", () => {
 			// They arrive left to right, update() passes the same array to the
 			// cats, and a cat decides what it is standing under from it.
 			const icons = [300, 100, 200].map((x) => makeIcon(x));
-			colony.sizeFor(makeSettings(), icons);
+			colony.sizeFor(icons);
 			assert.deepEqual(
 				icons.map((i) => i.x),
 				[300, 100, 200],
@@ -325,46 +308,20 @@ describe("Colony", () => {
 		});
 
 		describe("palettes", () => {
-			it("cycles through the chosen ones", () => {
+			it("cycles through every palette on disk", () => {
 				const host = fakeHost(["a", "b", "c"]);
 				const colony = new Colony(host);
-				colony.sync(
-					makeSettings({ count: 5, palettes: ["a", "b", "c"] }),
-					[],
-					makeBounds(),
-				);
+				colony.sync(makeSettings({ count: 5 }), [], makeBounds());
 				assert.deepEqual(
 					colony.cats.map((c) => c.palette),
 					["a", "b", "c", "a", "b"],
 				);
 			});
 
-			it("treats an empty choice as 'all of them'", () => {
-				const colony = new Colony(fakeHost(["a", "b"]));
-				colony.sync(makeSettings({ count: 2, palettes: [] }), [], makeBounds());
-				assert.deepEqual(
-					colony.cats.map((c) => c.palette),
-					["a", "b"],
-				);
-			});
-
-			it("drops a palette that no longer exists on disk", () => {
+			it("falls back to its turn when a cat's own palette is gone from disk", () => {
 				const colony = new Colony(fakeHost(["a", "b"]));
 				colony.sync(
-					makeSettings({ count: 2, palettes: ["a", "gone"] }),
-					[],
-					makeBounds(),
-				);
-				assert.deepEqual(
-					colony.cats.map((c) => c.palette),
-					["a", "a"],
-				);
-			});
-
-			it("falls back to every palette when none of the choices exist", () => {
-				const colony = new Colony(fakeHost(["a", "b"]));
-				colony.sync(
-					makeSettings({ count: 2, palettes: ["gone", "also-gone"] }),
+					makeSettings({ count: 2, catPalettes: ["gone", "gone"] }),
 					[],
 					makeBounds(),
 				);
@@ -385,7 +342,7 @@ describe("Colony", () => {
 			it("reassigns palettes when the choice changes", () => {
 				const colony = new Colony(fakeHost(["a", "b"]));
 				colony.sync(
-					makeSettings({ count: 2, palettes: ["a"] }),
+					makeSettings({ count: 2, catPalettes: ["a", "a"] }),
 					[],
 					makeBounds(),
 				);
@@ -395,7 +352,7 @@ describe("Colony", () => {
 				);
 
 				colony.sync(
-					makeSettings({ count: 2, palettes: ["b"] }),
+					makeSettings({ count: 2, catPalettes: ["b", "b"] }),
 					[],
 					makeBounds(),
 				);
@@ -413,16 +370,16 @@ describe("Colony", () => {
 				);
 			});
 
-			it("lets one cat wear a palette outside the colony pool", () => {
+			it("lets one cat wear its own palette while the rest take turns", () => {
 				const colony = new Colony(fakeHost(["a", "b", "c"]));
 				colony.sync(
-					makeSettings({ count: 3, palettes: ["a"], catPalettes: ["", "c"] }),
+					makeSettings({ count: 3, catPalettes: ["", "a"] }),
 					[],
 					makeBounds(),
 				);
 				assert.deepEqual(
 					colony.cats.map((c) => c.palette),
-					["a", "c", "a"],
+					["a", "a", "c"],
 				);
 			});
 		});
@@ -430,18 +387,23 @@ describe("Colony", () => {
 		it("resizes the cats it already had", () => {
 			const colony = new Colony(fakeHost());
 			colony.sync(makeSettings({ count: 2 }), [], makeBounds());
-			colony.sync(makeSettings({ count: 2, spriteSize: 64 }), [], makeBounds());
+			colony.sync(
+				makeSettings({ count: 2, catSizes: [64, 64] }),
+				[],
+				makeBounds(),
+			);
 			for (const cat of colony.cats) {
 				assert.equal(cat.iconSize, 64);
 				assert.equal(viewOf(cat).logicalSize, 64);
 			}
 		});
 
-		it("gives a cat its own size while the others keep the colony's", () => {
+		it("gives a cat its own size while the others follow the dock", () => {
 			const colony = new Colony(fakeHost());
+			const icons = [makeIcon(0, 40)];
 			colony.sync(
-				makeSettings({ count: 2, spriteSize: 40, catSizes: [0, 72] }),
-				[],
+				makeSettings({ count: 2, catSizes: [0, 72] }),
+				icons,
 				makeBounds(),
 			);
 			assert.deepEqual(
@@ -449,7 +411,7 @@ describe("Colony", () => {
 				[40, 72],
 			);
 			// And back to Auto again.
-			colony.sync(makeSettings({ count: 2, spriteSize: 40 }), [], makeBounds());
+			colony.sync(makeSettings({ count: 2 }), icons, makeBounds());
 			assert.deepEqual(
 				colony.cats.map((c) => c.iconSize),
 				[40, 40],
@@ -498,6 +460,23 @@ describe("Colony", () => {
 				colony.update(1 / 30, world, settings);
 
 			assert.ok(colony.cats[0].x > 1000, `only reached ${colony.cats[0].x}`);
+		});
+
+		it("keeps a cat's own size when the dock turns up late", () => {
+			const colony = new Colony(fakeHost());
+			const settings = makeSettings({ count: 2, catSizes: [0, 72] });
+			colony.sync(settings, [], makeBounds());
+			assert.deepEqual(
+				colony.cats.map((c) => c.iconSize),
+				[40, 72],
+				"the fallback size before the dock is measured",
+			);
+			colony.update(1 / 30, makeWorld({ icons: [makeIcon(0, 56)] }), settings);
+			assert.deepEqual(
+				colony.cats.map((c) => c.iconSize),
+				[56, 72],
+				"only the Auto cat should follow the dock",
+			);
 		});
 
 		it("resizes the cats when the dock turns up late", () => {

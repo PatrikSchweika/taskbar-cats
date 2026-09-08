@@ -10,12 +10,6 @@
       <description>How many cats live on the dock.</description>
     </key>
 
-    <key name="palettes" type="as">
-      <default>[]</default>
-      <summary>Fur palettes to draw from</summary>
-      <description>Palette names to assign to cats. Empty means use them all.</description>
-    </key>
-
     <key name="max-speed" type="i">
       <default>160</default>
       <range min="40" max="600"/>
@@ -47,13 +41,6 @@
       <default>true</default>
       <summary>Make scratched icons shake</summary>
       <description>Rock the real dock icon while a cat scratches it. Turn this off to leave the dock untouched.</description>
-    </key>
-
-    <key name="sprite-size" type="i">
-      <default>0</default>
-      <range min="0" max="128"/>
-      <summary>Cat size in pixels</summary>
-      <description>0 matches the dock's own icon size.</description>
     </key>
 
     <key name="sleep-after" type="i">
@@ -105,7 +92,7 @@
     <key name="cat-palettes" type="as">
       <default>[]</default>
       <summary>Fur palette of each cat</summary>
-      <description>One entry per cat: a palette name, or an empty string to follow the "palettes" setting. Missing entries mean the same.</description>
+      <description>One entry per cat: a palette name, or an empty string to take a turn through every palette. Missing entries mean the same.</description>
     </key>
 
     <key name="cat-names" type="as">
@@ -117,7 +104,7 @@
     <key name="cat-sizes" type="ai">
       <default>[]</default>
       <summary>Size of each cat in pixels</summary>
-      <description>One entry per cat. 0, or a missing entry, uses the "sprite-size" setting. Otherwise 16 to 128.</description>
+      <description>One entry per cat. 0, or a missing entry, matches the dock's own icon size. Otherwise 16 to 128.</description>
     </key>
 
     <key name="toggle-hotkey" type="as">

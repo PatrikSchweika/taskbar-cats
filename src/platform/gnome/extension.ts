@@ -24,7 +24,6 @@ import {
 	normalizeHotkey,
 	normalizePositions,
 	normalizeStringList,
-	PALETTES_KEY,
 	POSITION_SETTINGS,
 	type Settings,
 	STRING_LIST_SETTINGS,
@@ -208,7 +207,6 @@ export default class TaskbarCatsExtension extends Extension {
 			(cfg as unknown as Record<string, boolean>)[name] = s.get_boolean(
 				spec.key,
 			);
-		cfg.palettes = s.get_strv(PALETTES_KEY);
 		for (const [name, spec] of Object.entries(POSITION_SETTINGS))
 			(cfg as unknown as Record<string, number[]>)[name] = normalizePositions(
 				s.get_value(spec.key).deepUnpack<number[]>(),
@@ -230,8 +228,6 @@ export default class TaskbarCatsExtension extends Extension {
 		this._readConfig(rt);
 		if (
 			key === INT_SETTINGS.count.key ||
-			key === PALETTES_KEY ||
-			key === INT_SETTINGS.spriteSize.key ||
 			key === INT_SETTINGS.beds.key ||
 			key === INT_SETTINGS.scratchers.key ||
 			key === INT_SETTINGS.mouseInterval.key ||

@@ -16,7 +16,6 @@ import {
 	normalizePositions,
 	normalizeSettings,
 	normalizeStringList,
-	PALETTES_KEY,
 	POSITION_SETTINGS,
 	STRING_LIST_SETTINGS,
 	toStorage,
@@ -93,13 +92,6 @@ describe("settings", () => {
 			});
 		}
 
-		it(`${PALETTES_KEY} is a string list defaulting to empty`, () => {
-			const key = schema.get(PALETTES_KEY);
-			assert.ok(key, `${PALETTES_KEY} is missing from the schema`);
-			assert.equal(key.type, "as");
-			assert.equal(key.default, "[]");
-		});
-
 		for (const [name, spec] of Object.entries(POSITION_SETTINGS)) {
 			it(`${spec.key} (${name}) is an integer list defaulting to empty`, () => {
 				const key = schema.get(spec.key);
@@ -141,7 +133,6 @@ describe("settings", () => {
 			// shared table would be honoured on GNOME and silently ignored on
 			// Windows.
 			const known = new Set<string>([
-				PALETTES_KEY,
 				CAT_SIZES_KEY,
 				HOTKEY_KEY,
 				...Object.values(INT_SETTINGS).map((s) => s.key),
@@ -185,16 +176,11 @@ describe("settings", () => {
 			assert.equal(normalizeSettings({ "cat-count": 3.7 }).count, 4);
 		});
 
-		it("keeps only string palette names", () => {
-			const s = normalizeSettings({ palettes: ["siamese", 7, null, "grey"] });
-			assert.deepEqual(s.palettes, ["siamese", "grey"]);
-		});
-
 		it("round-trips through storage", () => {
 			const original = normalizeSettings({
 				"cat-count": 5,
 				"wiggle-icons": false,
-				palettes: ["siamese"],
+				"cat-palettes": ["siamese"],
 				"bed-positions": [10, -1, 90],
 			});
 			assert.deepEqual(normalizeSettings(toStorage(original)), original);
@@ -257,7 +243,7 @@ describe("settings", () => {
 				assert.deepEqual(normalizeStringList("a,b"), []);
 			});
 
-			it("clamps sizes into range and keeps 0 as 'colony size'", () => {
+			it("clamps sizes into range and keeps 0 as Auto", () => {
 				assert.deepEqual(
 					normalizeCatSizes([0, 8, 64, 500, 33.4]),
 					[0, 16, 64, 128, 33],

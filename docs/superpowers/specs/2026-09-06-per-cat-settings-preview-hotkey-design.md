@@ -3,6 +3,13 @@
 Date: 2026-09-06
 Status: approved design
 
+> **Revision, 2026-09-08.** Fur palette and size are now cat-specific only.
+> The colony-wide `palettes` and `sprite-size` keys were removed in review,
+> so wherever this document (and the plan beside it) says a per-cat Auto
+> falls back to those, read: Auto takes a turn through every palette on
+> disk, and Auto size is the dock's own icon size. The palette toggles with
+> previews went with the `palettes` key; the per-cat previews remain.
+
 ## Goal
 
 Three additions that all live in the settings layer and both settings UIs:

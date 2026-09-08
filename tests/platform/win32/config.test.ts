@@ -102,9 +102,9 @@ describe("ConfigStore", () => {
 
 		store.update({ count: 2 });
 		store.update({ count: 2 });
-		store.update({ palettes: ["siamese"] });
+		store.update({ catPalettes: ["siamese"] });
 
-		assert.deepEqual(seen, [["count"], ["palettes"]]);
+		assert.deepEqual(seen, [["count"], ["catPalettes"]]);
 	});
 
 	it("falls back to the defaults on an unreadable file", () => {
@@ -135,15 +135,15 @@ describe("ConfigStore", () => {
 
 describe("changedKeys", () => {
 	it("compares palette lists by contents, not identity", () => {
-		const a = { ...defaultSettings(), palettes: ["siamese", "black"] };
-		const b = { ...defaultSettings(), palettes: ["siamese", "black"] };
+		const a = { ...defaultSettings(), catPalettes: ["siamese", "black"] };
+		const b = { ...defaultSettings(), catPalettes: ["siamese", "black"] };
 		assert.deepEqual(changedKeys(a, b), []);
 
-		const c = { ...defaultSettings(), palettes: ["black", "siamese"] };
-		assert.deepEqual(changedKeys(a, c), ["palettes"], "order is a change");
+		const c = { ...defaultSettings(), catPalettes: ["black", "siamese"] };
+		assert.deepEqual(changedKeys(a, c), ["catPalettes"], "order is a change");
 
-		const d = { ...defaultSettings(), palettes: ["siamese"] };
-		assert.deepEqual(changedKeys(a, d), ["palettes"]);
+		const d = { ...defaultSettings(), catPalettes: ["siamese"] };
+		assert.deepEqual(changedKeys(a, d), ["catPalettes"]);
 	});
 
 	it("finds every differing key", () => {

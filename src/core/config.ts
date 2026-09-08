@@ -11,9 +11,7 @@ import { formatAccelerator, parseAccelerator } from "./hotkey.js";
 
 export interface Settings extends CatConfig {
 	count: number;
-	palettes: string[];
 	wiggleIcons: boolean;
-	spriteSize: number;
 	/** Cat beds standing on the floor for sleepy cats to curl up in. */
 	beds: number;
 	/** Scratching posts on the floor, clawed instead of (or as well as) icons. */
@@ -28,11 +26,17 @@ export interface Settings extends CatConfig {
 	bedPositions: number[];
 	/** The same for the scratching posts. */
 	scratcherPositions: number[];
-	/** Fur palette per cat, indexed by cat. "" or missing means Auto. */
+	/**
+	 * Fur palette per cat, indexed by cat. "" or missing means Auto: the cat
+	 * takes its turn through every palette on disk.
+	 */
 	catPalettes: string[];
 	/** Display name per cat, for the settings UI only. "" means "Cat N". */
 	catNames: string[];
-	/** Size per cat in logical pixels. 0 or missing means the colony size. */
+	/**
+	 * Size per cat in logical pixels. 0 or missing means Auto: the dock's own
+	 * icon size.
+	 */
 	catSizes: number[];
 	/**
 	 * The accelerator that hides and shows the cats, in GTK syntax
@@ -62,7 +66,6 @@ export const INT_SETTINGS = {
 	maxSpeed: { key: "max-speed", default: 160, min: 40, max: 600 },
 	attraction: { key: "mouse-attraction", default: 60, min: 0, max: 100 },
 	attractRadius: { key: "attract-radius", default: 260, min: 40, max: 1200 },
-	spriteSize: { key: "sprite-size", default: 0, min: 0, max: 128 },
 	sleepAfter: { key: "sleep-after", default: 20, min: 0, max: 600 },
 	fps: { key: "animation-fps", default: 12, min: 4, max: 30 },
 	beds: { key: "bed-count", default: 0, min: 0, max: 8 },
@@ -74,9 +77,6 @@ export const BOOL_SETTINGS = {
 	scratchIcons: { key: "scratch-icons", default: true },
 	wiggleIcons: { key: "wiggle-icons", default: true },
 } as const satisfies Record<string, { key: string; default: boolean }>;
-
-/** The palettes key is a string list; empty means "use every palette". */
-export const PALETTES_KEY = "palettes";
 
 /**
  * The position lists: integer arrays keyed by property name. Percentages
@@ -106,7 +106,7 @@ export function normalizeStringList(raw: unknown): string[] {
 	return raw.map((value) => (typeof value === "string" ? value : ""));
 }
 
-/** Coerce the per-cat sizes: 0 stays "colony size", anything else is clamped. */
+/** Coerce the per-cat sizes: 0 stays Auto, anything else is clamped. */
 export function normalizeCatSizes(raw: unknown): number[] {
 	if (!Array.isArray(raw)) return [];
 	return raw.map((value) => {
@@ -146,7 +146,6 @@ export function normalizePositions(raw: unknown): number[] {
 
 export function defaultSettings(): Settings {
 	const out = {
-		palettes: [] as string[],
 		bedPositions: [] as number[],
 		scratcherPositions: [] as number[],
 		catPalettes: [] as string[],
@@ -196,9 +195,6 @@ export function normalizeSettings(raw: unknown): Settings {
 		if (typeof value === "boolean")
 			(out as unknown as Record<string, boolean>)[name] = value;
 	}
-	const palettes = src[PALETTES_KEY];
-	if (Array.isArray(palettes))
-		out.palettes = palettes.filter((p): p is string => typeof p === "string");
 	for (const [name, spec] of Object.entries(POSITION_SETTINGS))
 		(out as unknown as Record<string, number[]>)[name] = normalizePositions(
 			src[spec.key],
@@ -215,7 +211,7 @@ export function normalizeSettings(raw: unknown): Settings {
 
 /** Settings back out as the flat, GSettings-keyed object stored on disk. */
 export function toStorage(settings: Settings): Record<string, unknown> {
-	const out: Record<string, unknown> = { [PALETTES_KEY]: settings.palettes };
+	const out: Record<string, unknown> = {};
 	for (const [name, spec] of Object.entries(INT_SETTINGS))
 		out[spec.key] = (settings as unknown as Record<string, number>)[name];
 	for (const [name, spec] of Object.entries(BOOL_SETTINGS))

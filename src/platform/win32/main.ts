@@ -37,7 +37,7 @@ import {
 import electronUpdater from "electron-updater";
 
 import { ACTIVE_INTERVAL_MS } from "../../core/colony.js";
-import type { Settings } from "../../core/config.js";
+import { CAT_SIZE_MAX, type Settings } from "../../core/config.js";
 import { parseAccelerator, toElectronAccelerator } from "../../core/hotkey.js";
 import { parseManifest, type SpriteManifest } from "../../core/sprites.js";
 import { ConfigStore } from "./config.js";
@@ -148,8 +148,8 @@ function createUpdater(): Updater {
 
 /** How often the taskbar's shape and icon list are re-read. */
 const LAYOUT_INTERVAL_MS = 500;
-/** The tallest a cat can be, from the sprite-size setting's maximum. */
-const MAX_CAT_HEIGHT = 128;
+/** The tallest a cat can be, from the per-cat size setting's maximum. */
+const MAX_CAT_HEIGHT = CAT_SIZE_MAX;
 /** Head-room above the cats so a tall sprite is never clipped. */
 const STRIP_SLACK = 24;
 

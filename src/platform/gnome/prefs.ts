@@ -16,7 +16,6 @@ import {
 	normalizeCatSizes,
 	normalizePositions,
 	normalizeStringList,
-	PALETTES_KEY,
 	STRING_LIST_SETTINGS,
 } from "../../core/config.js";
 import {
@@ -79,21 +78,10 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 		// -- Colony ---------------------------------------------------------
 		const colony = new Adw.PreferencesGroup({
 			title: "Colony",
-			description: "How many cats live on your dock, and what they look like.",
+			description: "How many cats live on your dock.",
 		});
 		page.add(colony);
 		colony.add(spinRow(settings, "cat-count", "Cats", null, 1, 8));
-		colony.add(
-			spinRow(
-				settings,
-				"sprite-size",
-				"Cat size",
-				"In pixels. 0 matches the dock’s own icon size.",
-				0,
-				128,
-			),
-		);
-		colony.add(this._paletteRow(settings, palettes, preview));
 		page.add(this._catsGroup(settings, palettes, preview));
 
 		// -- Behaviour ------------------------------------------------------
@@ -361,7 +349,8 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 	): Adw.PreferencesGroup {
 		const group = new Adw.PreferencesGroup({
 			title: "Each cat",
-			description: "Auto follows the fur palettes and the cat size above.",
+			description:
+				"Auto matches the dock’s icon size and takes turns through the fur palettes.",
 		});
 
 		const names = (): string[] =>
@@ -405,10 +394,7 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 		};
 
 		const refreshPreviews = (): void => {
-			const view = {
-				palettes: settings.get_strv(PALETTES_KEY),
-				catPalettes: catPalettes(),
-			};
+			const view = { catPalettes: catPalettes() };
 			rows.forEach((r, i) => {
 				r.picture?.setPalette(resolveCatPalette(view, i, palettes));
 			});
@@ -493,7 +479,6 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 
 		rebuild();
 		settings.connect("changed::cat-count", rebuild);
-		settings.connect(`changed::${PALETTES_KEY}`, refreshPreviews);
 		return group;
 	}
 
@@ -586,58 +571,5 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 			dialog.present();
 		});
 		return row;
-	}
-
-	/** One toggle per fur palette, with a preview of each. */
-	private _paletteRow(
-		settings: Gio.Settings,
-		palettes: string[],
-		preview: () => SpritePreview | null,
-	): Adw.ExpanderRow {
-		const expander = new Adw.ExpanderRow({
-			title: "Fur palettes",
-			subtitle: "Cats are assigned these in turn.",
-		});
-
-		const enabled = new Set(settings.get_strv("palettes"));
-		// An empty list means "all of them", which is the default.
-		const allOn = enabled.size === 0;
-
-		const rows = new Map<string, Adw.SwitchRow>();
-		const commit = (): void => {
-			const chosen = [...rows.entries()]
-				.filter(([, row]) => row.active)
-				.map(([name]) => name);
-			// Storing every palette and storing none mean the same thing;
-			// normalise to the empty list so the default stays meaningful.
-			settings.set_strv(
-				"palettes",
-				chosen.length === palettes.length ? [] : chosen,
-			);
-		};
-
-		for (const name of palettes) {
-			const row = new Adw.SwitchRow({
-				title: name.replace(/-/g, " "),
-				active: allOn || enabled.has(name),
-			});
-			const picture = preview();
-			if (picture) {
-				picture.setPalette(name);
-				row.add_prefix(picture.widget);
-			}
-			row.connect("notify::active", () => {
-				// Never let the user switch every palette off.
-				if (![...rows.values()].some((r) => r.active)) {
-					row.active = true;
-					return;
-				}
-				commit();
-			});
-			rows.set(name, row);
-			expander.add_row(row);
-		}
-
-		return expander;
 	}
 }

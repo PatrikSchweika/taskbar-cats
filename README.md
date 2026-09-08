@@ -61,11 +61,9 @@ All settings apply at once. No restart is needed.
 | Setting | Default | What it does |
 |---|---|---|
 | Cats | 3 | How many cats (1 to 8) |
-| Cat size | 0 | Pixels. 0 means the same size as the dock icons |
-| Fur palettes | all | Which fur colours are used |
 | Each cat: name | Cat N | A label for the settings only |
-| Each cat: fur palette | Auto | This cat's palette. Auto takes its turn through the fur palettes above |
-| Each cat: size | Auto | This cat's size in pixels (16 to 128). Auto uses the cat size above |
+| Each cat: fur palette | Auto | This cat's fur colour. Auto takes its turn through every palette |
+| Each cat: size | Auto | This cat's size in pixels (16 to 128). Auto matches the dock icons |
 | Mouse attraction | 60 | How strongly cats chase the pointer. 0 turns it off |
 | Attraction radius | 260 | How far from the bottom of the screen the pointer still matters |
 | Top speed | 160 | Pixels per second when running |
@@ -79,8 +77,7 @@ All settings apply at once. No restart is needed.
 | Mouse visits | 120 | Seconds between mice. 0 means no mice |
 | Animation frame rate | 12 | Sprite frames per second |
 
-The settings show a small animated preview of every fur palette, and of what
-each cat will wear.
+The settings show a small animated preview of what each cat will wear.
 
 ## Build from source
 
