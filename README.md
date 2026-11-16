@@ -71,6 +71,7 @@ All settings apply at once. No restart is needed.
 | Top speed | 160 | Pixels per second when running |
 | Nap after | 20 | Seconds without movement before a cat sleeps. 0 keeps them awake |
 | Cats play together | on | Idle cats sometimes chase, play-fight or groom each other |
+| Play frequency | 5 | How often idle cats start a game, from 1 (rarely) to 10 (all the time) |
 | Hide or show the cats | Ctrl+Alt+C | A keyboard shortcut that hides every cat and brings them back. Works in any program. Clear it to turn it off |
 | Scratch app icons | on | Cats stop at an icon and claw it |
 | Shake the scratched icon | on | GNOME only. Moves the real dock icon |

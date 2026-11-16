@@ -110,7 +110,8 @@ The colony pairs up cats. A cat is **free** when its last tick ended in IDLE,
 SIT, WALK or RUN (a wandering cat cruises fast enough to show RUN), with no
 mouse, no pointer interest, no sleepiness, no hunger, no hover and no petting.
 
-- **Starting:** each second, with probability 0.2, the colony picks two free
+- **Starting:** each second, with probability 0.2 (0.04 per step of **Play
+  frequency**, default 5), the colony picks two free
   cats within 8 cat sizes of each other that are not resting after a game.
   Only a cat with such a partner can be picked first.
   They start one of three games, chosen at random: chase 40%, tussle 35%,
@@ -132,7 +133,8 @@ mouse, no pointer interest, no sleepiness, no hunger, no hover and no petting.
 - The two cats in a game don't push each other apart, which the existing
   separation rule would otherwise do.
 - The setting **Cats play together** (`cats-play`, default on) turns games
-  off. Turning it off ends any game in progress.
+  off. Turning it off ends any game in progress. **Play frequency**
+  (`play-frequency`, 1–10, default 5) sets how often games start.
 
 ### Hunger and bowls
 
@@ -194,14 +196,16 @@ implements it:
 | Key | Type | Default | Range | Shown as |
 |---|---|---|---|---|
 | `cats-play` | b | true | | Cats play together |
+| `play-frequency` | i | 5 | 1–10 | Play frequency |
 | `name-tags` | b | true | | Show names on hover |
 | `bowl-count` | i | 0 | 0–8 | Food bowls |
 | `hunger-after` | i | 1800 | 60–14400 | Hungry after (seconds) |
 
-All four go in the shared tables in `src/core/config.ts` and the GSettings
+All of them go in the shared tables in `src/core/config.ts` and the GSettings
 schema. The Windows settings window builds its rows from those tables. The
-GNOME preferences put the two switches under **Behaviour** and the two
-numbers under **Furniture and toys**.
+GNOME preferences put the two switches and Play frequency (greyed out while
+play is off) under **Behaviour**, and the bowl numbers under **Furniture and
+toys**.
 
 ## Testing
 

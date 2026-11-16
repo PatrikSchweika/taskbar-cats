@@ -20,7 +20,7 @@ import {
 	pinnedX,
 	type Span,
 } from "./props.js";
-import { Playground } from "./social.js";
+import { Playground, playRate } from "./social.js";
 import type { CatView, IconRect, Rect, SpriteSource } from "./types.js";
 
 export const ACTIVE_INTERVAL_MS = 33; // ~30Hz while anything is happening
@@ -400,7 +400,12 @@ export class Colony {
 		};
 
 		// Games start and end before the cats move, so each steers by its role.
-		this._playground.update(dt, this.cats, settings.social);
+		this._playground.update(
+			dt,
+			this.cats,
+			settings.social,
+			playRate(settings.playFrequency),
+		);
 		for (const cat of this.cats) cat.update(dt, ctx);
 
 		for (const prop of this.props)

@@ -31,12 +31,23 @@ export interface Game {
 	tagPause: number;
 }
 
+/** What one step of the play-frequency setting adds to the start rate. */
+export const PLAY_RATE_STEP = 0.04;
+
 /**
- * Chance per second that two free cats start a game: about one every five
+ * Chance per second that two free cats start a game, at play-frequency
+ * `level` (1 to 10).
+ */
+export function playRate(level: number): number {
+	return level * PLAY_RATE_STEP;
+}
+
+/**
+ * The start rate at the default play frequency (5): about one game every five
  * seconds while a pair is ready. Most of the time no pair is (cats are busy,
  * resting or too far apart), so a colony plays every 20 s or so.
  */
-export const PLAY_RATE = 0.2;
+export const PLAY_RATE = playRate(5);
 /** How close two cats must be, in cat sizes, to start a game. */
 export const PLAY_RANGE = 8;
 /** Seconds a cat rests from play after a game ends. */
@@ -88,7 +99,12 @@ export class Playground {
 	 * start roll, the first cat (among those with a partner in range), its
 	 * partner, the kind, the duration.
 	 */
-	update(dt: number, cats: readonly Cat[], enabled: boolean): void {
+	update(
+		dt: number,
+		cats: readonly Cat[],
+		enabled: boolean,
+		rate = PLAY_RATE,
+	): void {
 		// 1. End the games that are over.
 		for (let i = this.games.length - 1; i >= 0; i--) {
 			const game = this.games[i];
@@ -129,7 +145,7 @@ export class Playground {
 		}
 
 		// 4. Maybe start a game.
-		if (!enabled || Math.random() >= PLAY_RATE * dt) return;
+		if (!enabled || Math.random() >= rate * dt) return;
 		const ready = cats.filter((cat) => cat.free && !this._rest.has(cat));
 		const nearTo = (a: Cat) => ready.filter((b) => b !== a && inRange(a, b));
 		// Only cats with someone to play with, so the roll is never wasted on

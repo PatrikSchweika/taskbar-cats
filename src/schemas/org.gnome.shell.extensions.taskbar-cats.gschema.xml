@@ -49,6 +49,13 @@
       <description>Idle cats sometimes chase, play-fight or groom each other.</description>
     </key>
 
+    <key name="play-frequency" type="i">
+      <range min="1" max="10"/>
+      <default>5</default>
+      <summary>How often the cats play</summary>
+      <description>How often idle cats start a game, from 1 (rarely) to 10 (all the time).</description>
+    </key>
+
     <key name="sleep-after" type="i">
       <default>20</default>
       <range min="0" max="600"/>

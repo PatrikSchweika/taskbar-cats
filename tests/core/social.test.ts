@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Cat } from "../../src/core/cat.ts";
+import { INT_SETTINGS } from "../../src/core/config.ts";
 import {
 	type GameKind,
 	PLAY_RATE,
 	PLAY_REST,
 	Playground,
+	playRate,
 	TAG_PAUSE,
 } from "../../src/core/social.ts";
 import {
@@ -127,6 +129,25 @@ describe("Playground", () => {
 		withRandom([0, 0, 0, 0.5, 1], () => pg.update(DT, cats, true));
 		assert.equal(pg.games[0].kind, "tussle");
 		assert.equal(pg.games[0].left, 4);
+	});
+
+	it("starts games at the rate it is given", () => {
+		// 0.005 per tick: under 10 levels' 0.4/s, over 1 level's 0.04/s.
+		const startsAt = (level: number): boolean => {
+			const cats = settledCats(400, 500);
+			const pg = new Playground();
+			withRandom([0.005, 0, 0, 0, 0], () =>
+				pg.update(DT, cats, true, playRate(level)),
+			);
+			return pg.games.length > 0;
+		};
+		assert.equal(startsAt(1), false);
+		assert.equal(startsAt(10), true);
+	});
+
+	it("plays at PLAY_RATE at the default frequency", () => {
+		assert.equal(playRate(INT_SETTINGS.playFrequency.default), PLAY_RATE);
+		assert.equal(playRate(1), 0.04, "level 1 is the original design's rate");
 	});
 
 	it("a lone cat never plays", () => {
