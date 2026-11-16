@@ -103,6 +103,12 @@ export const ASK_SECONDS = 8;
 export const ASK_COOLDOWN = 60;
 /** Where beside a bowl a cat stands to eat from it, in cat sizes. */
 export const BOWL_STANCE = 0.45;
+/**
+ * How far from its spot by a bowl, in cat sizes, a cat still counts as there.
+ * Two cats asking at one bowl hold each other about 0.29 sizes either side of
+ * the spot, so a fixed distance in pixels would leave big cats never arriving.
+ */
+const BOWL_REACH = 0.35;
 
 function clamp(v: number, lo: number, hi: number): number {
 	return v < lo ? lo : v > hi ? hi : v;
@@ -174,6 +180,8 @@ export class Cat {
 	private _bowl: Prop | null = null;
 	/** Seconds until a cat that asked in vain asks again. */
 	private _askCooldown = 0;
+	/** Seconds spent so far asking by an empty bowl. */
+	private _askedFor = 0;
 	private _interrupted = false;
 	/** Cornered while fleeing a chase: dashing past the chaser. */
 	private _dashing = false;
@@ -429,12 +437,10 @@ export class Cat {
 	 * one.
 	 */
 	private _claimBowl(bowls: readonly Prop[]): Prop | null {
-		let best: Prop | null = null;
-		for (const bowl of bowls) {
-			if (bowl.food <= 0 || (bowl.eater && bowl.eater !== this)) continue;
-			if (!best || Math.abs(bowl.x - this.x) < Math.abs(best.x - this.x))
-				best = bowl;
-		}
+		const best = this._nearestBowl(
+			bowls,
+			(b) => b.food > 0 && (b.eater === null || b.eater === this),
+		);
 		if (best) best.eater = this;
 		return best;
 	}
@@ -559,19 +565,19 @@ export class Cat {
 					: this._nearestBowl(bowls, (b) => b.food > 0)))
 			: null;
 		const asking = seekingFood && !meal && empty;
+		if (!asking) this._askedFor = 0;
 
 		// --- Pick a target -------------------------------------------------
 		if (hunting) {
 			this._target = clamp(mouse.x, minX, maxX);
 			this._wanderIn = 0.5 + Math.random();
 		} else if (foodBowl) {
-			// Beside the bowl, on whichever side is nearer.
+			// Beside the bowl, on whichever side is nearer. A cat waiting for
+			// another to finish stands a cat's length further out, clear of
+			// the one eating, rather than jostling it from the spot.
 			const side = Math.sign(this.x - foodBowl.x) || 1;
-			this._target = clamp(
-				foodBowl.x + side * this.size * BOWL_STANCE,
-				minX,
-				maxX,
-			);
+			const out = meal || asking ? BOWL_STANCE : BOWL_STANCE + 1;
+			this._target = clamp(foodBowl.x + side * this.size * out, minX, maxX);
 			this._wanderIn = 0.5 + Math.random();
 		} else if (interested) {
 			// Fan out around the pointer instead of all aiming at the exact
@@ -649,9 +655,15 @@ export class Cat {
 			this._setState(State.POUNCE);
 		}
 
-		// Standing beside the bowl it is after.
+		// Standing beside the bowl it is after. An ask is timed from the cat
+		// sitting up by the bowl, and keeps counting while a neighbour jostles
+		// it about the spot, so it always ends.
 		const foodReached =
-			foodBowl !== null && Math.abs(this._target - this.x) <= ARRIVE_PX * 2;
+			foodBowl !== null &&
+			Math.abs(this._target - this.x) <=
+				Math.max(ARRIVE_PX * 2, BOWL_REACH * this.size);
+		if (asking && foodReached && this.state === State.ALERT)
+			this._askedFor += dt;
 
 		// --- State machine -------------------------------------------------
 		if (this.state === State.SCRATCH) {
@@ -673,16 +685,21 @@ export class Cat {
 		} else if (meal && foodReached && speed <= 6) {
 			this._setState(State.EAT);
 			this._face(meal.x);
-		} else if (asking && foodBowl && foodReached && speed <= 6) {
-			// Sit up by the empty bowl and look at it, then give up for a while.
-			if (this.state === State.ALERT && this.stateTime >= ASK_SECONDS) {
-				this._askCooldown = ASK_COOLDOWN;
-				this._wanderIn = 0;
-				this._setState(State.IDLE);
-			} else {
-				this._setState(State.ALERT);
-				this._face(foodBowl.x);
-			}
+		} else if (asking && this._askedFor >= ASK_SECONDS) {
+			// Asked long enough in vain: give up for a while.
+			this._askCooldown = ASK_COOLDOWN;
+			this._askedFor = 0;
+			this._wanderIn = 0;
+			this._setState(State.IDLE);
+		} else if (
+			asking &&
+			foodBowl &&
+			foodReached &&
+			(speed <= 6 || this.state === State.ALERT)
+		) {
+			// Sit up by the empty bowl and look at it, through any jostling.
+			this._setState(State.ALERT);
+			this._face(foodBowl.x);
 		} else if (
 			play?.kind === "tussle" &&
 			(this.state === State.PLAY ||

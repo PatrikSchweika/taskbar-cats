@@ -1021,6 +1021,79 @@ describe("Cat", () => {
 			assert.equal(other.food, 2);
 		});
 
+		it("keeps asking through a jostle, and still gives up after 8 s", () => {
+			const bowl = makeProp("bowl", 700);
+			bowl.food = 0;
+			const cat = makeCat({ x: 400 });
+			cat.hunger = 1;
+			const ctx = makeContext({ cfg: peckish(), bowls: [bowl] });
+			assert.ok(until([cat], ctx, 10, () => cat.state === State.ALERT));
+
+			// A neighbour bumps it every second; a bump is not a fresh start.
+			let gaveUp = false;
+			for (let i = 0; i < (ASK_SECONDS + 1) / DT && !gaveUp; i++) {
+				if (i % 30 === 15) cat.vx = 40;
+				cat.update(DT, ctx);
+				gaveUp = !cat.interrupted;
+			}
+			assert.ok(gaveUp, `still asking, ${cat.state} at ${cat.x}`);
+		});
+
+		/** Big cats: the size where crowding at the bowl used to lock up. */
+		const bigCats = [
+			{ name: "size 96", size: 96, scale: 1 },
+			{ name: "size 48 at 2x", size: 48, scale: 2 },
+		];
+
+		for (const { name, size, scale } of bigCats) {
+			/** Two hungry cats coming at the bowl at 700 from the same side. */
+			function sameSide(food: number) {
+				const bowl = makeProp("bowl", 700);
+				bowl.food = food;
+				const cats = [
+					makeCat({ x: 300, index: 0, size, scale }),
+					makeCat({ x: 400, index: 1, size, scale }),
+				];
+				for (const cat of cats) cat.hunger = 1;
+				const ctx = makeContext({
+					cfg: peckish(),
+					bowls: [bowl],
+					neighbours: cats,
+				});
+				return { bowl, cats, ctx };
+			}
+
+			it(`${name}: two cats from the same side both eat, one at a time`, () => {
+				const { bowl, cats, ctx } = sameSide(3);
+				const ate = new Set<Cat>();
+				for (let i = 0; i < 60 / DT && ate.size < 2; i++) {
+					for (const cat of cats) cat.update(DT, ctx);
+					const eating = cats.filter((c) => c.state === State.EAT);
+					assert.ok(eating.length <= 1, "two cats eating from one bowl");
+					for (const cat of eating) ate.add(cat);
+				}
+				assert.equal(ate.size, 2, `only ${ate.size} ate`);
+				run(cats, ctx, EAT_SECONDS + 0.5);
+				assert.equal(bowl.food, 1);
+			});
+
+			it(`${name}: two cats from the same side both ask, then give up`, () => {
+				const { cats, ctx } = sameSide(0);
+				const asked = new Set<Cat>();
+				const gaveUp = new Set<Cat>();
+				for (let i = 0; i < 60 / DT && gaveUp.size < 2; i++) {
+					for (const cat of cats) cat.update(DT, ctx);
+					for (const cat of cats) {
+						if (cat.state === State.ALERT) asked.add(cat);
+						if (asked.has(cat) && !cat.interrupted) gaveUp.add(cat);
+					}
+				}
+				assert.equal(asked.size, 2, `only ${asked.size} asked`);
+				assert.equal(gaveUp.size, 2, `only ${gaveUp.size} gave up`);
+				for (const cat of cats) assert.equal(cat.hungry, true);
+			});
+		}
+
 		it("frees its bowl when destroyed", () => {
 			const bowl = makeProp("bowl", 700);
 			const cat = makeCat({ x: 400 });
