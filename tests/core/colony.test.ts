@@ -7,6 +7,7 @@ import {
 	Colony,
 	interleaveProps,
 	PointerTracker,
+	propUnderPointer,
 	resolveCatPalette,
 	resolveCatSize,
 } from "../../src/core/colony.ts";
@@ -102,6 +103,30 @@ describe("bowlUnderPointer", () => {
 	it("picks the last of two overlapping bowls", () => {
 		const [a, b] = bowls();
 		assert.equal(bowlUnderPointer([a, b], { x: 310, y: 890 }, floorY), b);
+	});
+});
+
+describe("propUnderPointer", () => {
+	it("picks the last prop whose square holds the pointer", () => {
+		const floorY = 900;
+		const a = makeProp("bed", 300, 40);
+		const b = makeProp("bowl", 320, 40);
+		assert.equal(
+			propUnderPointer([a, b], { x: 280, y: 860 }, floorY),
+			a,
+			"a's edge",
+		);
+		assert.equal(
+			propUnderPointer([a, b], { x: 310, y: 890 }, floorY),
+			b,
+			"overlap",
+		);
+		assert.equal(
+			propUnderPointer([a, b], { x: 300, y: 859 }, floorY),
+			null,
+			"1px above",
+		);
+		assert.equal(propUnderPointer([], { x: 300, y: 890 }, floorY), null);
 	});
 });
 

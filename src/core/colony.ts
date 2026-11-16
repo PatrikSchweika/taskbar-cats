@@ -8,6 +8,8 @@
  * too. Both platforms then reduce to "find the dock, build a World, call
  * update()".
  */
+
+import { POSITION_LISTS } from "./arrange.js";
 import { Cat, type CatConfig, State } from "./cat.js";
 import type { Settings } from "./config.js";
 import { AUTO_POSITION } from "./config.js";
@@ -144,26 +146,38 @@ export function interleaveProps(
 }
 
 /**
- * The bowl the pointer is over, if any: the last one whose square, standing on
- * the floor, holds it. Rubbing the pointer over a bowl fills it.
+ * The prop the pointer is over, if any: the last one whose square, standing on
+ * the floor, holds it. Edges count.
+ */
+export function propUnderPointer(
+	props: readonly Prop[],
+	pointer: { x: number; y: number },
+	floorY: number,
+): Prop | null {
+	let hit: Prop | null = null;
+	for (const prop of props) {
+		const half = prop.size * 0.5;
+		if (
+			pointer.x >= prop.x - half &&
+			pointer.x <= prop.x + half &&
+			pointer.y >= floorY - prop.size &&
+			pointer.y <= floorY
+		)
+			hit = prop;
+	}
+	return hit;
+}
+
+/**
+ * The bowl the pointer is over, if any. Rubbing the pointer over a bowl fills
+ * it.
  */
 export function bowlUnderPointer(
 	bowls: readonly Prop[],
 	pointer: { x: number; y: number },
 	floorY: number,
 ): Prop | null {
-	let hit: Prop | null = null;
-	for (const bowl of bowls) {
-		const half = bowl.size * 0.5;
-		if (
-			pointer.x >= bowl.x - half &&
-			pointer.x <= bowl.x + half &&
-			pointer.y >= floorY - bowl.size &&
-			pointer.y <= floorY
-		)
-			hit = bowl;
-	}
-	return hit;
+	return propUnderPointer(bowls, pointer, floorY);
 }
 
 export class Colony {
@@ -313,12 +327,7 @@ export class Colony {
 			bowl: 0,
 		};
 		for (const prop of this.props) {
-			const list =
-				prop.kind === "bed"
-					? settings.bedPositions
-					: prop.kind === "scratcher"
-						? settings.scratcherPositions
-						: settings.bowlPositions;
+			const list = settings[POSITION_LISTS[prop.kind]];
 			const percent = list[counters[prop.kind]++];
 			const pinned =
 				percent !== undefined && percent !== AUTO_POSITION ? percent : null;
