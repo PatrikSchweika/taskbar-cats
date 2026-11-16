@@ -472,12 +472,46 @@ describe("TaskbarCatsExtension", () => {
 			testEnv().pointer.x = 160;
 			tick(2);
 			settings.__change("bed-count", 2);
+			tick();
+			// Still holding the button: the new beds must not follow it.
+			const settled = propActors().map((p) => p.x);
+			testEnv().pointer.x = 1200;
+			assert.doesNotThrow(() => tick(3));
+			assert.deepEqual(
+				propActors().map((p) => p.x),
+				settled,
+			);
 			testEnv().pointer.mods = 0;
 			tick();
 			assert.deepEqual(settings.values["bed-positions"], []);
 			// The new beds can be arranged too.
 			assert.equal(propActors().length, 2);
 			for (const prop of propActors()) assert.equal(prop.reactive, true);
+		});
+
+		it("leaves the mouse toy out", () => {
+			const { settings } = arranging({
+				"mouse-interval": 5,
+				"mouse-attraction": 0,
+			});
+			const beds = propActors();
+			let mouse: FakeActor | undefined;
+			for (let i = 0; i < 400 && !mouse; i++) {
+				tick();
+				mouse = propActors().find((a) => !beds.includes(a));
+			}
+			assert.ok(mouse, "no mouse in 13 seconds");
+			assert.equal(settings.values["arrange-mode"], true);
+			assert.equal(mouse.reactive, false);
+			assert.ok(!mouse.has_style_class_name("taskbar-cats-arranging"));
+			assert.equal(mouse.handlerCount(), 0, "no press handler");
+		});
+
+		it("keeps the toolbar in front of cats added after it", () => {
+			const { settings } = arranging();
+			settings.__change("cat-count", 3);
+			tick();
+			assert.equal(layerChildren().at(-1), arrangeBar());
 		});
 
 		it("shows the toolbar, and a hint when there is nothing to arrange", () => {

@@ -38,6 +38,7 @@ async function main(): Promise<void> {
 		sprites,
 		createView: () => new DomCatView(stage),
 		createPropView: () => new DomCatView(stage, { behind: true }),
+		createToyView: () => new DomCatView(stage, { behind: true }),
 	});
 	const pointer = new PointerTracker();
 

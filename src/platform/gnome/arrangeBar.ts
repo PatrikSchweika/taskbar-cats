@@ -36,8 +36,14 @@ export class ArrangeBar {
 		parent.add_child(this.actor);
 	}
 
-	/** Stand the bar centred on `centreX` with its bottom edge at `bottomY`. */
+	/**
+	 * Stand the bar centred on `centreX` with its bottom edge at `bottomY`,
+	 * in front of any cat added since.
+	 */
 	place(centreX: number, bottomY: number): void {
+		const parent = this.actor.get_parent();
+		if (parent && parent.get_last_child() !== this.actor)
+			parent.set_child_above_sibling(this.actor, null);
 		this.actor.set_position(
 			Math.round(centreX - this.actor.width / 2),
 			Math.round(bottomY - this.actor.height),

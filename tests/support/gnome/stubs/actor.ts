@@ -58,6 +58,12 @@ export class FakeActor {
 	has_style_class_name(name: string): boolean {
 		return this.style_class.split(/\s+/).includes(name);
 	}
+	get_parent(): FakeActor | null {
+		return this.parent;
+	}
+	get_last_child(): FakeActor | null {
+		return this.children.at(-1) ?? null;
+	}
 	get_children(): FakeActor[] {
 		return this.children;
 	}

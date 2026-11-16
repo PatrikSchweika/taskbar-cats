@@ -121,10 +121,15 @@ export interface ColonyHost {
 	/** Make a view for one more cat, already attached to the overlay. */
 	createView(): CatView;
 	/**
-	 * Make a view for a prop or the mouse, attached to the overlay *beneath*
+	 * Make a view for a bed, post or bowl, attached to the overlay *beneath*
 	 * the cats, so a cat sleeps on its bed rather than under it.
 	 */
 	createPropView(): CatView;
+	/**
+	 * Make a view for the mouse toy, beneath the cats like a prop view, but
+	 * never part of arrange mode: the mouse is not furniture.
+	 */
+	createToyView(): CatView;
 }
 
 /**
@@ -404,7 +409,7 @@ export class Colony {
 		const fromLeft = Math.random() < 0.5;
 		const half = size * 0.5;
 		this.mouse = new Mouse({
-			view: this._host.createPropView(),
+			view: this._host.createToyView(),
 			sprites: this._host.sprites,
 			size,
 			x: fromLeft ? bounds.roam.min + half : bounds.roam.max - half,

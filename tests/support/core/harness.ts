@@ -179,12 +179,15 @@ export function withRandom<T>(values: number[], fn: () => T): T {
 export function fakeHost(palettes = ["tabby-orange"]): ColonyHost & {
 	views: FakeCatView[];
 	propViews: FakeCatView[];
+	toyViews: FakeCatView[];
 } {
 	const views: FakeCatView[] = [];
 	const propViews: FakeCatView[] = [];
+	const toyViews: FakeCatView[] = [];
 	return {
 		views,
 		propViews,
+		toyViews,
 		sprites: fakeSprites(palettes),
 		createView: () => {
 			const view = new FakeCatView();
@@ -194,6 +197,11 @@ export function fakeHost(palettes = ["tabby-orange"]): ColonyHost & {
 		createPropView: () => {
 			const view = new FakeCatView();
 			propViews.push(view);
+			return view;
+		},
+		createToyView: () => {
+			const view = new FakeCatView();
+			toyViews.push(view);
 			return view;
 		},
 	};

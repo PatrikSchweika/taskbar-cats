@@ -97,6 +97,7 @@ export default class TaskbarCatsExtension extends Extension {
 				sprites,
 				createView: () => layer.createView(),
 				createPropView: () => layer.createPropView(),
+				createToyView: () => layer.createToyView(),
 			}),
 			shaking: new Set(),
 		};
@@ -113,7 +114,8 @@ export default class TaskbarCatsExtension extends Extension {
 		// A shell restart never comes back up arranging. Cleared before
 		// listening, so this write is not mistaken for the user switching it.
 		this._arranging = null;
-		rt.settings.set_boolean(ARRANGE_KEY, false);
+		if (rt.settings.get_boolean(ARRANGE_KEY))
+			rt.settings.set_boolean(ARRANGE_KEY, false);
 		this._settingsId = rt.settings.connect(
 			"changed",
 			(_s: Gio.Settings, key: string) => {
