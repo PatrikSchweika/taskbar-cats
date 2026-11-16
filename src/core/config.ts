@@ -12,6 +12,8 @@ import { formatAccelerator, parseAccelerator } from "./hotkey.js";
 export interface Settings extends CatConfig {
 	count: number;
 	wiggleIcons: boolean;
+	/** Idle cats sometimes chase, play-fight or groom each other. */
+	social: boolean;
 	/** Cat beds standing on the floor for sleepy cats to curl up in. */
 	beds: number;
 	/** Scratching posts on the floor, clawed instead of (or as well as) icons. */
@@ -76,6 +78,7 @@ export const INT_SETTINGS = {
 export const BOOL_SETTINGS = {
 	scratchIcons: { key: "scratch-icons", default: true },
 	wiggleIcons: { key: "wiggle-icons", default: true },
+	social: { key: "cats-play", default: true },
 } as const satisfies Record<string, { key: string; default: boolean }>;
 
 /**

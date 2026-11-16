@@ -310,3 +310,13 @@ describe("settings", () => {
 		});
 	});
 });
+
+describe("cats-play", () => {
+	it("defaults to on", () => {
+		assert.equal(defaultSettings().social, true);
+	});
+	it("keeps the default for a non-boolean in a hand-edited file", () => {
+		assert.equal(normalizeSettings({ "cats-play": "yes" }).social, true);
+		assert.equal(normalizeSettings({ "cats-play": false }).social, false);
+	});
+});
