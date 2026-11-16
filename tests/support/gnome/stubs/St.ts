@@ -26,6 +26,21 @@ export class BoxLayout extends FakeActor {}
 // constructor and wipe the value passed in.
 export class Label extends FakeActor {
 	declare text: string;
+	/** Only the markup flag is modelled; tests check it is never switched on. */
+	clutter_text: { use_markup: boolean } = { use_markup: false };
+	private _prefW = 0;
+	private _prefH = 0;
+	/** What the label's text would measure, since the stub has no font. */
+	__setPreferredSize(w: number, h: number): void {
+		this._prefW = w;
+		this._prefH = h;
+	}
+	get_preferred_width(_forHeight: number): [number, number] {
+		return [this._prefW, this._prefW];
+	}
+	override get_preferred_height(_forWidth: number): [number, number] {
+		return [this._prefH, this._prefH];
+	}
 }
 /** Tests press one by emitting `clicked`. */
 export class Button extends FakeActor {

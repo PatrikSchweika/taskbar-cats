@@ -48,3 +48,12 @@
 	padding: 4px 12px;
 	border-radius: 8px;
 }
+
+/* The name tag over a hovered cat. Never reactive; plain text only. */
+.taskbar-cats-tag {
+	background-color: rgba(20, 20, 20, 0.8);
+	color: #ffffff;
+	font-size: 9pt;
+	border-radius: 4px;
+	padding: 1px 6px;
+}

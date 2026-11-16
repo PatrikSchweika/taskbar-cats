@@ -14,6 +14,8 @@ export interface Settings extends CatConfig {
 	wiggleIcons: boolean;
 	/** Idle cats sometimes chase, play-fight or groom each other. */
 	social: boolean;
+	/** Hovering over a cat shows its name. */
+	nameTags: boolean;
 	/** How often idle cats start a game, 1 (rarely) to 10 (all the time). */
 	playFrequency: number;
 	/** Cat beds standing on the floor for sleepy cats to curl up in. */
@@ -39,7 +41,10 @@ export interface Settings extends CatConfig {
 	 * takes its turn through every palette on disk.
 	 */
 	catPalettes: string[];
-	/** Display name per cat, for the settings UI only. "" means "Cat N". */
+	/**
+	 * Display name per cat, shown in the settings and on the cat's name tag.
+	 * "" means "Cat N".
+	 */
 	catNames: string[];
 	/**
 	 * Size per cat in logical pixels. 0 or missing means Auto: the dock's own
@@ -88,6 +93,7 @@ export const BOOL_SETTINGS = {
 	scratchIcons: { key: "scratch-icons", default: true },
 	wiggleIcons: { key: "wiggle-icons", default: true },
 	social: { key: "cats-play", default: true },
+	nameTags: { key: "name-tags", default: true },
 } as const satisfies Record<string, { key: string; default: boolean }>;
 
 /**

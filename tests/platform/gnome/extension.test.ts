@@ -48,6 +48,7 @@ const DEFAULTS: Record<string, unknown> = {
 	"cat-sizes": [],
 	"toggle-hotkey": ["<Control><Alt>c"],
 	"arrange-mode": false,
+	"name-tags": true,
 };
 
 interface Harness {
@@ -161,6 +162,25 @@ describe("TaskbarCatsExtension", () => {
 			assert.equal(layer.reactive, false);
 			for (const cat of layer.get_children())
 				assert.equal((cat as { reactive: boolean }).reactive, false);
+		});
+
+		it("draws one name tag on the cat layer, unreactive", () => {
+			enableExtension({ "cat-count": 1 });
+			tick(2);
+			const cat = catActors()[0];
+			assert.ok(cat, "no cat");
+			const pointer = testEnv().pointer;
+			for (let i = 0; i < 15; i++) {
+				pointer.x = cat.x + 24;
+				pointer.y = cat.y + 24;
+				tick();
+			}
+			const tags = layerChildren().filter((c) =>
+				c.has_style_class_name("taskbar-cats-tag"),
+			);
+			assert.equal(tags.length, 1);
+			assert.equal(tags[0]?.visible, true);
+			assert.equal(tags[0]?.reactive, false);
 		});
 
 		it("tracks nothing as chrome outside arrange mode", () => {

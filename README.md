@@ -3,10 +3,10 @@
 Small pixel-art cats that live on your dock or taskbar. They chase your mouse
 pointer, sit and look up at it, nap when you ignore them, and scratch your app
 icons. When they have nothing better to do, two cats sometimes play together:
-they chase each other, play-fight or groom. You can give them beds,
-scratching posts and food bowls; with bowls out, the cats get hungry every so
-often and eat from them. Now and then a mouse runs across the screen and every
-cat goes after it.
+they chase each other, play-fight or groom. You can give them beds, scratching
+posts and food bowls; with bowls out, the cats get hungry every so often and
+eat from them. Hover over a cat and it shows its name on a small tag. Now and
+then a mouse runs across the screen and every cat goes after it.
 
 It runs on two platforms:
 
@@ -64,7 +64,7 @@ All settings apply at once. No restart is needed.
 | Setting | Default | What it does |
 |---|---|---|
 | Cats | 3 | How many cats (1 to 8) |
-| Each cat: name | Cat N | A label for the settings only |
+| Each cat: name | Cat N | Shown in the settings and on the cat's name tag |
 | Each cat: fur palette | Auto | This cat's fur colour. Auto takes its turn through every palette |
 | Each cat: size | Auto | This cat's size in pixels (16 to 128). Auto matches the dock icons |
 | Mouse attraction | 60 | How strongly cats chase the pointer. 0 turns it off |
@@ -73,6 +73,7 @@ All settings apply at once. No restart is needed.
 | Nap after | 20 | Seconds without movement before a cat sleeps. 0 keeps them awake |
 | Cats play together | on | Idle cats sometimes chase, play-fight or groom each other |
 | Play frequency | 5 | How often idle cats start a game, from 1 (rarely) to 10 (all the time) |
+| Show names on hover | on | Hold the pointer over a cat to see its name |
 | Hide or show the cats | Ctrl+Alt+C | A keyboard shortcut that hides every cat and brings them back. Works in any program. Clear it to turn it off |
 | Scratch app icons | on | Cats stop at an icon and claw it |
 | Shake the scratched icon | on | GNOME only. Moves the real dock icon |
@@ -143,8 +144,8 @@ restart. `npm run test:shell` and `npm run dev` avoid that.
 Bump `version` in `package.json`, commit, then push a matching tag:
 
 ```bash
-git tag v1.6.0
-git push origin v1.6.0
+git tag v1.7.0
+git push origin v1.7.0
 ```
 
 GitHub Actions builds the Windows installer, the portable zip, and the GNOME

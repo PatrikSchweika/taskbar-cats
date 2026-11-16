@@ -83,6 +83,10 @@ const LABELS: Record<string, { title: string; hint?: string }> = {
 		title: "Shake the icon being clawed",
 		hint: "not available on Windows — the taskbar belongs to explorer.exe",
 	},
+	nameTags: {
+		title: "Show names on hover",
+		hint: "hold the pointer over a cat to see its name",
+	},
 	social: {
 		title: "Cats play together",
 		hint: "idle cats sometimes chase, play-fight or groom each other",

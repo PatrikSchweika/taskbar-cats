@@ -14,6 +14,7 @@ import { Cat, type CatConfig, State } from "./cat.js";
 import type { Settings } from "./config.js";
 import { AUTO_POSITION } from "./config.js";
 import { Mouse } from "./mouse.js";
+import { NameTag } from "./nameTag.js";
 import {
 	iconSpan,
 	layoutProps,
@@ -24,7 +25,13 @@ import {
 } from "./props.js";
 import { RubDetector } from "./rub.js";
 import { Playground, playRate } from "./social.js";
-import type { CatView, IconRect, Rect, SpriteSource } from "./types.js";
+import type {
+	CatView,
+	IconRect,
+	LabelView,
+	Rect,
+	SpriteSource,
+} from "./types.js";
 
 export const ACTIVE_INTERVAL_MS = 33; // ~30Hz while anything is happening
 export const DROWSY_INTERVAL_MS = 250; // when every cat is asleep or the dock is gone
@@ -45,6 +52,14 @@ export function resolveCatPalette(
 	const own = settings.catPalettes[index];
 	if (own && available.includes(own)) return own;
 	return available[index % available.length] ?? FALLBACK_PALETTE;
+}
+
+/** The name cat `index` goes by: its own, trimmed, or "Cat N". */
+export function resolveCatName(
+	settings: Pick<Settings, "catNames">,
+	index: number,
+): string {
+	return settings.catNames[index]?.trim() || `Cat ${index + 1}`;
 }
 
 /** The size cat `index` is drawn at: its own, or the dock's icon size. */
@@ -130,6 +145,8 @@ export interface ColonyHost {
 	 * never part of arrange mode: the mouse is not furniture.
 	 */
 	createToyView(): CatView;
+	/** Make the label for name tags, above everything and never reactive. */
+	createLabelView(): LabelView;
 }
 
 /**
@@ -151,6 +168,29 @@ export function interleaveProps(
 }
 
 /**
+ * The last item whose square, standing on the floor, holds the pointer. Edges
+ * count.
+ */
+function squareUnderPointer<T extends { x: number; size: number }>(
+	items: readonly T[],
+	pointer: { x: number; y: number },
+	floorY: number,
+): T | null {
+	let hit: T | null = null;
+	for (const item of items) {
+		const half = item.size * 0.5;
+		if (
+			pointer.x >= item.x - half &&
+			pointer.x <= item.x + half &&
+			pointer.y >= floorY - item.size &&
+			pointer.y <= floorY
+		)
+			hit = item;
+	}
+	return hit;
+}
+
+/**
  * The prop the pointer is over, if any: the last one whose square, standing on
  * the floor, holds it. Edges count.
  */
@@ -159,18 +199,19 @@ export function propUnderPointer(
 	pointer: { x: number; y: number },
 	floorY: number,
 ): Prop | null {
-	let hit: Prop | null = null;
-	for (const prop of props) {
-		const half = prop.size * 0.5;
-		if (
-			pointer.x >= prop.x - half &&
-			pointer.x <= prop.x + half &&
-			pointer.y >= floorY - prop.size &&
-			pointer.y <= floorY
-		)
-			hit = prop;
-	}
-	return hit;
+	return squareUnderPointer(props, pointer, floorY);
+}
+
+/**
+ * The cat the pointer is over, if any: the last one (the one drawn on top)
+ * whose on-screen square, standing on the floor, holds it. Edges count.
+ */
+export function catUnderPointer(
+	cats: readonly Cat[],
+	pointer: { x: number; y: number },
+	floorY: number,
+): Cat | null {
+	return squareUnderPointer(cats, pointer, floorY);
 }
 
 /**
@@ -197,6 +238,8 @@ export class Colony {
 	private readonly _playground = new Playground();
 	/** Spots the pointer rubbing a bowl, which fills it. */
 	private readonly _rub = new RubDetector();
+	/** Made on the first update, so a colony that never runs draws nothing. */
+	private _nameTag: NameTag | null = null;
 	private _size = 0;
 	private _layoutKey = "";
 	private _mouseInterval = -1;
@@ -465,6 +508,16 @@ export class Colony {
 		const rubbed = this._rub.rubbing;
 		if (rubbed instanceof Prop && rubbed.kind === "bowl") rubbed.refill();
 
+		// The cat under the pointer holds still; mark it before the cats move.
+		// A pointer parked past the sleep delay hovers nothing, or the cat it
+		// stopped on could never nap or eat, and the colony never sleep.
+		const resting =
+			settings.sleepAfter > 0 && world.pointer.idleTime > settings.sleepAfter;
+		const hovered = resting
+			? null
+			: catUnderPointer(this.cats, world.pointer, world.floorY);
+		for (const cat of this.cats) cat.hovered = cat === hovered;
+
 		// Games start and end before the cats move, so each steers by its role.
 		this._playground.update(
 			dt,
@@ -473,6 +526,9 @@ export class Colony {
 			playRate(settings.playFrequency),
 		);
 		for (const cat of this.cats) cat.update(dt, ctx);
+
+		this._nameTag ??= new NameTag(this._host.createLabelView());
+		this._nameTag.update(dt, hovered, this.cats, world.floorY, settings);
 
 		for (const prop of this.props)
 			prop.update(
@@ -508,6 +564,8 @@ export class Colony {
 		this.props.length = 0;
 		this.mouse?.destroy();
 		this.mouse = null;
+		this._nameTag?.destroy();
+		this._nameTag = null;
 		this._size = 0;
 		this._layoutKey = "";
 	}

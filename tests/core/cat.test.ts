@@ -1356,3 +1356,94 @@ describe("Cat", () => {
 		});
 	});
 });
+
+describe("hover", () => {
+	it("holds still and looks up while the pointer is over it", () => {
+		// Pointer right on the cat, near the floor: without hover the fan-out
+		// would walk cat 0 of 3 to a slot beside the pointer.
+		const cats = [0, 1, 2].map((i) => makeCat({ x: 400 + i * 200, index: i }));
+		const ctx = makeContext({
+			neighbours: cats,
+			pointer: { x: 400, y: 880, idleTime: 0 },
+		});
+		cats[0].hovered = true;
+		run(cats, ctx, 1);
+		assert.ok(Math.abs(cats[0].x - 400) < 1);
+		assert.equal(cats[0].state, State.ALERT);
+	});
+
+	it("still runs after a mouse while hovered", () => {
+		const cat = makeCat({ x: 400 });
+		const ctx = makeContext({
+			mouse: makeMouse(900, 1),
+			pointer: { x: 400, y: 880, idleTime: 0 },
+		});
+		cat.hovered = true;
+		run([cat], ctx, 1);
+		assert.ok(cat.x > 450, `cat stayed at ${cat.x}`);
+	});
+
+	it("ends a game it is in", () => {
+		const lead = makeCat({ x: 400, index: 0 });
+		const other = makeCat({ x: 430, index: 1 });
+		lead.play = { kind: "tussle", partner: other, lead: true };
+		other.play = { kind: "tussle", partner: lead, lead: false };
+		const ctx = makeContext({
+			neighbours: [lead, other],
+			pointer: { x: -5000, y: -5000, idleTime: 0 },
+		});
+		run([lead, other], ctx, 0.5);
+		assert.equal(lead.state, State.PLAY);
+		assert.equal(lead.interrupted, false);
+
+		other.hovered = true;
+		run([lead, other], ctx, 1 / 30);
+		assert.equal(other.interrupted, true);
+		assert.notEqual(other.state, State.PLAY);
+	});
+
+	it("holds still instead of heading to its bowl", () => {
+		const bowl = makeProp("bowl", 700);
+		const cat = makeCat({ x: 400 });
+		cat.hunger = 1;
+		const ctx = makeContext({
+			cfg: { ...DEFAULT_CFG, hungerAfter: 60 },
+			bowls: [bowl],
+			pointer: { x: -5000, y: -5000, idleTime: 0 },
+		});
+		cat.hovered = true;
+		run([cat], ctx, 2);
+		assert.ok(Math.abs(cat.x - 400) < 1, `cat walked to ${cat.x}`);
+		assert.equal(cat.bowl, null);
+		assert.equal(cat.state, State.ALERT);
+	});
+
+	it("neither nods off nor walks to a bed, however long the pointer has been still", () => {
+		const bed = makeProp("bed", 700);
+		const cat = makeCat({ x: 400 });
+		const ctx = makeContext({
+			beds: [bed],
+			pointer: { x: -5000, y: -5000, idleTime: 999 },
+		});
+		cat.hovered = true;
+		run([cat], ctx, 3);
+		assert.ok(Math.abs(cat.x - 400) < 1, `cat walked to ${cat.x}`);
+		assert.equal(cat.bed, null);
+		assert.notEqual(cat.state, State.SLEEP);
+		cat.hovered = false;
+		run([cat], ctx, 12);
+		assert.equal(cat.state, State.SLEEP);
+	});
+
+	it("turns to face the pointer", () => {
+		const cat = makeCat({ x: 400 });
+		cat.facing = -1;
+		const ctx = makeContext({ pointer: { x: 420, y: 880, idleTime: 0 } });
+		cat.hovered = true;
+		run([cat], ctx, 0.5);
+		assert.equal(cat.facing, 1);
+		ctx.pointer.x = 380;
+		run([cat], ctx, 0.5);
+		assert.equal(cat.facing, -1);
+	});
+});

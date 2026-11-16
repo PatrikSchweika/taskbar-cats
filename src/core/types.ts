@@ -58,6 +58,18 @@ export interface SpriteSource {
 }
 
 /**
+ * A small text tag drawn above the cats. Never reactive: it must not catch the
+ * pointer. The text is plain, never markup.
+ */
+export interface LabelView {
+	setText(text: string): void;
+	/** Anchor the label's bottom centre at this point. */
+	place(centreX: number, bottomY: number): void;
+	setVisible(visible: boolean): void;
+	destroy(): void;
+}
+
+/**
  * The surface one sprite is drawn on: a cat, but also a bed, a scratching post
  * or the mouse, which are all drawn the same way on the same grid.
  *

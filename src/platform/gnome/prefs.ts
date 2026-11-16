@@ -157,6 +157,14 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 			"sensitive",
 			Gio.SettingsBindFlags.GET | Gio.SettingsBindFlags.NO_SENSITIVITY,
 		);
+		behaviour.add(
+			switchRow(
+				settings,
+				"name-tags",
+				"Show names on hover",
+				"Hold the pointer over a cat to see its name.",
+			),
+		);
 		behaviour.add(this._hotkeyRow(settings, window));
 
 		// -- Mischief -------------------------------------------------------

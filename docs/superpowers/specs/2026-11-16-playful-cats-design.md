@@ -8,7 +8,7 @@ one is marked *(call)*.
 Implementation: one plan per feature, buildable in any order:
 cat play (already implemented),
 food bowls (already implemented),
-[name tags](../plans/2026-11-16-name-tags.md) and
+name tags (already implemented) and
 [petting](../plans/2026-11-16-petting.md). Hover is shared by name tags and
 petting, and the rub gesture by petting and food bowls. Each plan that needs
 one of these carries the same task for it and skips it if it already exists.
