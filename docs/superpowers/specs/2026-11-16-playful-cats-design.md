@@ -37,8 +37,6 @@ a text label.
   interaction works by hovering.
 - Climbing, jumping, or anything else that moves a cat off the floor line.
 - Saving hunger or bowl contents across restarts. A restart fills every bowl.
-- Positions for bowls in the settings. Bowls are laid out automatically
-  *(call: beds and posts have position rows; bowls can get them later)*.
 - A sound for purring or eating.
 
 ## Anti-goals
@@ -145,7 +143,8 @@ mouse, no pointer interest, no sleepiness, no hunger, no hover and no petting.
   least one bowl.
 - A **bowl** is a new prop kind. **Food bowls** (`bowl-count`, default 0,
   range 0 to 8) sets how many. Bowls are laid out with the beds and posts in
-  the order bed, post, bowl, repeating.
+  the order bed, post, bowl, repeating. Like beds and posts, each bowl can be
+  pinned to a spot instead (`bowl-positions`).
 - A bowl holds 3 portions and starts full. It has three frames: empty (0),
   low (1) and full (2 or 3).
 - **Eating:** a hungry cat claims the nearest bowl that has food and that no
@@ -200,6 +199,7 @@ implements it:
 | `name-tags` | b | true | | Show names on hover |
 | `bowl-count` | i | 0 | 0–8 | Food bowls |
 | `hunger-after` | i | 1800 | 60–14400 | Hungry after (seconds) |
+| `bowl-positions` | ai | [] | 0–100 or -1 each | Bowl positions |
 
 All of them go in the shared tables in `src/core/config.ts` and the GSettings
 schema. The Windows settings window builds its rows from those tables. The

@@ -10,6 +10,7 @@ import {
 	resolveCatPalette,
 	resolveCatSize,
 } from "../../src/core/colony.ts";
+import { AUTO_POSITION } from "../../src/core/config.ts";
 import {
 	type FakeCatView,
 	fakeHost,
@@ -1021,7 +1022,7 @@ describe("Colony", () => {
 				for (const view of host.propViews) assert.equal(view.destroyed, true);
 			});
 
-			it("lays bowls out automatically, never pinned", () => {
+			it("lays a bowl with no position out automatically", () => {
 				const colony = new Colony(fakeHost());
 				colony.sync(
 					makeSettings({ beds: 1, bowls: 1, bedPositions: [25] }),
@@ -1031,6 +1032,25 @@ describe("Colony", () => {
 				const [bowl] = colony.bowls;
 				assert.equal(bowl.pinned, null);
 				assert.notEqual(bowl.x, colony.beds[0].x);
+			});
+
+			it("indexes positions by bowl as well", () => {
+				const colony = new Colony(fakeHost());
+				colony.sync(
+					makeSettings({
+						beds: 1,
+						bowls: 2,
+						bedPositions: [10],
+						bowlPositions: [AUTO_POSITION, 90],
+					}),
+					[],
+					makeBounds(),
+				);
+				assert.equal(colony.beds[0].x, 120);
+				const [first, second] = colony.bowls;
+				assert.equal(first.pinned, null);
+				assert.equal(second.pinned, 90);
+				assert.equal(second.x, 1080);
 			});
 
 			it("rubbing the pointer over a bowl fills it", () => {

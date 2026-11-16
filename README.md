@@ -80,7 +80,7 @@ All settings apply at once. No restart is needed.
 | Scratching posts | 0 | Posts next to the dock (0 to 8). Cats claw these instead of icons |
 | Food bowls | 0 | Bowls next to the dock (0 to 8). Hungry cats eat from them. Rub the pointer over an empty bowl to fill it |
 | Hungry after | 1800 | Seconds after a meal before a cat is hungry again |
-| Bed / post positions | Auto | Where each bed or post stands, as a percent of the screen width |
+| Bed / post / bowl positions | Auto | Where each bed, post or bowl stands, as a percent of the screen width |
 | Mouse visits | 120 | Seconds between mice. 0 means no mice |
 | Animation frame rate | 12 | Sprite frames per second |
 

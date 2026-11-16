@@ -32,6 +32,8 @@ export interface Settings extends CatConfig {
 	bedPositions: number[];
 	/** The same for the scratching posts. */
 	scratcherPositions: number[];
+	/** The same for the food bowls. */
+	bowlPositions: number[];
 	/**
 	 * Fur palette per cat, indexed by cat. "" or missing means Auto: the cat
 	 * takes its turn through every palette on disk.
@@ -95,6 +97,7 @@ export const BOOL_SETTINGS = {
 export const POSITION_SETTINGS = {
 	bedPositions: { key: "bed-positions" },
 	scratcherPositions: { key: "scratcher-positions" },
+	bowlPositions: { key: "bowl-positions" },
 } as const satisfies Record<string, { key: string }>;
 
 /** String lists indexed by cat number; junk entries become "". */
@@ -158,6 +161,7 @@ export function defaultSettings(): Settings {
 	const out = {
 		bedPositions: [] as number[],
 		scratcherPositions: [] as number[],
+		bowlPositions: [] as number[],
 		catPalettes: [] as string[],
 		catNames: [] as string[],
 		catSizes: [] as number[],

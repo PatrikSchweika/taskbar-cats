@@ -234,6 +234,9 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 				8,
 			),
 		);
+		toys.add(
+			this._positionsRow(settings, "bowl-count", "bowl-positions", "Bowl"),
+		);
 		const hungerAfter = spinRow(
 			settings,
 			"hunger-after",
@@ -280,7 +283,7 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 	}
 
 	/**
-	 * One row per bed or post: a spin button holding where it stands as a
+	 * One row per bed, post or bowl: a spin button holding where it stands as a
 	 * percentage of the floor from the left, and an "Auto" switch that hands
 	 * the placement back to the cats. While Auto is on the number is greyed
 	 * out but keeps its last value, so switching Auto off puts the prop back

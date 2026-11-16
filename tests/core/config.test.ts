@@ -214,13 +214,15 @@ describe("settings", () => {
 				);
 			});
 
-			it("reads both lists from a config", () => {
+			it("reads every list from a config", () => {
 				const s = normalizeSettings({
 					"bed-positions": [20],
 					"scratcher-positions": [80, 90],
+					"bowl-positions": [50],
 				});
 				assert.deepEqual(s.bedPositions, [20]);
 				assert.deepEqual(s.scratcherPositions, [80, 90]);
+				assert.deepEqual(s.bowlPositions, [50]);
 			});
 		});
 

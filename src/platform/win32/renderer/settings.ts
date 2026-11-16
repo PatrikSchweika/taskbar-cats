@@ -333,12 +333,12 @@ async function main(): Promise<void> {
 	catRows();
 
 	// -- positions ---------------------------------------------------------
-	// One slider per bed and post — a percentage of the floor from the left —
+	// One slider per bed, post and bowl — a percentage of the floor from the left —
 	// with an "Auto" box that hands the placement back to the cats. The rows
 	// follow the count, so they are rebuilt whenever the settings change.
 	const positions = (
-		countName: "beds" | "scratchers",
-		listName: "bedPositions" | "scratcherPositions",
+		countName: "beds" | "scratchers" | "bowls",
+		listName: "bedPositions" | "scratcherPositions" | "bowlPositions",
 		noun: string,
 	): void => {
 		const section = element("div", "positions");
@@ -438,6 +438,7 @@ async function main(): Promise<void> {
 	};
 	positions("beds", "bedPositions", "Bed");
 	positions("scratchers", "scratcherPositions", "Post");
+	positions("bowls", "bowlPositions", "Bowl");
 
 	// -- the hide hotkey ---------------------------------------------------
 	const hotkeyRow = (): void => {

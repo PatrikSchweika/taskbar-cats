@@ -35,6 +35,7 @@ const DEFAULTS: Record<string, unknown> = {
 	"mouse-interval": 120,
 	"bed-positions": [],
 	"scratcher-positions": [],
+	"bowl-positions": [],
 	"cat-palettes": [],
 	"cat-names": [],
 	"cat-sizes": [],
@@ -167,6 +168,15 @@ describe("TaskbarCatsExtension", () => {
 			tick(2);
 			assert.notEqual(propActors()[0].x, automatic);
 			// 10% of a 1600px stage, less half a 48px bed.
+			assert.equal(propActors()[0].x, 160 - 24);
+		});
+
+		it("moves a bowl when its position is set", () => {
+			const { settings } = enableExtension({ "bowl-count": 1 });
+			tick(2);
+			settings.__change("bowl-positions", [10]);
+			tick(2);
+			// 10% of a 1600px stage, less half a 48px bowl.
 			assert.equal(propActors()[0].x, 160 - 24);
 		});
 

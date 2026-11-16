@@ -307,7 +307,6 @@ export class Colony {
 			this._layoutKey = "";
 		}
 		// Pin whichever ones the user placed; the rest are laid out around them.
-		// Bowls have no positions of their own, so they are always automatic.
 		const counters: Record<PropKind, number> = {
 			bed: 0,
 			scratcher: 0,
@@ -319,7 +318,7 @@ export class Colony {
 					? settings.bedPositions
 					: prop.kind === "scratcher"
 						? settings.scratcherPositions
-						: [];
+						: settings.bowlPositions;
 			const percent = list[counters[prop.kind]++];
 			const pinned =
 				percent !== undefined && percent !== AUTO_POSITION ? percent : null;
