@@ -6,7 +6,7 @@ Claude's calls, made while writing the plan, and are waiting for review. Each
 one is marked *(call)*.
 
 Implementation: one plan per feature, buildable in any order:
-[cat play](../plans/2026-11-16-cat-play.md),
+cat play (already implemented),
 [food bowls](../plans/2026-11-16-food-bowls.md),
 [name tags](../plans/2026-11-16-name-tags.md) and
 [petting](../plans/2026-11-16-petting.md). Hover is shared by name tags and
