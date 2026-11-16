@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
 	ASK_COOLDOWN,
 	ASK_SECONDS,
+	BOWL_REACH,
 	BOWL_STANCE,
 	Cat,
 	type CatContext,
@@ -1044,6 +1045,49 @@ describe("Cat", () => {
 			{ name: "size 96", size: 96, scale: 1 },
 			{ name: "size 48 at 2x", size: 48, scale: 2 },
 		];
+
+		for (const { name, size, scale } of [
+			{ name: "size 48", size: 48, scale: 1 },
+			...bigCats,
+		]) {
+			it(`${name}: a cat eats where it stands while the others pass it`, () => {
+				const bowl = makeProp("bowl", 700);
+				const cats = [200, 300, 400].map((x, index) =>
+					makeCat({ x, index, size, scale }),
+				);
+				for (const cat of cats) cat.hunger = 1;
+				const ctx = makeContext({
+					cfg: peckish(),
+					bowls: [bowl],
+					neighbours: cats,
+				});
+				const reach = BOWL_REACH * cats[0].size;
+				const spots = new Map<Cat, number>();
+				const ate = new Set<Cat>();
+				for (let i = 0; i < 60 / DT && ate.size < 3; i++) {
+					for (const cat of cats) cat.update(DT, ctx);
+					for (const cat of cats) {
+						if (cat.state !== State.EAT) {
+							spots.delete(cat);
+							continue;
+						}
+						ate.add(cat);
+						// Where it should stand, fixed when the meal began.
+						let spot = spots.get(cat);
+						if (spot === undefined) {
+							const side = Math.sign(cat.x - bowl.x) || 1;
+							spot = bowl.x + side * BOWL_STANCE * cat.size;
+							spots.set(cat, spot);
+						}
+						assert.ok(
+							Math.abs(cat.x - spot) <= reach,
+							`eating ${Math.abs(cat.x - spot).toFixed(1)} px from its spot`,
+						);
+					}
+				}
+				assert.equal(ate.size, 3, `only ${ate.size} ate`);
+			});
+		}
 
 		for (const { name, size, scale } of bigCats) {
 			/** Two hungry cats coming at the bowl at 700 from the same side. */

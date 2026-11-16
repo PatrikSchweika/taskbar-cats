@@ -108,7 +108,7 @@ export const BOWL_STANCE = 0.45;
  * Two cats asking at one bowl hold each other about 0.29 sizes either side of
  * the spot, so a fixed distance in pixels would leave big cats never arriving.
  */
-const BOWL_REACH = 0.35;
+export const BOWL_REACH = 0.35;
 
 function clamp(v: number, lo: number, hi: number): number {
 	return v < lo ? lo : v > hi ? hi : v;
@@ -625,8 +625,11 @@ export class Cat {
 
 		// Soft separation so cats do not stack on the same pixel — except
 		// between a cat and one it is walking past, or they could never swap
-		// places.
+		// places. An eating cat stands its ground: shoved along, it would
+		// look like walking the same way, and others would queue behind it
+		// rather than pass.
 		for (const other of neighbours) {
+			if (this.state === State.EAT) break;
 			if (other === this || other === this.play?.partner) continue;
 			const gap = this.x - other.x;
 			const room = this.size * 0.95;
@@ -683,6 +686,8 @@ export class Cat {
 				this._setState(State.IDLE);
 			}
 		} else if (meal && foodReached && speed <= 6) {
+			// Stop dead to eat, rather than drift off the spot.
+			this.vx = 0;
 			this._setState(State.EAT);
 			this._face(meal.x);
 		} else if (asking && this._askedFor >= ASK_SECONDS) {
