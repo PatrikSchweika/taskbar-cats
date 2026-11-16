@@ -31,6 +31,15 @@ const api = {
 			fn(settings),
 		);
 	},
+	onArrange: (fn: (on: boolean) => void): void => {
+		ipcRenderer.on(CHANNELS.arrange, (_event, on: boolean) => fn(on));
+	},
+	setArranging: (on: boolean): void => {
+		ipcRenderer.send(CHANNELS.setArranging, on);
+	},
+	capture: (on: boolean): void => {
+		ipcRenderer.send(CHANNELS.capture, on);
+	},
 	ready: (): void => {
 		ipcRenderer.send(CHANNELS.ready);
 	},

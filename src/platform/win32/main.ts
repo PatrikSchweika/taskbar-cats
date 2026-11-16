@@ -267,6 +267,8 @@ class CatsApp {
 	private _lastLayoutKey = "";
 	private _visible = false;
 	private _hidden = false;
+	/** Whether the furniture is being arranged; main owns this, the overlay follows. */
+	private _arranging = false;
 	private _hotkeyError: string | null = null;
 	/** The Electron accelerator currently registered, to unregister it later. */
 	private _registeredHotkey: string | null = null;
@@ -307,6 +309,16 @@ class CatsApp {
 		ipcMain.on(CHANNELS.apply, (_event, patch: Partial<Settings>) => {
 			this._config.update(patch);
 		});
+		ipcMain.on(CHANNELS.setArranging, (_event, on: boolean) =>
+			this._setArranging(on === true),
+		);
+		ipcMain.on(CHANNELS.capture, (_event, on: boolean) => {
+			// Outside arrange mode the overlay stays click-through, whatever it asks.
+			if (!this._arranging) return;
+			const window = this._overlay?.window;
+			if (window && !window.isDestroyed())
+				window.setIgnoreMouseEvents(on !== true, { forward: true });
+		});
 		ipcMain.handle(
 			CHANNELS.describe,
 			(): SettingsDescription => ({
@@ -332,6 +344,7 @@ class CatsApp {
 	}
 
 	stop(): void {
+		this._setArranging(false);
 		if (this._timer) clearInterval(this._timer);
 		this._timer = null;
 		this._updater?.stop();
@@ -404,6 +417,12 @@ class CatsApp {
 				click: (item) => this._setHidden(item.checked),
 			},
 			{
+				label: "Arrange furniture",
+				type: "checkbox",
+				checked: this._arranging,
+				click: (item) => this._setArranging(item.checked),
+			},
+			{
 				label: "Check for updates…",
 				click: () => void updater?.checkNow(),
 			},
@@ -453,6 +472,12 @@ class CatsApp {
 		window.on("closed", () => {
 			this._settingsWindow = null;
 		});
+		// The settings window asks for its state with `describe`, which does not
+		// carry this, so tell it once it has loaded.
+		window.webContents.once("did-finish-load", () => {
+			if (this._arranging && !window.isDestroyed())
+				window.webContents.send(CHANNELS.arrange, true);
+		});
 		this._settingsWindow = window;
 	}
 
@@ -498,10 +523,38 @@ class CatsApp {
 	private _setHidden(hidden: boolean): void {
 		if (hidden === this._hidden) return;
 		this._hidden = hidden;
+		if (hidden) this._setArranging(false);
 		const window = this._overlay?.window;
 		if (window && !window.isDestroyed())
 			window.webContents.send(CHANNELS.visible, !hidden);
 		// The tick hides or shows the window on its next pass.
+		this._tray?.setContextMenu(this._trayMenu());
+	}
+
+	// -- arranging ----------------------------------------------------------
+
+	/**
+	 * Start or stop arranging the furniture, and tell both windows.
+	 *
+	 * Ending always puts the overlay back to click-through, so nothing a
+	 * renderer did with `capture` can outlive the mode.
+	 */
+	private _setArranging(on: boolean): void {
+		if (on === this._arranging) return;
+		// Nothing to arrange along when the cats are hidden or there is no taskbar.
+		if (on && (this._hidden || !this._tracker.isUsable())) {
+			this._tray?.setContextMenu(this._trayMenu());
+			return;
+		}
+		this._arranging = on;
+		const overlay = this._overlay?.window;
+		if (overlay && !overlay.isDestroyed()) {
+			if (!on) overlay.setIgnoreMouseEvents(true, { forward: true });
+			overlay.webContents.send(CHANNELS.arrange, on);
+		}
+		const settings = this._settingsWindow;
+		if (settings && !settings.isDestroyed())
+			settings.webContents.send(CHANNELS.arrange, on);
 		this._tray?.setContextMenu(this._trayMenu());
 	}
 
@@ -523,7 +576,9 @@ class CatsApp {
 			this._syncOverlay(overlay);
 		}
 
-		const visible = !this._hidden && this._tracker.isUsable();
+		const usable = this._tracker.isUsable();
+		if (!usable) this._setArranging(false);
+		const visible = !this._hidden && usable;
 		if (visible !== this._visible) {
 			this._visible = visible;
 			if (visible) {
