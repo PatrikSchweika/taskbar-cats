@@ -358,3 +358,13 @@ describe("bowl and hunger settings", () => {
 		assert.equal(s.bowls, 8);
 	});
 });
+
+describe("name-tags", () => {
+	it("defaults to on", () => {
+		assert.equal(defaultSettings().nameTags, true);
+	});
+	it("keeps the default for a non-boolean in a hand-edited file", () => {
+		assert.equal(normalizeSettings({ "name-tags": "no" }).nameTags, true);
+		assert.equal(normalizeSettings({ "name-tags": false }).nameTags, false);
+	});
+});

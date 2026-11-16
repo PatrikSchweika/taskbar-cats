@@ -49,6 +49,12 @@
       <description>Idle cats sometimes chase, play-fight or groom each other.</description>
     </key>
 
+    <key name="name-tags" type="b">
+      <default>true</default>
+      <summary>Show names on hover</summary>
+      <description>Hold the pointer over a cat to see its name.</description>
+    </key>
+
     <key name="play-frequency" type="i">
       <range min="1" max="10"/>
       <default>5</default>
@@ -131,7 +137,7 @@
     <key name="cat-names" type="as">
       <default>[]</default>
       <summary>Name of each cat</summary>
-      <description>One entry per cat, shown in the settings only. Empty or missing means "Cat N".</description>
+      <description>One entry per cat, shown in the settings and on the cat's name tag. Empty or missing means "Cat N".</description>
     </key>
 
     <key name="cat-sizes" type="ai">
