@@ -39,8 +39,12 @@ export class GnomeLabelView implements LabelView {
 	setVisible(visible: boolean): void {
 		if (visible) {
 			this.actor.show();
-			// Above every cat, whatever was added since.
-			this.actor.get_parent()?.set_child_above_sibling(this.actor, null);
+			// Above every cat, whatever was added since. Restacking queues a
+			// relayout, and this runs every tick the tag is up, so only do it
+			// when something actually covers the tag.
+			const parent = this.actor.get_parent();
+			if (parent && parent.get_last_child() !== this.actor)
+				parent.set_child_above_sibling(this.actor, null);
 		} else {
 			this.actor.hide();
 		}

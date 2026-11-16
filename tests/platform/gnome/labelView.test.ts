@@ -51,6 +51,30 @@ describe("GnomeLabelView", () => {
 		assert.equal(label.visible, false);
 	});
 
+	it("restacks only when something covers it", () => {
+		const layer = new CatLayer();
+		const view = layer.createLabelView();
+		const label = asFake(view.actor);
+		const parent = label.parent;
+		assert.ok(parent);
+		let restacks = 0;
+		const original = parent.set_child_above_sibling.bind(parent);
+		parent.set_child_above_sibling = (child, sibling) => {
+			restacks++;
+			original(child, sibling);
+		};
+		view.setVisible(true);
+		view.setVisible(true);
+		view.setVisible(true);
+		assert.equal(restacks, 0, "already on top");
+		layer.createView();
+		view.setVisible(true);
+		assert.equal(restacks, 1);
+		assert.equal(parent.get_last_child(), label);
+		view.setVisible(true);
+		assert.equal(restacks, 1);
+	});
+
 	it("stays unreactive in and out of arrange mode", () => {
 		const layer = new CatLayer();
 		const before = layer.createLabelView();
