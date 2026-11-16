@@ -227,6 +227,31 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 		toys.add(
 			spinRow(
 				settings,
+				"bowl-count",
+				"Food bowls",
+				"Hungry cats eat here. Rub the pointer over an empty bowl to fill it.",
+				0,
+				8,
+			),
+		);
+		const hungerAfter = spinRow(
+			settings,
+			"hunger-after",
+			"Hungry after",
+			"Seconds after a meal before a cat is hungry again.",
+			60,
+			14400,
+			60,
+		);
+		const syncHunger = (): void => {
+			hungerAfter.sensitive = settings.get_int("bowl-count") > 0;
+		};
+		syncHunger();
+		settings.connect("changed::bowl-count", syncHunger);
+		toys.add(hungerAfter);
+		toys.add(
+			spinRow(
+				settings,
 				"mouse-interval",
 				"Mouse visits",
 				"Roughly how many seconds pass between mice running across the " +

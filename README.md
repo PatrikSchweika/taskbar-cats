@@ -3,8 +3,8 @@
 Small pixel-art cats that live on your dock or taskbar. They chase your mouse
 pointer, sit and look up at it, nap when you ignore them, and scratch your app
 icons. When they have nothing better to do, two cats sometimes play together:
-they chase each other, play-fight or groom. You can give them beds and
-scratching posts. Now and then a mouse runs across the screen and every cat
+they chase each other, play-fight or groom. You can give them beds,
+scratching posts and food bowls. Now and then a mouse runs across the screen and every cat
 goes after it.
 
 It runs on two platforms:
@@ -77,6 +77,8 @@ All settings apply at once. No restart is needed.
 | Shake the scratched icon | on | GNOME only. Moves the real dock icon |
 | Cat beds | 0 | Beds next to the dock (0 to 8). Sleepy cats walk to a free bed |
 | Scratching posts | 0 | Posts next to the dock (0 to 8). Cats claw these instead of icons |
+| Food bowls | 0 | Bowls next to the dock (0 to 8). Hungry cats eat from them. Rub the pointer over an empty bowl to fill it |
+| Hungry after | 1800 | Seconds after a meal before a cat is hungry again |
 | Bed / post positions | Auto | Where each bed or post stands, as a percent of the screen width |
 | Mouse visits | 120 | Seconds between mice. 0 means no mice |
 | Animation frame rate | 12 | Sprite frames per second |

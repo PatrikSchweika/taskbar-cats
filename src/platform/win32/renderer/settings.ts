@@ -57,6 +57,14 @@ const LABELS: Record<string, { title: string; hint?: string }> = {
 		title: "Scratching posts",
 		hint: "something to claw that is not one of your icons",
 	},
+	bowls: {
+		title: "Food bowls",
+		hint: "hungry cats eat here; rub the pointer over an empty bowl to fill it",
+	},
+	hungerAfter: {
+		title: "Hungry after",
+		hint: "seconds after a meal before a cat is hungry again",
+	},
 	playFrequency: {
 		title: "Play frequency",
 		hint: "how often idle cats start a game: 1 is rarely, 10 is all the time",
