@@ -5,8 +5,9 @@ pointer, sit and look up at it, nap when you ignore them, and scratch your app
 icons. When they have nothing better to do, two cats sometimes play together:
 they chase each other, play-fight or groom. You can give them beds, scratching
 posts and food bowls; with bowls out, the cats get hungry every so often and
-eat from them. Hover over a cat and it shows its name on a small tag. Now and
-then a mouse runs across the screen and every cat goes after it.
+eat from them. Hover over a cat and it shows its name on a small tag. Rub the
+pointer back and forth over a cat and it purrs. Now and then a mouse runs
+across the screen and every cat goes after it.
 
 It runs on two platforms:
 
@@ -86,6 +87,11 @@ All settings apply at once. No restart is needed.
 | Animation frame rate | 12 | Sprite frames per second |
 
 The settings show a small animated preview of what each cat will wear.
+
+### Petting
+
+Rub the pointer back and forth over a cat. It holds still, closes its eyes and
+purrs, with a small red heart rising above it. There is no setting for this.
 
 ### Placing the furniture
 
