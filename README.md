@@ -144,8 +144,8 @@ restart. `npm run test:shell` and `npm run dev` avoid that.
 Bump `version` in `package.json`, commit, then push a matching tag:
 
 ```bash
-git tag v1.6.0
-git push origin v1.6.0
+git tag v1.7.0
+git push origin v1.7.0
 ```
 
 GitHub Actions builds the Windows installer, the portable zip, and the GNOME
