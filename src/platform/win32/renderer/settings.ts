@@ -69,6 +69,10 @@ const LABELS: Record<string, { title: string; hint?: string }> = {
 		title: "Shake the icon being clawed",
 		hint: "not available on Windows — the taskbar belongs to explorer.exe",
 	},
+	social: {
+		title: "Cats play together",
+		hint: "idle cats sometimes chase, play-fight or groom each other",
+	},
 };
 
 function element<K extends keyof HTMLElementTagNameMap>(

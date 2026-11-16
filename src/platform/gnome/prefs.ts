@@ -134,6 +134,14 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 				5,
 			),
 		);
+		behaviour.add(
+			switchRow(
+				settings,
+				"cats-play",
+				"Cats play together",
+				"Idle cats sometimes chase, play-fight or groom each other.",
+			),
+		);
 		behaviour.add(this._hotkeyRow(settings, window));
 
 		// -- Mischief -------------------------------------------------------
