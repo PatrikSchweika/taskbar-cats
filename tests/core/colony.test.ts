@@ -3,17 +3,20 @@ import { beforeEach, describe, it } from "node:test";
 import { type Cat, State } from "../../src/core/cat.ts";
 import {
 	boundsOfMonitor,
+	bowlUnderPointer,
 	Colony,
 	interleaveProps,
 	PointerTracker,
 	resolveCatPalette,
 	resolveCatSize,
 } from "../../src/core/colony.ts";
+import { AUTO_POSITION } from "../../src/core/config.ts";
 import {
 	type FakeCatView,
 	fakeHost,
 	makeBounds,
 	makeIcon,
+	makeProp,
 	makeSettings,
 	makeWorld,
 	shownPropFrame,
@@ -69,6 +72,36 @@ describe("boundsOfMonitor", () => {
 			roam: { min: 1920, max: 3200 },
 			floorY: 1224,
 		});
+	});
+});
+
+describe("bowlUnderPointer", () => {
+	const floorY = 900;
+	const bowls = () => [makeProp("bowl", 300, 40), makeProp("bowl", 320, 40)];
+
+	it("is null with the pointer off every bowl", () => {
+		assert.equal(bowlUnderPointer(bowls(), { x: 100, y: 890 }, floorY), null);
+		assert.equal(
+			bowlUnderPointer(bowls(), { x: 300, y: 850 }, floorY),
+			null,
+			"above it",
+		);
+		assert.equal(bowlUnderPointer([], { x: 300, y: 890 }, floorY), null);
+	});
+
+	it("covers the bowl's whole square, edges included", () => {
+		const [bowl] = bowls();
+		for (const p of [
+			{ x: 280, y: 860 },
+			{ x: 320, y: 900 },
+			{ x: 300, y: 880 },
+		])
+			assert.equal(bowlUnderPointer([bowl], p, floorY), bowl);
+	});
+
+	it("picks the last of two overlapping bowls", () => {
+		const [a, b] = bowls();
+		assert.equal(bowlUnderPointer([a, b], { x: 310, y: 890 }, floorY), b);
 	});
 });
 
@@ -710,6 +743,17 @@ describe("Colony", () => {
 			assert.deepEqual(interleaveProps(0, 0), []);
 		});
 
+		it("interleaves bowls after beds and posts", () => {
+			assert.deepEqual(interleaveProps(2, 1, 2), [
+				"bed",
+				"scratcher",
+				"bowl",
+				"bed",
+				"bowl",
+			]);
+			assert.deepEqual(interleaveProps(0, 0, 2), ["bowl", "bowl"]);
+		});
+
 		it("puts out the configured beds and posts, on prop views", () => {
 			const host = fakeHost();
 			const colony = new Colony(host);
@@ -957,6 +1001,126 @@ describe("Colony", () => {
 				colony.sync(settings, [], makeBounds());
 				colony.update(1 / 30, makeWorld({ icons: dock() }), settings);
 				assert.equal(colony.props[0].x, 600);
+			});
+		});
+
+		describe("bowls", () => {
+			it("adds and removes bowls live", () => {
+				const host = fakeHost();
+				const colony = new Colony(host);
+				colony.sync(makeSettings({ bowls: 2 }), [], makeBounds());
+				assert.equal(colony.bowls.length, 2);
+				assert.deepEqual(
+					colony.props.map((p) => p.kind),
+					["bowl", "bowl"],
+				);
+				assert.equal(host.propViews.length, 2, "bowls go under the cats");
+
+				colony.sync(makeSettings({ bowls: 0 }), [], makeBounds());
+				assert.equal(colony.bowls.length, 0);
+				assert.equal(colony.props.length, 0);
+				for (const view of host.propViews) assert.equal(view.destroyed, true);
+			});
+
+			it("lays a bowl with no position out automatically", () => {
+				const colony = new Colony(fakeHost());
+				colony.sync(
+					makeSettings({ beds: 1, bowls: 1, bedPositions: [25] }),
+					[],
+					makeBounds(),
+				);
+				const [bowl] = colony.bowls;
+				assert.equal(bowl.pinned, null);
+				assert.notEqual(bowl.x, colony.beds[0].x);
+			});
+
+			it("indexes positions by bowl as well", () => {
+				const colony = new Colony(fakeHost());
+				colony.sync(
+					makeSettings({
+						beds: 1,
+						bowls: 2,
+						bedPositions: [10],
+						bowlPositions: [AUTO_POSITION, 90],
+					}),
+					[],
+					makeBounds(),
+				);
+				assert.equal(colony.beds[0].x, 120);
+				const [first, second] = colony.bowls;
+				assert.equal(first.pinned, null);
+				assert.equal(second.pinned, 90);
+				assert.equal(second.x, 1080);
+			});
+
+			it("rubbing the pointer over a bowl fills it", () => {
+				const colony = new Colony(fakeHost());
+				const settings = makeSettings({ count: 0, bowls: 1 });
+				const world = makeWorld();
+				colony.sync(settings, [], world);
+				const [bowl] = colony.bowls;
+				bowl.food = 0;
+
+				for (let i = 0; i < 30; i++) {
+					// Back and forth across the bowl every few ticks.
+					const side = Math.floor(i / 3) % 2 ? 1 : -1;
+					world.pointer = {
+						x: bowl.x + side * 12,
+						y: world.floorY - 4,
+						idleTime: 0,
+					};
+					colony.update(1 / 30, world, settings);
+				}
+				assert.equal(bowl.food, 3);
+			});
+
+			it("does not fill a bowl the pointer merely passes over", () => {
+				const colony = new Colony(fakeHost());
+				const settings = makeSettings({ count: 0, bowls: 1 });
+				const world = makeWorld();
+				colony.sync(settings, [], world);
+				const [bowl] = colony.bowls;
+				bowl.food = 0;
+
+				for (let i = 0; i < 30; i++) {
+					world.pointer = {
+						x: bowl.x - 30 + i * 2,
+						y: world.floorY - 4,
+						idleTime: 0,
+					};
+					colony.update(1 / 30, world, settings);
+				}
+				assert.equal(bowl.food, 0);
+			});
+
+			it("frees the bowl when a cat is removed", () => {
+				const colony = new Colony(fakeHost());
+				const settings = makeSettings({ count: 1, bowls: 1, sleepAfter: 0 });
+				const world = makeWorld();
+				colony.sync(settings, [], world);
+				const [cat] = colony.cats;
+				const [bowl] = colony.bowls;
+				cat.hunger = 1;
+				for (let t = 0; t < 10 && cat.state !== State.EAT; t += 1 / 30)
+					colony.update(1 / 30, world, settings);
+				assert.equal(cat.state, State.EAT, `${cat.state} at ${cat.x}`);
+				assert.equal(bowl.eater, cat);
+
+				colony.sync({ ...settings, count: 0 }, [], world);
+				assert.equal(colony.bowls[0], bowl, "the bowl itself stays");
+				assert.equal(bowl.eater, null);
+			});
+
+			it("shows each bowl's fill", () => {
+				const colony = new Colony(fakeHost());
+				const settings = makeSettings({ bowls: 1 });
+				colony.sync(settings, [], makeBounds());
+				const [bowl] = colony.bowls;
+				colony.update(1 / 30, makeWorld(), settings);
+				assert.equal(shownPropFrame(bowl), 2);
+				bowl.food = 0;
+				colony.update(1 / 30, makeWorld(), settings);
+				assert.equal(shownPropFrame(bowl), 0);
 			});
 		});
 

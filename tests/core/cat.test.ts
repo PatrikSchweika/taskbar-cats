@@ -1,12 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+	ASK_COOLDOWN,
+	ASK_SECONDS,
+	BOWL_REACH,
+	BOWL_STANCE,
 	Cat,
+	type CatContext,
+	EAT_SECONDS,
 	FLEE_SPEED,
 	GROOM_GAP,
 	State,
 	TUSSLE_REACH,
 } from "../../src/core/cat.ts";
+import type { Prop } from "../../src/core/props.ts";
 import type { GameKind } from "../../src/core/social.ts";
 import {
 	DEFAULT_CFG,
@@ -741,6 +748,407 @@ describe("Cat", () => {
 		});
 	});
 
+	describe("hunger", () => {
+		const DT = 1 / 30;
+		/** Hungry after a minute, never sleepy unless a test says so. */
+		const peckish = () => ({ ...DEFAULT_CFG, hungerAfter: 60 });
+		/** Where a cat of `size` coming from `from` stands to eat from `bowl`. */
+		const stance = (bowl: Prop, from: number, size = 48) =>
+			bowl.x + Math.sign(from - bowl.x) * BOWL_STANCE * size;
+
+		/** Tick `cats` until `done` holds, at most `seconds`; true if it did. */
+		function until(
+			cats: Cat[],
+			ctx: CatContext,
+			seconds: number,
+			done: () => boolean,
+		): boolean {
+			for (let i = 0; i < seconds / DT; i++) {
+				for (const cat of cats) cat.update(DT, ctx);
+				if (done()) return true;
+			}
+			return false;
+		}
+
+		it("starts each cat at a random hunger below a half", () => {
+			const cats = [0, 0.4, 0.999].map((r) => withRandom([r], () => makeCat()));
+			for (const cat of cats) {
+				assert.ok(cat.hunger >= 0 && cat.hunger < 0.5, `hunger ${cat.hunger}`);
+				assert.equal(cat.hungry, false);
+			}
+		});
+
+		it("does not get hungry without bowls", () => {
+			const cat = makeCat({ x: 400 });
+			cat.hunger = 0;
+			const ctx = makeContext({ cfg: peckish(), bowls: [] });
+			run([cat], ctx, 120);
+			assert.equal(cat.hunger, 0);
+			assert.equal(cat.hungry, false);
+		});
+
+		it("grows hungry over hungerAfter seconds", () => {
+			const empty = makeProp("bowl", 1500);
+			empty.food = 0;
+			const cat = makeCat({ x: 400 });
+			cat.hunger = 0;
+			const ctx = makeContext({ cfg: peckish(), bowls: [empty] });
+			for (let i = 0; i < 30 / DT; i++) cat.update(DT, ctx);
+			assert.ok(Math.abs(cat.hunger - 0.5) <= 0.02, `hunger ${cat.hunger}`);
+		});
+
+		it("is hungry from a hunger of 1", () => {
+			const cat = makeCat();
+			cat.hunger = 0.99;
+			assert.equal(cat.hungry, false);
+			cat.hunger = 1;
+			assert.equal(cat.hungry, true);
+		});
+
+		it("walks to a bowl with food, eats for 4 s, and takes one portion", () => {
+			const bowl = makeProp("bowl", 700);
+			const cat = makeCat({ x: 400 });
+			cat.hunger = 1;
+			const ctx = makeContext({ cfg: peckish(), bowls: [bowl] });
+
+			assert.ok(
+				until([cat], ctx, 10, () => cat.state === State.EAT),
+				`never ate; ${cat.state} at ${cat.x}`,
+			);
+			const at = stance(bowl, 400, cat.size);
+			assert.ok(Math.abs(cat.x - at) <= 14, `eating at ${cat.x}, not ${at}`);
+			assert.equal(cat.facing, 1, "should face the bowl");
+			assert.equal(cat.bowl, bowl);
+			assert.equal(bowl.eater, cat);
+			assert.equal(shownAnimation(cat), "eat");
+			assert.equal(cat.rooted, true);
+
+			run([cat], ctx, 4.1);
+			assert.equal(bowl.food, 2);
+			assert.ok(cat.hunger < 0.1, `still hungry: ${cat.hunger}`);
+			assert.equal(bowl.eater, null);
+			assert.equal(cat.bowl, null);
+			assert.notEqual(cat.state, State.EAT);
+		});
+
+		it("eats for the whole 4 s before taking the portion", () => {
+			const bowl = makeProp("bowl", 700);
+			const cat = makeCat({ x: 400 });
+			cat.hunger = 1;
+			const ctx = makeContext({ cfg: peckish(), bowls: [bowl] });
+			until([cat], ctx, 10, () => cat.state === State.EAT);
+			run([cat], ctx, EAT_SECONDS - 0.2);
+			assert.equal(cat.state, State.EAT);
+			assert.equal(bowl.food, 3);
+		});
+
+		it("eats before napping", () => {
+			const bowl = makeProp("bowl", 700);
+			const cat = makeCat({ x: 400 });
+			cat.hunger = 1;
+			const ctx = makeContext({
+				cfg: peckish(),
+				bowls: [bowl],
+				pointer: { x: -5000, y: -5000, idleTime: 999 },
+			});
+			let slept = false;
+			const ate = until([cat], ctx, 10, () => {
+				if (cat.state === State.SLEEP) slept = true;
+				return cat.state === State.EAT;
+			});
+			assert.ok(ate, `never ate; ${cat.state} at ${cat.x}`);
+			assert.equal(slept, false, "dozed off hungry");
+
+			// Then naps after.
+			run([cat], ctx, EAT_SECONDS + 1);
+			assert.equal(cat.state, State.SLEEP);
+		});
+
+		it("only one cat eats from a bowl at a time", () => {
+			const bowl = makeProp("bowl", 700);
+			const cats = [
+				makeCat({ x: 400, index: 0 }),
+				makeCat({ x: 1000, index: 1 }),
+			];
+			for (const cat of cats) cat.hunger = 1;
+			const ctx = makeContext({
+				cfg: peckish(),
+				bowls: [bowl],
+				neighbours: cats,
+			});
+			let meals = 0;
+			for (let i = 0; i < 10 / DT; i++) {
+				for (const cat of cats) cat.update(DT, ctx);
+				const eating = cats.filter((c) => c.state === State.EAT);
+				assert.ok(eating.length <= 1, "two cats eating from one bowl");
+				for (const cat of eating) {
+					meals++;
+					assert.equal(cat.facing, Math.sign(bowl.x - cat.x), "faces away");
+				}
+			}
+			assert.ok(meals > 0, "nobody ate");
+		});
+
+		it("asks beside an empty bowl for 8 s, then leaves it alone for 60 s", () => {
+			const bowl = makeProp("bowl", 700);
+			bowl.food = 0;
+			const cat = makeCat({ x: 400 });
+			cat.hunger = 1;
+			const ctx = makeContext({ cfg: peckish(), bowls: [bowl] });
+			const at = stance(bowl, 400, cat.size);
+
+			assert.ok(
+				until([cat], ctx, 10, () => cat.state === State.ALERT),
+				`never asked; ${cat.state} at ${cat.x}`,
+			);
+			assert.ok(Math.abs(cat.x - at) <= 14, `asking at ${cat.x}, not ${at}`);
+			assert.equal(cat.facing, 1, "should look at the bowl");
+			assert.equal(bowl.eater, null, "an empty bowl is not claimed");
+
+			// Holds the pose for the whole ask, not knocked back to IDLE.
+			for (let i = 0; i < (ASK_SECONDS - 0.2) / DT; i++) {
+				cat.update(DT, ctx);
+				assert.equal(cat.state, State.ALERT);
+			}
+			run([cat], ctx, 0.3);
+			assert.notEqual(cat.state, State.ALERT);
+
+			// Then gives up for a minute: a fixed wander roll keeps it away.
+			withRandom([0.1], () => {
+				for (let s = 1; s < ASK_COOLDOWN; s++) {
+					for (let i = 0; i < 1 / DT; i++) cat.update(DT, ctx);
+					assert.ok(
+						Math.abs(cat.target - at) > 1,
+						`back at the bowl after ${s} s`,
+					);
+					assert.notEqual(cat.state, State.ALERT, `asking again at ${s} s`);
+				}
+			});
+			assert.equal(cat.hungry, true, "still hungry, only not asking");
+		});
+
+		it("asks again once the cooldown runs out", () => {
+			const bowl = makeProp("bowl", 700);
+			bowl.food = 0;
+			const cat = makeCat({ x: 400 });
+			cat.hunger = 1;
+			const ctx = makeContext({ cfg: peckish(), bowls: [bowl] });
+			until([cat], ctx, 10, () => cat.state === State.ALERT);
+			run([cat], ctx, ASK_SECONDS + 0.2);
+			assert.notEqual(cat.state, State.ALERT);
+			run([cat], ctx, ASK_COOLDOWN);
+			assert.ok(
+				until([cat], ctx, 20, () => cat.state === State.ALERT),
+				"never asked again",
+			);
+		});
+
+		it("eats from a bowl filled while it was asking", () => {
+			const bowl = makeProp("bowl", 700);
+			bowl.food = 0;
+			const cat = makeCat({ x: 400 });
+			cat.hunger = 1;
+			const ctx = makeContext({ cfg: peckish(), bowls: [bowl] });
+			until([cat], ctx, 10, () => cat.state === State.ALERT);
+			bowl.refill();
+			assert.ok(
+				until([cat], ctx, 2, () => cat.state === State.EAT),
+				`${cat.state} at ${cat.x}`,
+			);
+		});
+
+		it("drops a meal for a mouse without using the food", () => {
+			const bowl = makeProp("bowl", 700);
+			const cat = makeCat({ x: 400 });
+			cat.hunger = 1;
+			const ctx = makeContext({ cfg: peckish(), bowls: [bowl] });
+			assert.ok(until([cat], ctx, 10, () => cat.state === State.EAT));
+
+			ctx.mouse = makeMouse(100, 1);
+			cat.update(DT, ctx);
+			assert.notEqual(cat.state, State.EAT);
+			assert.equal(bowl.food, 3);
+			assert.equal(bowl.eater, null);
+			assert.equal(cat.bowl, null);
+			assert.ok(cat.hunger >= 1, "a meal cut short is no meal");
+		});
+
+		it("abandons a meal when its bowl is removed", () => {
+			const bowl = makeProp("bowl", 700);
+			const cat = makeCat({ x: 400 });
+			cat.hunger = 1;
+			const ctx = makeContext({ cfg: peckish(), bowls: [bowl] });
+			assert.ok(until([cat], ctx, 10, () => cat.state === State.EAT));
+
+			// The colony destroys the bowl and hands out a list without it.
+			bowl.destroy();
+			ctx.bowls = [];
+			assert.doesNotThrow(() => {
+				cat.update(DT, ctx);
+				cat.update(DT, ctx);
+			});
+			assert.notEqual(cat.state, State.EAT);
+			assert.equal(cat.bowl, null);
+			assert.ok(cat.hunger >= 1, `hunger ${cat.hunger}`);
+		});
+
+		it("abandons a meal when its bowl is replaced by another", () => {
+			// The colony rebuilds every prop when any prop count changes, so a
+			// bowl can be swapped for a new one somewhere else mid-meal.
+			const bowl = makeProp("bowl", 700);
+			const cat = makeCat({ x: 400 });
+			cat.hunger = 1;
+			const ctx = makeContext({ cfg: peckish(), bowls: [bowl] });
+			assert.ok(until([cat], ctx, 10, () => cat.state === State.EAT));
+
+			const other = makeProp("bowl", 1300);
+			bowl.destroy();
+			ctx.bowls = [other];
+			cat.update(DT, ctx);
+			assert.notEqual(cat.state, State.EAT, "kept eating from afar");
+			assert.equal(other.food, 3);
+			assert.ok(cat.hunger >= 1, `hunger ${cat.hunger}`);
+
+			// Still hungry, it walks over and eats a whole meal there.
+			assert.ok(
+				until([cat], ctx, 10, () => cat.state === State.EAT),
+				`${cat.state} at ${cat.x}`,
+			);
+			const at = stance(other, 400, cat.size);
+			assert.ok(Math.abs(cat.x - at) <= 14, `eating at ${cat.x}, not ${at}`);
+			run([cat], ctx, EAT_SECONDS - 0.2);
+			assert.equal(other.food, 3, "a meal cut short");
+			run([cat], ctx, 0.4);
+			assert.equal(other.food, 2);
+		});
+
+		it("keeps asking through a jostle, and still gives up after 8 s", () => {
+			const bowl = makeProp("bowl", 700);
+			bowl.food = 0;
+			const cat = makeCat({ x: 400 });
+			cat.hunger = 1;
+			const ctx = makeContext({ cfg: peckish(), bowls: [bowl] });
+			assert.ok(until([cat], ctx, 10, () => cat.state === State.ALERT));
+
+			// A neighbour bumps it every second; a bump is not a fresh start.
+			let gaveUp = false;
+			for (let i = 0; i < (ASK_SECONDS + 1) / DT && !gaveUp; i++) {
+				if (i % 30 === 15) cat.vx = 40;
+				cat.update(DT, ctx);
+				gaveUp = !cat.interrupted;
+			}
+			assert.ok(gaveUp, `still asking, ${cat.state} at ${cat.x}`);
+		});
+
+		/** Big cats: the size where crowding at the bowl used to lock up. */
+		const bigCats = [
+			{ name: "size 96", size: 96, scale: 1 },
+			{ name: "size 48 at 2x", size: 48, scale: 2 },
+		];
+
+		for (const { name, size, scale } of [
+			{ name: "size 48", size: 48, scale: 1 },
+			...bigCats,
+		]) {
+			it(`${name}: a cat eats where it stands while the others pass it`, () => {
+				const bowl = makeProp("bowl", 700);
+				const cats = [200, 300, 400].map((x, index) =>
+					makeCat({ x, index, size, scale }),
+				);
+				for (const cat of cats) cat.hunger = 1;
+				const ctx = makeContext({
+					cfg: peckish(),
+					bowls: [bowl],
+					neighbours: cats,
+				});
+				const reach = BOWL_REACH * cats[0].size;
+				const spots = new Map<Cat, number>();
+				const ate = new Set<Cat>();
+				for (let i = 0; i < 60 / DT && ate.size < 3; i++) {
+					for (const cat of cats) cat.update(DT, ctx);
+					for (const cat of cats) {
+						if (cat.state !== State.EAT) {
+							spots.delete(cat);
+							continue;
+						}
+						ate.add(cat);
+						// Where it should stand, fixed when the meal began.
+						let spot = spots.get(cat);
+						if (spot === undefined) {
+							const side = Math.sign(cat.x - bowl.x) || 1;
+							spot = bowl.x + side * BOWL_STANCE * cat.size;
+							spots.set(cat, spot);
+						}
+						assert.ok(
+							Math.abs(cat.x - spot) <= reach,
+							`eating ${Math.abs(cat.x - spot).toFixed(1)} px from its spot`,
+						);
+					}
+				}
+				assert.equal(ate.size, 3, `only ${ate.size} ate`);
+			});
+		}
+
+		for (const { name, size, scale } of bigCats) {
+			/** Two hungry cats coming at the bowl at 700 from the same side. */
+			function sameSide(food: number) {
+				const bowl = makeProp("bowl", 700);
+				bowl.food = food;
+				const cats = [
+					makeCat({ x: 300, index: 0, size, scale }),
+					makeCat({ x: 400, index: 1, size, scale }),
+				];
+				for (const cat of cats) cat.hunger = 1;
+				const ctx = makeContext({
+					cfg: peckish(),
+					bowls: [bowl],
+					neighbours: cats,
+				});
+				return { bowl, cats, ctx };
+			}
+
+			it(`${name}: two cats from the same side both eat, one at a time`, () => {
+				const { bowl, cats, ctx } = sameSide(3);
+				const ate = new Set<Cat>();
+				for (let i = 0; i < 60 / DT && ate.size < 2; i++) {
+					for (const cat of cats) cat.update(DT, ctx);
+					const eating = cats.filter((c) => c.state === State.EAT);
+					assert.ok(eating.length <= 1, "two cats eating from one bowl");
+					for (const cat of eating) ate.add(cat);
+				}
+				assert.equal(ate.size, 2, `only ${ate.size} ate`);
+				run(cats, ctx, EAT_SECONDS + 0.5);
+				assert.equal(bowl.food, 1);
+			});
+
+			it(`${name}: two cats from the same side both ask, then give up`, () => {
+				const { cats, ctx } = sameSide(0);
+				const asked = new Set<Cat>();
+				const gaveUp = new Set<Cat>();
+				for (let i = 0; i < 60 / DT && gaveUp.size < 2; i++) {
+					for (const cat of cats) cat.update(DT, ctx);
+					for (const cat of cats) {
+						if (cat.state === State.ALERT) asked.add(cat);
+						if (asked.has(cat) && !cat.interrupted) gaveUp.add(cat);
+					}
+				}
+				assert.equal(asked.size, 2, `only ${asked.size} asked`);
+				assert.equal(gaveUp.size, 2, `only ${gaveUp.size} gave up`);
+				for (const cat of cats) assert.equal(cat.hungry, true);
+			});
+		}
+
+		it("frees its bowl when destroyed", () => {
+			const bowl = makeProp("bowl", 700);
+			const cat = makeCat({ x: 400 });
+			cat.hunger = 1;
+			const ctx = makeContext({ cfg: peckish(), bowls: [bowl] });
+			assert.ok(until([cat], ctx, 10, () => cat.state === State.EAT));
+			cat.destroy();
+			assert.equal(bowl.eater, null);
+		});
+	});
+
 	describe("play", () => {
 		/** Two cats in a game of `kind`, `lead` leading, with mirrored roles. */
 		function pair(kind: GameKind, leadX: number, otherX: number): [Cat, Cat] {
@@ -915,6 +1323,24 @@ describe("Cat", () => {
 			assert.equal(lead.state, State.GROOM);
 			assert.equal(other.state, State.SIT);
 			assert.equal(other.facing, -1);
+		});
+
+		it("a hungry cat leaves its game for food", () => {
+			const bowl = makeProp("bowl", 1200);
+			const [lead, other] = pair("tussle", 400, 430);
+			const ctx = makeContext({ neighbours: [lead, other], bowls: [bowl] });
+			run([lead, other], ctx, 0.5);
+			assert.equal(lead.state, State.PLAY);
+
+			lead.hunger = 1;
+			run([lead, other], ctx, 1 / 30);
+			assert.notEqual(lead.state, State.PLAY);
+			assert.equal(lead.interrupted, true);
+			assert.equal(lead.free, false);
+			assert.ok(
+				Math.abs(lead.target - (1200 - BOWL_STANCE * lead.size)) < 1,
+				`heading for ${lead.target}, not the bowl`,
+			);
 		});
 
 		it("leaves PLAY once the game is over", () => {

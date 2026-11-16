@@ -83,6 +83,20 @@
       <description>Posts placed along the floor beside the dock for the cats to claw at.</description>
     </key>
 
+    <key name="bowl-count" type="i">
+      <default>0</default>
+      <range min="0" max="8"/>
+      <summary>Food bowls</summary>
+      <description>Bowls on the floor beside the dock. Hungry cats eat from them. Rub the pointer over an empty bowl to fill it.</description>
+    </key>
+
+    <key name="hunger-after" type="i">
+      <default>1800</default>
+      <range min="60" max="14400"/>
+      <summary>Hungry after</summary>
+      <description>Seconds after a meal before a cat is hungry again. Only matters when there are bowls.</description>
+    </key>
+
     <key name="bed-positions" type="ai">
       <default>[]</default>
       <summary>Where each bed stands</summary>
@@ -93,6 +107,12 @@
       <default>[]</default>
       <summary>Where each scratching post stands</summary>
       <description>One entry per post: a percentage of the floor's width from the left edge of the dock's monitor. -1, or a missing entry, places that post automatically.</description>
+    </key>
+
+    <key name="bowl-positions" type="ai">
+      <default>[]</default>
+      <summary>Where each food bowl stands</summary>
+      <description>One entry per bowl: a percentage of the floor's width from the left edge of the dock's monitor. -1, or a missing entry, places that bowl automatically.</description>
     </key>
 
     <key name="mouse-interval" type="i">

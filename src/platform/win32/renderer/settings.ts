@@ -57,6 +57,14 @@ const LABELS: Record<string, { title: string; hint?: string }> = {
 		title: "Scratching posts",
 		hint: "something to claw that is not one of your icons",
 	},
+	bowls: {
+		title: "Food bowls",
+		hint: "hungry cats eat here; rub the pointer over an empty bowl to fill it",
+	},
+	hungerAfter: {
+		title: "Hungry after",
+		hint: "seconds after a meal before a cat is hungry again",
+	},
 	playFrequency: {
 		title: "Play frequency",
 		hint: "how often idle cats start a game: 1 is rarely, 10 is all the time",
@@ -325,12 +333,12 @@ async function main(): Promise<void> {
 	catRows();
 
 	// -- positions ---------------------------------------------------------
-	// One slider per bed and post — a percentage of the floor from the left —
+	// One slider per bed, post and bowl — a percentage of the floor from the left —
 	// with an "Auto" box that hands the placement back to the cats. The rows
 	// follow the count, so they are rebuilt whenever the settings change.
 	const positions = (
-		countName: "beds" | "scratchers",
-		listName: "bedPositions" | "scratcherPositions",
+		countName: "beds" | "scratchers" | "bowls",
+		listName: "bedPositions" | "scratcherPositions" | "bowlPositions",
 		noun: string,
 	): void => {
 		const section = element("div", "positions");
@@ -430,6 +438,7 @@ async function main(): Promise<void> {
 	};
 	positions("beds", "bedPositions", "Bed");
 	positions("scratchers", "scratcherPositions", "Post");
+	positions("bowls", "bowlPositions", "Bowl");
 
 	// -- the hide hotkey ---------------------------------------------------
 	const hotkeyRow = (): void => {

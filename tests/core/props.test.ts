@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { iconSpan, layoutProps, pinnedX } from "../../src/core/props.ts";
+import type { Cat } from "../../src/core/cat.ts";
+import {
+	BOWL_PORTIONS,
+	iconSpan,
+	layoutProps,
+	pinnedX,
+} from "../../src/core/props.ts";
 import {
 	type FakeCatView,
 	makeIcon,
@@ -155,5 +161,41 @@ describe("Prop", () => {
 		const bed = makeProp("bed", 400);
 		bed.destroy();
 		assert.equal((bed.view as FakeCatView).destroyed, true);
+	});
+
+	it("a bowl starts full and shows its fill", () => {
+		const bowl = makeProp("bowl", 300);
+		bowl.update(1 / 30, 900, 12, false);
+		assert.equal(bowl.food, 3);
+		assert.equal(shownPropFrame(bowl), 2);
+		bowl.food = 1;
+		bowl.update(1 / 30, 900, 12, false);
+		assert.equal(shownPropFrame(bowl), 1);
+		bowl.food = 0;
+		bowl.update(1 / 30, 900, 12, false);
+		assert.equal(shownPropFrame(bowl), 0);
+	});
+
+	it("a bowl shows its fill whether or not a cat is at it", () => {
+		const bowl = makeProp("bowl", 300);
+		for (let t = 0; t < 1; t += 1 / 30) {
+			bowl.update(1 / 30, 900, 12, true);
+			assert.equal(shownPropFrame(bowl), 2);
+		}
+	});
+
+	it("refill puts back three portions", () => {
+		const bowl = makeProp("bowl", 300);
+		bowl.food = 0;
+		bowl.refill();
+		assert.equal(bowl.food, 3);
+		assert.equal(bowl.food, BOWL_PORTIONS);
+	});
+
+	it("lets go of whoever was eating from a bowl when destroyed", () => {
+		const bowl = makeProp("bowl", 300);
+		bowl.eater = {} as Cat;
+		bowl.destroy();
+		assert.equal(bowl.eater, null);
 	});
 });

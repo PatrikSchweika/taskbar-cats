@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { pyInt, pyRound } from "../../tools/gen-sprites.ts";
+import { buildPropFrame, pyInt, pyRound } from "../../tools/gen-sprites.ts";
 
 describe("Python numeric semantics", () => {
 	describe("pyRound", () => {
@@ -40,5 +40,13 @@ describe("Python numeric semantics", () => {
 			assert.notEqual(pyInt(-1.9), Math.floor(-1.9));
 			assert.equal(pyInt(0), 0);
 		});
+	});
+});
+
+describe("bowl art", () => {
+	const cells = (c: { g: string[][] }) => new Set(c.g.flat());
+	it("fills the bowl with kibble only when it has food", () => {
+		assert.ok(!cells(buildPropFrame("bowl", { fill: 0 })).has("P"));
+		assert.ok(cells(buildPropFrame("bowl", { fill: 2 })).has("P"));
 	});
 });

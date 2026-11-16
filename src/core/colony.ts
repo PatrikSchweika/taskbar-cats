@@ -20,6 +20,7 @@ import {
 	pinnedX,
 	type Span,
 } from "./props.js";
+import { RubDetector } from "./rub.js";
 import { Playground, playRate } from "./social.js";
 import type { CatView, IconRect, Rect, SpriteSource } from "./types.js";
 
@@ -125,21 +126,49 @@ export interface ColonyHost {
 }
 
 /**
- * Beds and posts alternate along the floor rather than clustering by kind, so
- * one of each ends up on opposite sides of the dock instead of side by side.
+ * Beds, posts and bowls alternate along the floor rather than clustering by
+ * kind, so one of each ends up spread across the floor instead of side by side.
  */
-export function interleaveProps(beds: number, scratchers: number): PropKind[] {
+export function interleaveProps(
+	beds: number,
+	scratchers: number,
+	bowls = 0,
+): PropKind[] {
 	const out: PropKind[] = [];
-	for (let i = 0; i < Math.max(beds, scratchers); i++) {
+	for (let i = 0; i < Math.max(beds, scratchers, bowls); i++) {
 		if (i < beds) out.push("bed");
 		if (i < scratchers) out.push("scratcher");
+		if (i < bowls) out.push("bowl");
 	}
 	return out;
 }
 
+/**
+ * The bowl the pointer is over, if any: the last one whose square, standing on
+ * the floor, holds it. Rubbing the pointer over a bowl fills it.
+ */
+export function bowlUnderPointer(
+	bowls: readonly Prop[],
+	pointer: { x: number; y: number },
+	floorY: number,
+): Prop | null {
+	let hit: Prop | null = null;
+	for (const bowl of bowls) {
+		const half = bowl.size * 0.5;
+		if (
+			pointer.x >= bowl.x - half &&
+			pointer.x <= bowl.x + half &&
+			pointer.y >= floorY - bowl.size &&
+			pointer.y <= floorY
+		)
+			hit = bowl;
+	}
+	return hit;
+}
+
 export class Colony {
 	readonly cats: Cat[] = [];
-	/** Beds and scratching posts, left to right. */
+	/** Beds, scratching posts and bowls, left to right. */
 	readonly props: Prop[] = [];
 	/** The mouse currently out, if any. */
 	mouse: Mouse | null = null;
@@ -147,6 +176,8 @@ export class Colony {
 	private readonly _host: ColonyHost;
 	/** Pairs up idle cats for games and runs them. */
 	private readonly _playground = new Playground();
+	/** Spots the pointer rubbing a bowl, which fills it. */
+	private readonly _rub = new RubDetector();
 	private _size = 0;
 	private _layoutKey = "";
 	private _mouseInterval = -1;
@@ -162,6 +193,10 @@ export class Colony {
 
 	get scratchers(): Prop[] {
 		return this.props.filter((p) => p.kind === "scratcher");
+	}
+
+	get bowls(): Prop[] {
+		return this.props.filter((p) => p.kind === "bowl");
 	}
 
 	/**
@@ -243,7 +278,11 @@ export class Colony {
 		icons: readonly IconRect[],
 		bounds: Bounds | null,
 	): void {
-		const wanted = interleaveProps(settings.beds, settings.scratchers);
+		const wanted = interleaveProps(
+			settings.beds,
+			settings.scratchers,
+			settings.bowls,
+		);
 		const current = this.props.map((p) => p.kind);
 		const same =
 			wanted.length === current.length &&
@@ -268,12 +307,18 @@ export class Colony {
 			this._layoutKey = "";
 		}
 		// Pin whichever ones the user placed; the rest are laid out around them.
-		const counters: Record<PropKind, number> = { bed: 0, scratcher: 0 };
+		const counters: Record<PropKind, number> = {
+			bed: 0,
+			scratcher: 0,
+			bowl: 0,
+		};
 		for (const prop of this.props) {
 			const list =
 				prop.kind === "bed"
 					? settings.bedPositions
-					: settings.scratcherPositions;
+					: prop.kind === "scratcher"
+						? settings.scratcherPositions
+						: settings.bowlPositions;
 			const percent = list[counters[prop.kind]++];
 			const pinned =
 				percent !== undefined && percent !== AUTO_POSITION ? percent : null;
@@ -395,9 +440,16 @@ export class Colony {
 			neighbours: this.cats,
 			beds: this.beds,
 			scratchers: this.scratchers,
+			bowls: this.bowls,
 			mouse: this.mouse,
 			cfg: settings as CatConfig,
 		};
+
+		// Rubbing a bowl fills it, before the cats look for something to eat.
+		const rubTarget = bowlUnderPointer(this.bowls, world.pointer, world.floorY);
+		this._rub.update(dt, world.pointer.x, rubTarget, rubTarget?.size ?? 0);
+		const rubbed = this._rub.rubbing;
+		if (rubbed instanceof Prop && rubbed.kind === "bowl") rubbed.refill();
 
 		// Games start and end before the cats move, so each steers by its role.
 		this._playground.update(
@@ -435,6 +487,7 @@ export class Colony {
 
 	destroy(): void {
 		this._playground.clear();
+		this._rub.reset();
 		for (const cat of this.cats) cat.destroy();
 		this.cats.length = 0;
 		for (const prop of this.props) prop.destroy();

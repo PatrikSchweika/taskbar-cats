@@ -191,8 +191,8 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 		const toys = new Adw.PreferencesGroup({
 			title: "Furniture and toys",
 			description:
-				"Beds and scratching posts stand on the floor to either side of " +
-				"the dock, never in front of an icon.",
+				"Beds, scratching posts and food bowls stand on the floor to " +
+				"either side of the dock, never in front of an icon.",
 		});
 		page.add(toys);
 		toys.add(
@@ -227,6 +227,34 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 		toys.add(
 			spinRow(
 				settings,
+				"bowl-count",
+				"Food bowls",
+				"Hungry cats eat here. Rub the pointer over an empty bowl to fill it.",
+				0,
+				8,
+			),
+		);
+		toys.add(
+			this._positionsRow(settings, "bowl-count", "bowl-positions", "Bowl"),
+		);
+		const hungerAfter = spinRow(
+			settings,
+			"hunger-after",
+			"Hungry after",
+			"Seconds after a meal before a cat is hungry again.",
+			60,
+			14400,
+			60,
+		);
+		const syncHunger = (): void => {
+			hungerAfter.sensitive = settings.get_int("bowl-count") > 0;
+		};
+		syncHunger();
+		settings.connect("changed::bowl-count", syncHunger);
+		toys.add(hungerAfter);
+		toys.add(
+			spinRow(
+				settings,
 				"mouse-interval",
 				"Mouse visits",
 				"Roughly how many seconds pass between mice running across the " +
@@ -255,7 +283,7 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 	}
 
 	/**
-	 * One row per bed or post: a spin button holding where it stands as a
+	 * One row per bed, post or bowl: a spin button holding where it stands as a
 	 * percentage of the floor from the left, and an "Auto" switch that hands
 	 * the placement back to the cats. While Auto is on the number is greyed
 	 * out but keeps its last value, so switching Auto off puts the prop back
