@@ -27,6 +27,8 @@ import { SpritePreview } from "./preview.js";
 
 declare const cats: {
 	onSettings(fn: (settings: Settings) => void): void;
+	onArrange(fn: (on: boolean) => void): void;
+	setArranging(on: boolean): void;
 	apply(patch: Partial<Settings>): void;
 	describe(): Promise<SettingsDescription>;
 	manifest(): Promise<SpriteManifest>;
@@ -120,6 +122,14 @@ async function main(): Promise<void> {
 	const form = document.getElementById("form");
 	const footer = document.getElementById("footer");
 	if (!form || !footer) throw new Error("settings window markup is missing");
+
+	// Main says whether arrange mode is on as soon as the page has loaded,
+	// which can be before the awaits below finish, so listen first.
+	const arrangeButton = element("button", undefined, "Arrange on screen…");
+	arrangeButton.addEventListener("click", () => cats.setArranging(true));
+	cats.onArrange((on) => {
+		arrangeButton.disabled = on;
+	});
 
 	const description = await cats.describe();
 	const manifest = await cats.manifest();
@@ -436,6 +446,17 @@ async function main(): Promise<void> {
 		render(current);
 		sync.push(render);
 	};
+	// -- arranging on screen -----------------------------------------------
+	// The easy way to place the furniture: drag it along the taskbar itself.
+	// Disabled while that is already going on.
+	form.appendChild(
+		row(
+			"Place the furniture",
+			"drag beds, posts and bowls right on the taskbar",
+			arrangeButton,
+		),
+	);
+
 	positions("beds", "bedPositions", "Bed");
 	positions("scratchers", "scratcherPositions", "Post");
 	positions("bowls", "bowlPositions", "Bowl");

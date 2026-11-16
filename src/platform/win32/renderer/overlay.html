@@ -40,10 +40,72 @@
 				will-change: transform;
 				pointer-events: none;
 			}
+
+			/*
+			 * Arrange mode. The outline and tint take no room, so the sprite
+			 * stays on the floor. Presses are hit-tested against the props in
+			 * code, so the sprites themselves stay pointer-events: none.
+			 */
+			#stage.arranging .furniture {
+				background: rgba(255, 255, 255, 0.12);
+				border-radius: 6px;
+				outline: 2px solid rgba(255, 255, 255, 0.7);
+			}
+
+			/* Stood where the user put it. An <img> has no ::after for a pin
+			   glyph, so the outline turns the accent colour and thickens. */
+			#stage.arranging .furniture.pinned {
+				background: rgba(53, 132, 228, 0.2);
+				outline: 3px solid rgba(53, 132, 228, 0.95);
+			}
+
+			#arrange-bar {
+				position: absolute;
+				top: 4px;
+				left: 50%;
+				transform: translateX(-50%);
+				/* Above the stage, so no cat ever walks in front of it. */
+				z-index: 1;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				padding: 5px 6px 5px 12px;
+				border-radius: 10px;
+				background: rgba(30, 30, 30, 0.92);
+				color: #ffffff;
+				font:
+					13px/1.3 "Segoe UI Variable Text",
+					"Segoe UI",
+					system-ui,
+					sans-serif;
+				white-space: nowrap;
+			}
+			/* `display: flex` above would otherwise beat the hidden attribute. */
+			#arrange-bar[hidden] {
+				display: none;
+			}
+
+			#arrange-bar button {
+				font: inherit;
+				color: #ffffff;
+				background: rgba(255, 255, 255, 0.14);
+				border: 1px solid rgba(255, 255, 255, 0.25);
+				border-radius: 6px;
+				padding: 3px 10px;
+				cursor: pointer;
+			}
+			#arrange-bar button:hover {
+				background: rgba(255, 255, 255, 0.24);
+			}
 		</style>
 	</head>
 	<body>
 		<div id="stage"></div>
+		<div id="arrange-bar" hidden>
+			<span id="arrange-hint">Drag the furniture. Double-click one to place it automatically.</span>
+			<button id="arrange-reset" type="button">Reset all</button>
+			<button id="arrange-done" type="button">Done</button>
+		</div>
 		<script type="module" src="./overlay.js"></script>
 	</body>
 </html>
