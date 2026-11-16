@@ -13,6 +13,7 @@ import {
 	resolveCatSize,
 } from "../../src/core/colony.ts";
 import { AUTO_POSITION } from "../../src/core/config.ts";
+import { BOWL_PORTIONS } from "../../src/core/props.ts";
 import {
 	type FakeCatView,
 	fakeHost,
@@ -1469,4 +1470,43 @@ describe("petting", () => {
 		for (let i = 0; i < 8; i++) at(still);
 		assert.notEqual(cat.state, State.PURR);
 	});
+});
+
+describe("rubbing a bowl beside waiting cats", () => {
+	for (const count of [1, 2]) {
+		it(`refills an empty bowl with ${count} hungry cat(s) asking beside it`, () => {
+			const colony = new Colony(fakeHost());
+			const settings = makeSettings({ count, bowls: 1, sleepAfter: 0 });
+			const world = makeWorld();
+			colony.sync(settings, [], world);
+			const [bowl] = colony.bowls;
+			assert.ok(bowl);
+			bowl.food = 0;
+			for (const cat of colony.cats) cat.hunger = 1;
+			// Park the pointer away while the cats walk over and stand asking.
+			world.pointer = { x: -5000, y: -5000, idleTime: 0 };
+			for (let i = 0; i < 300; i++) {
+				colony.update(1 / 30, world, settings);
+				const [first] = colony.cats;
+				if (
+					first &&
+					Math.abs(first.x - bowl.x) < bowl.size * 0.6 &&
+					first.state !== State.RUN &&
+					first.state !== State.WALK
+				)
+					break;
+			}
+			// Rub across the bowl's centre, 6 ticks per stroke, for 1.5 s.
+			for (let i = 0; i < 45; i++) {
+				const side = Math.floor(i / 6) % 2 ? 1 : -1;
+				world.pointer = {
+					x: bowl.x + side * bowl.size * 0.25,
+					y: world.floorY - 4,
+					idleTime: 0,
+				};
+				colony.update(1 / 30, world, settings);
+			}
+			assert.equal(bowl.food, BOWL_PORTIONS);
+		});
+	}
 });

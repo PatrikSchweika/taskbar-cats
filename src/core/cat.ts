@@ -308,8 +308,8 @@ export class Cat {
 
 	/**
 	 * Whether, on the last tick, something more important than play had this
-	 * cat's attention: a mouse, hunger, the pointer, or sleepiness. A game
-	 * ends as soon as either cat is interrupted.
+	 * cat's attention: a mouse, hunger, the pointer, petting, or sleepiness. A
+	 * game ends as soon as either cat is interrupted.
 	 */
 	get interrupted(): boolean {
 		return this._interrupted;

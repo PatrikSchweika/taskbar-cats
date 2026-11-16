@@ -58,16 +58,18 @@ describe("bowl art", () => {
 });
 
 describe("heart art", () => {
+	const black = PALETTES.black;
+	assert.ok(black, "the black palette exists");
 	const cells = (c: { g: string[][] }) => new Set(c.g.flat());
 	it("draws a heart in the purr pose, in its own colour cell", () => {
-		const c = buildFrame(PALETTES.black as never, "sit", {
+		const c = buildFrame(black, "sit", {
 			eye: "closed",
 			heart: 0,
 		});
 		assert.ok(cells(c).has("H"));
 	});
 	it("draws no heart unless asked", () => {
-		const c = buildFrame(PALETTES.black as never, "sit", {});
+		const c = buildFrame(black, "sit", {});
 		assert.ok(!cells(c).has("H"));
 	});
 });
