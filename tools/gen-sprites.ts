@@ -294,6 +294,8 @@ export interface Pose {
 	earPerk?: number;
 	reach?: number;
 	breathe?: number;
+	/** Bowls only: 0 empty, 1 low, 2 full. */
+	fill?: number;
 }
 
 /** Base colour for a part; siamese points use D on extremities. */
@@ -759,6 +761,30 @@ export const POSES: Record<string, [PlanName, Pose[]]> = {
 	],
 	// Play-fighting: reared up, batting at the other cat.
 	play: ["scratch", [{ reach: 0.2 }, { reach: 0.9 }, { reach: 0.5 }]],
+	// Eating: head down at the bowl, nodding.
+	eat: [
+		"quad",
+		[
+			{
+				phase: 0,
+				swing: 0,
+				crouch: 0.6,
+				headDy: 4.0,
+				lookUp: -0.8,
+				earPerk: 0.3,
+				tailAngle: 112,
+			},
+			{
+				phase: 0,
+				swing: 0,
+				crouch: 0.6,
+				headDy: 4.8,
+				lookUp: -0.8,
+				earPerk: 0.3,
+				tailAngle: 108,
+			},
+		],
+	],
 };
 
 // -- props -------------------------------------------------------------------
@@ -783,6 +809,15 @@ export const PROP_PALETTES: Record<string, Palette> = {
 		K: "#4b3a22",
 		E: "#000000",
 		P: "#000000",
+		W: "#ffffff",
+	},
+	bowl: {
+		B: "#4f7fbf",
+		D: "#335a8c",
+		L: "#9cc0ea",
+		K: "#1f3350",
+		E: "#000000",
+		P: "#a5672f",
 		W: "#ffffff",
 	},
 	mouse: {
@@ -820,6 +855,15 @@ function drawScratcher(c: Canvas, p: Pose): void {
 	c.ellipse(x + lean, 6.4, 3.4, 1.6, "L"); // cap
 }
 
+/** A shallow dish; `fill` heaps kibble in it (0 empty, 1 low, 2 full). */
+function drawBowl(c: Canvas, p: Pose): void {
+	const fill = p.fill ?? 0;
+	c.rect(11, 29, 10, 3, "D"); // base, down to the floor
+	c.ellipse(16, 27.5, 7, 3.2, "B"); // dish
+	c.ellipse(16, 25.8, 7, 1.7, "L"); // rim
+	if (fill >= 1) c.ellipse(16, 25, 5, fill >= 2 ? 2.6 : 1.4, "P"); // kibble
+}
+
 /** A small mouse facing right; `phase` alternates the legs and tail. */
 function drawMouse(c: Canvas, p: Pose): void {
 	const step = p.phase ?? 0.0;
@@ -839,6 +883,7 @@ export type PropName = keyof typeof PROP_PALETTES;
 const PROP_PLANS: Record<PropName, (c: Canvas, p: Pose) => void> = {
 	bed: drawBed,
 	scratcher: drawScratcher,
+	bowl: drawBowl,
 	mouse: drawMouse,
 };
 
@@ -846,6 +891,7 @@ const PROP_PLANS: Record<PropName, (c: Canvas, p: Pose) => void> = {
 export const PROP_POSES: Record<PropName, Pose[]> = {
 	bed: [{}],
 	scratcher: [{ reach: 0.0 }, { reach: 1.4 }],
+	bowl: [{ fill: 0 }, { fill: 1 }, { fill: 2 }],
 	mouse: [{ phase: 0 }, { phase: 1 }],
 };
 

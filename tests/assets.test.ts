@@ -78,6 +78,8 @@ describe("generated sprites", () => {
 		assert.equal(manifest.animations.pounce, 2);
 		assert.equal(manifest.animations.play, 3);
 		assert.equal(manifest.animations.groom, 2);
+		assert.equal(manifest.props.bowl, 3, "empty, low, full");
+		assert.equal(manifest.animations.eat, 2);
 	});
 
 	it("has no stray frames the manifest does not know about", () => {
