@@ -14,6 +14,7 @@ import { Cat, type CatConfig, State } from "./cat.js";
 import type { Settings } from "./config.js";
 import { AUTO_POSITION } from "./config.js";
 import { Mouse } from "./mouse.js";
+import { NameTag } from "./nameTag.js";
 import {
 	iconSpan,
 	layoutProps,
@@ -24,7 +25,13 @@ import {
 } from "./props.js";
 import { RubDetector } from "./rub.js";
 import { Playground, playRate } from "./social.js";
-import type { CatView, IconRect, Rect, SpriteSource } from "./types.js";
+import type {
+	CatView,
+	IconRect,
+	LabelView,
+	Rect,
+	SpriteSource,
+} from "./types.js";
 
 export const ACTIVE_INTERVAL_MS = 33; // ~30Hz while anything is happening
 export const DROWSY_INTERVAL_MS = 250; // when every cat is asleep or the dock is gone
@@ -45,6 +52,14 @@ export function resolveCatPalette(
 	const own = settings.catPalettes[index];
 	if (own && available.includes(own)) return own;
 	return available[index % available.length] ?? FALLBACK_PALETTE;
+}
+
+/** The name cat `index` goes by: its own, trimmed, or "Cat N". */
+export function resolveCatName(
+	settings: Pick<Settings, "catNames">,
+	index: number,
+): string {
+	return settings.catNames[index]?.trim() || `Cat ${index + 1}`;
 }
 
 /** The size cat `index` is drawn at: its own, or the dock's icon size. */
@@ -130,6 +145,8 @@ export interface ColonyHost {
 	 * never part of arrange mode: the mouse is not furniture.
 	 */
 	createToyView(): CatView;
+	/** Make the label for name tags, above everything and never reactive. */
+	createLabelView(): LabelView;
 }
 
 /**
@@ -221,6 +238,8 @@ export class Colony {
 	private readonly _playground = new Playground();
 	/** Spots the pointer rubbing a bowl, which fills it. */
 	private readonly _rub = new RubDetector();
+	/** Made on the first update, so a colony that never runs draws nothing. */
+	private _nameTag: NameTag | null = null;
 	private _size = 0;
 	private _layoutKey = "";
 	private _mouseInterval = -1;
@@ -502,6 +521,9 @@ export class Colony {
 		);
 		for (const cat of this.cats) cat.update(dt, ctx);
 
+		this._nameTag ??= new NameTag(this._host.createLabelView());
+		this._nameTag.update(dt, hovered, this.cats, world.floorY, settings);
+
 		for (const prop of this.props)
 			prop.update(
 				dt,
@@ -536,6 +558,8 @@ export class Colony {
 		this.props.length = 0;
 		this.mouse?.destroy();
 		this.mouse = null;
+		this._nameTag?.destroy();
+		this._nameTag = null;
 		this._size = 0;
 		this._layoutKey = "";
 	}

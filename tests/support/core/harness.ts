@@ -7,6 +7,7 @@ import type {
 	CatView,
 	FrameHandle,
 	IconRect,
+	LabelView,
 	SpriteSource,
 } from "../../../src/core/types.ts";
 
@@ -65,6 +66,32 @@ export class FakeCatView implements CatView {
 		this.x = x;
 		this.y = y;
 		this.facing = facing;
+	}
+
+	destroy(): void {
+		this.destroyed = true;
+	}
+}
+
+/** A LabelView that records what the colony pushed at it. */
+export class FakeLabelView implements LabelView {
+	text = "";
+	centreX = 0;
+	bottomY = 0;
+	visible = false;
+	destroyed = false;
+
+	setText(text: string): void {
+		this.text = text;
+	}
+
+	place(centreX: number, bottomY: number): void {
+		this.centreX = centreX;
+		this.bottomY = bottomY;
+	}
+
+	setVisible(visible: boolean): void {
+		this.visible = visible;
 	}
 
 	destroy(): void {
@@ -180,11 +207,14 @@ export function fakeHost(palettes = ["tabby-orange"]): ColonyHost & {
 	views: FakeCatView[];
 	propViews: FakeCatView[];
 	toyViews: FakeCatView[];
+	labels: FakeLabelView[];
 } {
 	const views: FakeCatView[] = [];
 	const propViews: FakeCatView[] = [];
 	const toyViews: FakeCatView[] = [];
+	const labels: FakeLabelView[] = [];
 	return {
+		labels,
 		views,
 		propViews,
 		toyViews,
@@ -198,6 +228,11 @@ export function fakeHost(palettes = ["tabby-orange"]): ColonyHost & {
 			const view = new FakeCatView();
 			propViews.push(view);
 			return view;
+		},
+		createLabelView: () => {
+			const label = new FakeLabelView();
+			labels.push(label);
+			return label;
 		},
 		createToyView: () => {
 			const view = new FakeCatView();

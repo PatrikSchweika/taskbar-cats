@@ -1381,3 +1381,26 @@ it("marks only the cat under the pointer as hovered", () => {
 		[false, true],
 	);
 });
+
+it("shows a hovered cat's name from the settings", () => {
+	const host = fakeHost();
+	const colony = new Colony(host);
+	const settings = makeSettings({ count: 1, catNames: ["Miso"] });
+	colony.sync(settings, [], makeBounds());
+	colony.cats[0].x = 400;
+	const world = makeWorld({ pointer: { x: 400, y: 880, idleTime: 0 } });
+	for (let i = 0; i < 15; i++) colony.update(1 / 30, world, settings);
+	assert.equal(host.labels.length, 1);
+	assert.equal(host.labels[0].text, "Miso");
+	assert.equal(host.labels[0].visible, true);
+});
+
+it("destroys the label with the colony", () => {
+	const host = fakeHost();
+	const colony = new Colony(host);
+	const settings = makeSettings({ count: 1 });
+	colony.sync(settings, [], makeBounds());
+	colony.update(1 / 30, makeWorld(), settings);
+	colony.destroy();
+	assert.equal(host.labels[0].destroyed, true);
+});
