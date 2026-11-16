@@ -4,6 +4,7 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
 import type { CatView } from "../../core/types.js";
 import { GnomeCatView } from "./catView.js";
+import { GnomeLabelView } from "./labelView.js";
 
 /** Where a press on a piece of furniture landed, in stage pixels. */
 export type PressHandler = (x: number, y: number) => void;
@@ -97,6 +98,16 @@ export class CatLayer {
 	createToyView(): GnomeCatView {
 		const view = new GnomeCatView("taskbar-cats-prop");
 		this.actor.insert_child_at_index(view.actor, 0);
+		return view;
+	}
+
+	/**
+	 * The name tag: added last so it is above the cats, and kept out of
+	 * `_propViews` so arrange mode never makes it reactive.
+	 */
+	createLabelView(): GnomeLabelView {
+		const view = new GnomeLabelView();
+		this.actor.add_child(view.actor);
 		return view;
 	}
 

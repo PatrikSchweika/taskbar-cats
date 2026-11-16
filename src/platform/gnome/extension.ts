@@ -100,6 +100,7 @@ export default class TaskbarCatsExtension extends Extension {
 				createView: () => layer.createView(),
 				createPropView: () => layer.createPropView(),
 				createToyView: () => layer.createToyView(),
+				createLabelView: () => layer.createLabelView(),
 			}),
 			shaking: new Set(),
 		};
