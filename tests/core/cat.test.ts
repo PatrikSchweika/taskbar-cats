@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { Cat, State } from "../../src/core/cat.ts";
+import {
+	Cat,
+	FLEE_SPEED,
+	GROOM_GAP,
+	State,
+	TUSSLE_REACH,
+} from "../../src/core/cat.ts";
+import type { GameKind } from "../../src/core/social.ts";
 import {
 	DEFAULT_CFG,
 	FakeCatView,
@@ -731,6 +738,144 @@ describe("Cat", () => {
 			run([cat], ctx, 1);
 			assert.equal(cat.state, State.ALERT);
 			assert.equal(mouse.caught, false);
+		});
+	});
+
+	describe("play", () => {
+		/** Two cats in a game of `kind`, `lead` leading, with mirrored roles. */
+		function pair(kind: GameKind, leadX: number, otherX: number): [Cat, Cat] {
+			const lead = makeCat({ x: leadX, index: 0 });
+			const other = makeCat({ x: otherX, index: 1 });
+			lead.play = { kind, partner: other, lead: true };
+			other.play = { kind, partner: lead, lead: false };
+			return [lead, other];
+		}
+
+		it("chases its partner at a run", () => {
+			const [lead, other] = pair("chase", 400, 600);
+			const ctx = makeContext({ neighbours: [lead, other] });
+			let ran = false;
+			for (let t = 0; t < 0.5 && !ran; t += 1 / 30) {
+				run([lead, other], ctx, 1 / 30);
+				ran = lead.state === State.RUN && lead.vx > 0;
+			}
+			assert.ok(ran, `lead is ${lead.state} at vx ${lead.vx}`);
+		});
+
+		it("flees its chaser, at a little under top speed", () => {
+			const [lead, other] = pair("chase", 600, 700);
+			const ctx = makeContext({ neighbours: [lead, other] });
+			run([lead, other], ctx, 0.5);
+			assert.ok(other.vx > 0, "runs away from the chaser");
+			assert.ok(
+				other.vx <= DEFAULT_CFG.maxSpeed * FLEE_SPEED + 0.001,
+				`flees at ${other.vx}`,
+			);
+		});
+
+		it("flees its chaser and dashes past when cornered at an edge", () => {
+			const ctx0 = makeContext();
+			const edge = ctx0.roam.min + 48;
+			const [lead, other] = pair("chase", edge + 120, edge);
+			const ctx = makeContext({ neighbours: [lead, other] });
+			let past = false;
+			for (let t = 0; t < 3 && !past; t += 1 / 30) {
+				run([lead, other], ctx, 1 / 30);
+				past = other.x > lead.x + 1;
+			}
+			assert.ok(past, `still left of the chaser: ${other.x} vs ${lead.x}`);
+		});
+
+		it("tussles: both rear up facing each other once close", () => {
+			const [lead, other] = pair("tussle", 400, 500);
+			const ctx = makeContext({ neighbours: [lead, other] });
+			run([lead, other], ctx, 2);
+			assert.equal(lead.state, State.PLAY);
+			assert.equal(other.state, State.PLAY);
+			assert.equal(lead.facing, 1, "lead faces right, at its partner");
+			assert.equal(other.facing, -1, "partner faces left, at the lead");
+			assert.ok(Math.abs(lead.x - other.x) <= TUSSLE_REACH * lead.size);
+			assert.equal(shownAnimation(lead), "play");
+		});
+
+		it("grooms: the lead grooms, the other sits facing it", () => {
+			const [lead, other] = pair("groom", 400, 500);
+			const ctx = makeContext({ neighbours: [lead, other] });
+			run([lead, other], ctx, 3);
+			assert.equal(lead.state, State.GROOM);
+			assert.ok(
+				Math.abs(lead.x - other.x) <= GROOM_GAP * lead.size + 7,
+				`grooming from ${Math.abs(lead.x - other.x)} px away`,
+			);
+			assert.equal(lead.facing, 1);
+			assert.equal(other.state, State.SIT);
+			assert.equal(other.facing, -1);
+			assert.equal(shownAnimation(lead), "groom");
+		});
+
+		it("the groomed cat sits for the whole game", () => {
+			// Longer than any _sitFor, which would otherwise stand it up.
+			const [lead, other] = pair("groom", 400, 500);
+			const ctx = makeContext({
+				neighbours: [lead, other],
+				cfg: { ...DEFAULT_CFG, sleepAfter: 0 },
+			});
+			run([lead, other], ctx, 3);
+			for (let t = 0; t < 10; t += 1 / 30) {
+				run([lead, other], ctx, 1 / 30);
+				assert.equal(other.state, State.SIT);
+				assert.equal(lead.state, State.GROOM);
+			}
+		});
+
+		it("partners in a game are not pushed apart", () => {
+			const [lead, other] = pair("tussle", 400, 420);
+			const ctx = makeContext({ neighbours: [lead, other] });
+			for (let t = 0; t < 3; t += 1 / 30) {
+				run([lead, other], ctx, 1 / 30);
+				const gap = Math.abs(lead.x - other.x);
+				assert.ok(gap <= TUSSLE_REACH * lead.size, `pushed ${gap} apart`);
+			}
+		});
+
+		it("drops play for a mouse", () => {
+			const [lead, other] = pair("tussle", 400, 430);
+			const ctx = makeContext({ neighbours: [lead, other] });
+			run([lead, other], ctx, 0.5);
+			assert.equal(lead.state, State.PLAY);
+			const hunt = makeContext({
+				neighbours: [lead, other],
+				mouse: makeMouse(1200),
+			});
+			run([lead, other], hunt, 1 / 30);
+			assert.notEqual(lead.state, State.PLAY);
+			assert.notEqual(other.state, State.PLAY);
+			assert.equal(lead.interrupted, true);
+			assert.equal(other.interrupted, true);
+			assert.equal(lead.free, false);
+		});
+
+		it("is free only when idle, out of any game and uninterrupted", () => {
+			const cat = makeCat({ x: 400 });
+			run([cat], makeContext(), 0.1);
+			assert.equal(cat.free, true);
+			cat.play = { kind: "groom", partner: makeCat(), lead: true };
+			assert.equal(cat.free, false, "already playing");
+			cat.play = null;
+			run([cat], makeContext({ mouse: makeMouse(1200) }), 1 / 30);
+			assert.equal(cat.free, false, "hunting");
+		});
+
+		it("leaves PLAY once the game is over", () => {
+			const [lead, other] = pair("tussle", 400, 430);
+			const ctx = makeContext({ neighbours: [lead, other] });
+			run([lead, other], ctx, 0.5);
+			assert.equal(lead.state, State.PLAY);
+			lead.play = null;
+			other.play = null;
+			run([lead, other], ctx, 1 / 30);
+			assert.notEqual(lead.state, State.PLAY);
+			assert.notEqual(other.state, State.PLAY);
 		});
 	});
 });

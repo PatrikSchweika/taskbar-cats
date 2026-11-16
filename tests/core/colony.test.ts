@@ -551,6 +551,28 @@ describe("Colony", () => {
 			assert.equal(colony.cats[0].scratchTarget?.handle, icon.handle);
 		});
 
+		it("lets the cats play only when cats-play is on", () => {
+			const played = (social: boolean): boolean => {
+				const colony = new Colony(fakeHost());
+				const settings = makeSettings({ count: 2, social });
+				const world = makeWorld();
+				let any = false;
+				withRandom([0], () => {
+					colony.sync(settings, [], makeBounds());
+					colony.cats[0].x = 500;
+					colony.cats[1].x = 600;
+					for (let t = 0; t < 2; t += 1 / 30) {
+						colony.update(1 / 30, world, settings);
+						any ||= colony.cats.some((cat) => cat.play !== null);
+					}
+				});
+				colony.destroy();
+				return any;
+			};
+			assert.equal(played(false), false, "played with cats-play off");
+			assert.equal(played(true), true, "never played with cats-play on");
+		});
+
 		it("does nothing at all with no cats", () => {
 			const colony = new Colony(fakeHost());
 			assert.doesNotThrow(() =>

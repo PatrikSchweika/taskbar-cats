@@ -1,5 +1,6 @@
 import type { Mouse } from "./mouse.js";
 import type { Prop } from "./props.js";
+import type { PlayRole } from "./social.js";
 import type { CatView, IconRect, SpriteSource } from "./types.js";
 
 export const State = Object.freeze({
@@ -11,6 +12,10 @@ export const State = Object.freeze({
 	SCRATCH: "scratch",
 	SLEEP: "sleep",
 	POUNCE: "pounce",
+	/** Play-fighting: reared up, swatting at the cat it tussles with. */
+	PLAY: "play",
+	/** Grooming the cat it plays with. */
+	GROOM: "groom",
 });
 
 export type CatState = (typeof State)[keyof typeof State];
@@ -57,6 +62,8 @@ const FRAME_RATE_SCALE: Record<CatState, number> = {
 	[State.SLEEP]: 0.12,
 	// Two frames over the whole pounce: the crouch, then the spring.
 	[State.POUNCE]: 0.18,
+	[State.PLAY]: 1.2,
+	[State.GROOM]: 0.5,
 };
 
 const ARRIVE_PX = 7; // close enough to the target to stop
@@ -72,9 +79,25 @@ const CATCH_REACH = 0.35;
 const SCRATCHER_REACH = 0.6;
 /** Where beside a post a cat stands to claw it, in cat sizes. */
 const SCRATCHER_STANCE = 0.35;
+/** How close two tussling cats get, in cat sizes, before they rear up. */
+export const TUSSLE_REACH = 0.7;
+/** Where a grooming cat stands from the other one, in cat sizes. */
+export const GROOM_GAP = 0.6;
+/** How fast a chased cat runs away, as a fraction of top speed. */
+export const FLEE_SPEED = 0.8;
 
 function clamp(v: number, lo: number, hi: number): number {
 	return v < lo ? lo : v > hi ? hi : v;
+}
+
+/** The states that hold a cat in place until they finish. */
+function isRooted(state: CatState): boolean {
+	return (
+		state === State.SCRATCH ||
+		state === State.POUNCE ||
+		state === State.PLAY ||
+		state === State.GROOM
+	);
 }
 
 interface CatOptions {
@@ -110,6 +133,8 @@ export class Cat {
 	facing: number;
 	state: CatState = State.IDLE;
 	stateTime = 0;
+	/** The game this cat is in, if any. Set only by the Playground. */
+	play: PlayRole | null = null;
 
 	private readonly _sprites: SpriteSource;
 	private _palette = "";
@@ -122,6 +147,11 @@ export class Cat {
 	private _scratchCooldown = 0;
 	private _sitFor = 5;
 	private _bed: Prop | null = null;
+	private _interrupted = false;
+	/** Cornered while fleeing a chase: dashing past the chaser. */
+	private _dashing = false;
+	/** Which side the chaser was on when the dash began. */
+	private _dashSide = 1;
 
 	constructor({ view, sprites, palette, size, x, index = 0 }: CatOptions) {
 		this.view = view;
@@ -204,9 +234,29 @@ export class Cat {
 		return this._target;
 	}
 
-	/** True while a scratch or a pounce holds the cat in place. */
+	/** True while a scratch, a pounce or a game holds the cat in place. */
 	get rooted(): boolean {
-		return this.state === State.SCRATCH || this.state === State.POUNCE;
+		return isRooted(this.state);
+	}
+
+	/**
+	 * Whether, on the last tick, something more important than play had this
+	 * cat's attention: a mouse, the pointer, or sleepiness. A game ends as
+	 * soon as either cat is interrupted.
+	 */
+	get interrupted(): boolean {
+		return this._interrupted;
+	}
+
+	/** Whether this cat could start a game: idling, not playing, not busy. */
+	get free(): boolean {
+		return (
+			!this._interrupted &&
+			this.play === null &&
+			(this.state === State.IDLE ||
+				this.state === State.SIT ||
+				this.state === State.WALK)
+		);
 	}
 
 	/**
@@ -377,6 +427,13 @@ export class Cat {
 		const sleepy =
 			!mouse && cfg.sleepAfter > 0 && pointer.idleTime > cfg.sleepAfter;
 
+		// --- Playing? ------------------------------------------------------
+		// Every drive above play in the chain. A new drive that outranks play
+		// joins this expression, and the Playground then ends the game.
+		this._interrupted = hunting || interested || sleepy;
+		const play = this._interrupted ? null : this.play;
+		if (!play) this._dashing = false;
+
 		// --- Somewhere to sleep? -------------------------------------------
 		if (sleepy) {
 			if (!this._bed) this._bed = this._claimBed(beds);
@@ -398,6 +455,10 @@ export class Cat {
 		} else if (sleepy) {
 			// Asleep: stay where you are — unless there is a bed to get to.
 			this._target = bed ? clamp(bed.x, minX, maxX) : this.x;
+		} else if (play) {
+			this._target = this._playTarget(play, minX, maxX);
+			// Pick somewhere new to go soon after the game.
+			this._wanderIn = 0.5 + Math.random();
 		} else if (this.state !== State.SCRATCH) {
 			this._wanderIn -= dt;
 			if (this._wanderIn <= 0) {
@@ -409,10 +470,18 @@ export class Cat {
 		// Only a scratch or a pounce commits the cat in place. Sitting,
 		// watching and even sleeping all yield to somewhere it would rather be,
 		// or a cat that once sat down would never get up again.
-		const rooted = this.state === State.SCRATCH || this.state === State.POUNCE;
+		const rooted = isRooted(this.state);
 
 		// --- Steering ------------------------------------------------------
-		const speedScale = hunting ? 1 : interested ? 0.4 + 0.6 * attract : 0.55;
+		const speedScale = hunting
+			? 1
+			: interested
+				? 0.4 + 0.6 * attract
+				: play?.kind === "chase"
+					? play.lead
+						? 1
+						: FLEE_SPEED
+					: 0.55;
 		const maxSpeed = topSpeed * speedScale;
 		const delta = this._target - this.x;
 
@@ -424,7 +493,7 @@ export class Cat {
 		// between a cat and one it is walking past, or they could never swap
 		// places.
 		for (const other of neighbours) {
-			if (other === this) continue;
+			if (other === this || other === this.play?.partner) continue;
 			const gap = this.x - other.x;
 			const room = this.size * 0.95;
 			if (Math.abs(gap) >= room || Math.abs(gap) <= 0.001) continue;
@@ -462,6 +531,30 @@ export class Cat {
 			}
 		} else if (this.state === State.POUNCE) {
 			if (this.stateTime >= POUNCE_SECONDS) this._setState(State.IDLE);
+		} else if (
+			play?.kind === "tussle" &&
+			(this.state === State.PLAY ||
+				Math.abs(play.partner.x - this.x) <= TUSSLE_REACH * this.size)
+		) {
+			this._setState(State.PLAY);
+			this._face(play.partner.x);
+		} else if (
+			play?.kind === "groom" &&
+			play.lead &&
+			(this.state === State.GROOM ||
+				Math.abs(this._target - this.x) <= ARRIVE_PX)
+		) {
+			this._setState(State.GROOM);
+			this._face(play.partner.x);
+		} else if (
+			play?.kind === "groom" &&
+			!play.lead &&
+			speed <= 6 &&
+			Math.abs(play.partner.x - this.x) <= GROOM_GAP * this.size + ARRIVE_PX
+		) {
+			// Being groomed: sit still for it, however long it takes.
+			this._setState(State.SIT);
+			this._face(play.partner.x);
 		} else if (speed > 6) {
 			this._setState(speed > topSpeed * 0.5 ? State.RUN : State.WALK);
 		} else if (interested && pointer.idleTime < 2.0) {
@@ -476,13 +569,16 @@ export class Cat {
 			this.state === State.ALERT ||
 			this.state === State.SLEEP ||
 			this.state === State.WALK ||
-			this.state === State.RUN
+			this.state === State.RUN ||
+			this.state === State.PLAY ||
+			this.state === State.GROOM
 		) {
 			// Whatever we were doing no longer applies.
 			this._setState(State.IDLE);
 		} else if (this.state === State.SIT && this.stateTime > this._sitFor) {
 			this._setState(State.IDLE);
-		} else if (this.state === State.IDLE && this.stateTime > 0.6) {
+		} else if (this.state === State.IDLE && this.stateTime > 0.6 && !play) {
+			// In a game the game decides; no wandering off to claw something.
 			this._chooseRestingBehaviour(icons, scratchers, cfg, dt);
 		}
 
@@ -497,6 +593,38 @@ export class Cat {
 
 		this._advanceAnimation(dt, cfg.fps);
 		this._render(ctx.floorY);
+	}
+
+	/** Where a game sends this cat. */
+	private _playTarget(play: PlayRole, minX: number, maxX: number): number {
+		const partner = play.partner;
+		const side = Math.sign(partner.x - this.x) || 1;
+		switch (play.kind) {
+			case "chase": {
+				if (play.lead) return clamp(partner.x, minX, maxX);
+				// Dash past a chaser that cornered us, until we are past it.
+				if (this._dashing) {
+					if (side > 0 === this._dashSide > 0)
+						return clamp(partner.x + side * 2 * this.size, minX, maxX);
+					this._dashing = false;
+				}
+				const away = clamp(this.x - side * 3 * this.size, minX, maxX);
+				if (Math.abs(away - this.x) > ARRIVE_PX) return away;
+				this._dashing = true;
+				this._dashSide = side;
+				return clamp(partner.x + side * 2 * this.size, minX, maxX);
+			}
+			case "tussle":
+				return clamp(partner.x - side * 0.55 * this.size, minX, maxX);
+			case "groom":
+				if (play.lead)
+					return clamp(partner.x - side * GROOM_GAP * this.size, minX, maxX);
+				return this.x;
+		}
+	}
+
+	private _face(x: number): void {
+		if (Math.abs(x - this.x) > 1) this.facing = Math.sign(x - this.x);
 	}
 
 	private _chooseRestingBehaviour(
