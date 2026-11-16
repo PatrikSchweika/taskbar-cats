@@ -5,6 +5,14 @@ Status: draft. The feature list is Patrik's. The behaviour details below are
 Claude's calls, made while writing the plan, and are waiting for review. Each
 one is marked *(call)*.
 
+Implementation: one plan per feature, buildable in any order:
+[cat play](../plans/2026-11-16-cat-play.md),
+[food bowls](../plans/2026-11-16-food-bowls.md),
+[name tags](../plans/2026-11-16-name-tags.md) and
+[petting](../plans/2026-11-16-petting.md). Hover is shared by name tags and
+petting, and the rub gesture by petting and food bowls. Each plan that needs
+one of these carries the same task for it and skips it if it already exists.
+
 ## Goal
 
 Four additions that make the colony feel more alive between mouse visits:
