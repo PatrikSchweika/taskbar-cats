@@ -481,7 +481,12 @@ export class Cat {
 		if (this._scratchProp && !scratchers.includes(this._scratchProp))
 			this._scratchProp = null;
 		if (this._bed && !beds.includes(this._bed)) this._bed = null;
-		if (this._bowl && !bowls.includes(this._bowl)) this._bowl = null;
+		// A meal whose bowl went away is over, even if another bowl took its
+		// place: the cat walks to that one and starts afresh.
+		if (this._bowl && !bowls.includes(this._bowl)) {
+			this._bowl = null;
+			if (this.state === State.EAT) this._setState(State.IDLE);
+		}
 
 		const half = this.size * 0.5;
 		const minX = ctx.roam.min + half;

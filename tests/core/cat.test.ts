@@ -991,6 +991,36 @@ describe("Cat", () => {
 			assert.ok(cat.hunger >= 1, `hunger ${cat.hunger}`);
 		});
 
+		it("abandons a meal when its bowl is replaced by another", () => {
+			// The colony rebuilds every prop when any prop count changes, so a
+			// bowl can be swapped for a new one somewhere else mid-meal.
+			const bowl = makeProp("bowl", 700);
+			const cat = makeCat({ x: 400 });
+			cat.hunger = 1;
+			const ctx = makeContext({ cfg: peckish(), bowls: [bowl] });
+			assert.ok(until([cat], ctx, 10, () => cat.state === State.EAT));
+
+			const other = makeProp("bowl", 1300);
+			bowl.destroy();
+			ctx.bowls = [other];
+			cat.update(DT, ctx);
+			assert.notEqual(cat.state, State.EAT, "kept eating from afar");
+			assert.equal(other.food, 3);
+			assert.ok(cat.hunger >= 1, `hunger ${cat.hunger}`);
+
+			// Still hungry, it walks over and eats a whole meal there.
+			assert.ok(
+				until([cat], ctx, 10, () => cat.state === State.EAT),
+				`${cat.state} at ${cat.x}`,
+			);
+			const at = stance(other, 400, cat.size);
+			assert.ok(Math.abs(cat.x - at) <= 14, `eating at ${cat.x}, not ${at}`);
+			run([cat], ctx, EAT_SECONDS - 0.2);
+			assert.equal(other.food, 3, "a meal cut short");
+			run([cat], ctx, 0.4);
+			assert.equal(other.food, 2);
+		});
+
 		it("frees its bowl when destroyed", () => {
 			const bowl = makeProp("bowl", 700);
 			const cat = makeCat({ x: 400 });
