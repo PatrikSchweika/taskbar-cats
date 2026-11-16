@@ -10,6 +10,7 @@ import {
 	EAT_SECONDS,
 	FLEE_SPEED,
 	GROOM_GAP,
+	PET_LINGER,
 	State,
 	TUSSLE_REACH,
 } from "../../src/core/cat.ts";
@@ -1445,5 +1446,80 @@ describe("hover", () => {
 		ctx.pointer.x = 380;
 		run([cat], ctx, 0.5);
 		assert.equal(cat.facing, -1);
+	});
+});
+
+describe("petting", () => {
+	it("purrs and holds still while petted", () => {
+		const cat = makeCat({ x: 400 });
+		const ctx = makeContext();
+		for (let t = 0; t < 1; t += 1 / 30) {
+			cat.pet();
+			cat.update(1 / 30, ctx);
+		}
+		assert.equal(cat.state, State.PURR);
+		assert.equal(shownAnimation(cat), "purr");
+		assert.ok(Math.abs(cat.x - 400) < 1);
+	});
+
+	it("keeps purring 1.5 s after the last pet, then carries on", () => {
+		const cat = makeCat();
+		assert.equal(PET_LINGER, 1.5);
+		cat.pet();
+		run([cat], makeContext(), 1.4);
+		assert.equal(cat.state, State.PURR);
+		run([cat], makeContext(), 0.2);
+		assert.notEqual(cat.state, State.PURR);
+	});
+
+	it("ignores petting while a mouse is out", () => {
+		const cat = makeCat({ x: 400 });
+		const ctx = makeContext({ mouse: makeMouse(900) });
+		cat.pet();
+		run([cat], ctx, 0.3);
+		assert.notEqual(cat.state, State.PURR);
+	});
+
+	it("wakes and purrs when a sleeping cat is petted", () => {
+		const ctx = makeContext({
+			cfg: { ...DEFAULT_CFG, sleepAfter: 2 },
+			pointer: { x: -5000, y: -5000, idleTime: 999 },
+		});
+		const cat = makeCat();
+		run([cat], ctx, 4);
+		assert.equal(cat.state, State.SLEEP);
+		for (let t = 0; t < 0.5; t += 1 / 30) {
+			cat.pet();
+			cat.update(1 / 30, ctx);
+		}
+		assert.equal(cat.state, State.PURR);
+	});
+
+	it("purrs rather than looking up when petted and hovered", () => {
+		const cat = makeCat({ x: 400 });
+		const ctx = makeContext({ pointer: { x: 400, y: 880, idleTime: 0 } });
+		cat.hovered = true;
+		for (let t = 0; t < 0.5; t += 1 / 30) {
+			cat.pet();
+			cat.update(1 / 30, ctx);
+		}
+		assert.equal(cat.state, State.PURR);
+	});
+
+	it("ends a game it is in", () => {
+		const lead = makeCat({ x: 400, index: 0 });
+		const other = makeCat({ x: 430, index: 1 });
+		lead.play = { kind: "tussle", partner: other, lead: true };
+		other.play = { kind: "tussle", partner: lead, lead: false };
+		const ctx = makeContext({
+			neighbours: [lead, other],
+			pointer: { x: -5000, y: -5000, idleTime: 0 },
+		});
+		run([lead, other], ctx, 0.5);
+		assert.equal(lead.interrupted, false);
+		other.pet();
+		run([lead, other], ctx, 1 / 30);
+		assert.equal(other.interrupted, true);
+		assert.equal(other.state, State.PURR);
 	});
 });

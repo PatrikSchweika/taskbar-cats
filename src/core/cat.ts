@@ -18,6 +18,8 @@ export const State = Object.freeze({
 	GROOM: "groom",
 	/** Eating from a bowl. */
 	EAT: "eat",
+	/** Sitting with eyes closed and a heart overhead, being petted. */
+	PURR: "purr",
 });
 
 export type CatState = (typeof State)[keyof typeof State];
@@ -74,6 +76,7 @@ const FRAME_RATE_SCALE: Record<CatState, number> = {
 	[State.PLAY]: 1.2,
 	[State.GROOM]: 0.5,
 	[State.EAT]: 0.6,
+	[State.PURR]: 0.3,
 };
 
 const ARRIVE_PX = 7; // close enough to the target to stop
@@ -97,6 +100,8 @@ export const GROOM_GAP = 0.6;
 export const FLEE_SPEED = 0.8;
 /** How long a meal takes. */
 export const EAT_SECONDS = 4;
+/** How long a cat keeps purring after the last stroke, in seconds. */
+export const PET_LINGER = 1.5;
 /** How long a hungry cat sits by an empty bowl asking for food. */
 export const ASK_SECONDS = 8;
 /** How long a cat that asked in vain ignores its hunger before asking again. */
@@ -185,6 +190,8 @@ export class Cat {
 	private _interrupted = false;
 	/** Set by the colony before each update: the pointer is over this cat. */
 	hovered = false;
+	/** Seconds of purring left; topped up by every stroke. */
+	private _pettedFor = 0;
 	/** Cornered while fleeing a chase: dashing past the chaser. */
 	private _dashing = false;
 	/** Which side the chaser was on when the dash began. */
@@ -274,6 +281,16 @@ export class Cat {
 		return this._bowl;
 	}
 
+	/** Called on every stroke of a rub: the cat purrs for PET_LINGER more. */
+	pet(): void {
+		this._pettedFor = PET_LINGER;
+	}
+
+	/** Still purring from the last stroke. */
+	get petted(): boolean {
+		return this._pettedFor > 0;
+	}
+
 	/** True once hunger reaches 1. Only bowls make a cat hungry. */
 	get hungry(): boolean {
 		return this.hunger >= 1;
@@ -291,8 +308,8 @@ export class Cat {
 
 	/**
 	 * Whether, on the last tick, something more important than play had this
-	 * cat's attention: a mouse, hunger, the pointer, or sleepiness. A game
-	 * ends as soon as either cat is interrupted.
+	 * cat's attention: a mouse, hunger, the pointer, petting, or sleepiness. A
+	 * game ends as soon as either cat is interrupted.
 	 */
 	get interrupted(): boolean {
 		return this._interrupted;
@@ -474,6 +491,7 @@ export class Cat {
 		this.stateTime += dt;
 		this._scratchCooldown = Math.max(0, this._scratchCooldown - dt);
 		this._askCooldown = Math.max(0, this._askCooldown - dt);
+		this._pettedFor = Math.max(0, this._pettedFor - dt);
 		// No bowls, no hunger: the cats are never made to want what is not there.
 		if (bowls.length) this.hunger += dt / cfg.hungerAfter;
 
@@ -512,14 +530,17 @@ export class Cat {
 		const mouse =
 			ctx.mouse && !ctx.mouse.caught && !ctx.mouse.gone ? ctx.mouse : null;
 		const hunting = mouse !== null && this.state !== State.POUNCE;
-		// The pointer resting on the cat holds it still, below only a mouse.
-		const underPointer = !hunting && this.hovered;
+		// Being petted holds the cat still and purring, below only a mouse.
+		const beingPetted = !hunting && this.petted;
+		// The pointer resting on the cat holds it still, below petting.
+		const underPointer = !hunting && !beingPetted && this.hovered;
 
 		// --- Hungry? -------------------------------------------------------
 		// Outranks the pointer and sleep, so a cat eats first and naps after.
 		// A cat that asked at an empty bowl gives up for a while.
 		const seekingFood =
 			!hunting &&
+			!beingPetted &&
 			!underPointer &&
 			this.hungry &&
 			bowls.length > 0 &&
@@ -529,6 +550,7 @@ export class Cat {
 		const attract = cfg.attraction / 100;
 		const interested =
 			!hunting &&
+			!beingPetted &&
 			!underPointer &&
 			!seekingFood &&
 			attract > 0.05 &&
@@ -539,6 +561,7 @@ export class Cat {
 
 		const sleepy =
 			!mouse &&
+			!beingPetted &&
 			!underPointer &&
 			!seekingFood &&
 			cfg.sleepAfter > 0 &&
@@ -548,7 +571,12 @@ export class Cat {
 		// Every drive above play in the chain. A new drive that outranks play
 		// joins this expression, and the Playground then ends the game.
 		this._interrupted =
-			hunting || underPointer || seekingFood || interested || sleepy;
+			hunting ||
+			beingPetted ||
+			underPointer ||
+			seekingFood ||
+			interested ||
+			sleepy;
 		const play = this._interrupted ? null : this.play;
 		if (!play || play.lead) this._dashing = false;
 
@@ -582,6 +610,8 @@ export class Cat {
 		if (hunting) {
 			this._target = clamp(mouse.x, minX, maxX);
 			this._wanderIn = 0.5 + Math.random();
+		} else if (beingPetted) {
+			this._target = this.x;
 		} else if (underPointer) {
 			this._target = this.x;
 		} else if (foodBowl) {
@@ -691,6 +721,8 @@ export class Cat {
 			}
 		} else if (this.state === State.POUNCE) {
 			if (this.stateTime >= POUNCE_SECONDS) this._setState(State.IDLE);
+		} else if (beingPetted) {
+			this._setState(State.PURR);
 		} else if (underPointer) {
 			this._setState(State.ALERT);
 			this._face(pointer.x);
@@ -762,7 +794,8 @@ export class Cat {
 			this.state === State.WALK ||
 			this.state === State.RUN ||
 			this.state === State.PLAY ||
-			this.state === State.GROOM
+			this.state === State.GROOM ||
+			this.state === State.PURR
 		) {
 			// Whatever we were doing no longer applies.
 			this._setState(State.IDLE);

@@ -5,7 +5,13 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildPropFrame, pyInt, pyRound } from "../../tools/gen-sprites.ts";
+import {
+	buildFrame,
+	buildPropFrame,
+	PALETTES,
+	pyInt,
+	pyRound,
+} from "../../tools/gen-sprites.ts";
 
 describe("Python numeric semantics", () => {
 	describe("pyRound", () => {
@@ -48,5 +54,22 @@ describe("bowl art", () => {
 	it("fills the bowl with kibble only when it has food", () => {
 		assert.ok(!cells(buildPropFrame("bowl", { fill: 0 })).has("P"));
 		assert.ok(cells(buildPropFrame("bowl", { fill: 2 })).has("P"));
+	});
+});
+
+describe("heart art", () => {
+	const black = PALETTES.black;
+	assert.ok(black, "the black palette exists");
+	const cells = (c: { g: string[][] }) => new Set(c.g.flat());
+	it("draws a heart in the purr pose, in its own colour cell", () => {
+		const c = buildFrame(black, "sit", {
+			eye: "closed",
+			heart: 0,
+		});
+		assert.ok(cells(c).has("H"));
+	});
+	it("draws no heart unless asked", () => {
+		const c = buildFrame(black, "sit", {});
+		assert.ok(!cells(c).has("H"));
 	});
 });

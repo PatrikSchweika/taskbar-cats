@@ -27,7 +27,7 @@ const BASELINE = 31; // y of the ground; the cat's feet rest here
  *   'L' light fur     'K' outline       'E' eye      'P' pink (nose/ears/paws)
  *   'W' eye highlight
  */
-export type Cell = "." | "B" | "D" | "L" | "K" | "E" | "P" | "W";
+export type Cell = "." | "B" | "D" | "L" | "K" | "E" | "P" | "W" | "H";
 const TRANSPARENT: Cell = ".";
 
 // -- numeric semantics -------------------------------------------------------
@@ -272,7 +272,7 @@ export const PALETTES: Record<string, Palette> = {
 };
 
 /** Paint order, back to front. */
-export const ORDER: Cell[] = ["K", "D", "B", "L", "P", "E", "W"];
+export const ORDER: Cell[] = ["K", "D", "B", "L", "P", "E", "W", "H"];
 
 // -- anatomy -----------------------------------------------------------------
 
@@ -296,6 +296,8 @@ export interface Pose {
 	breathe?: number;
 	/** Bowls only: 0 empty, 1 low, 2 full. */
 	fill?: number;
+	/** Sitting only: pixels the heart has risen. Undefined draws no heart. */
+	heart?: number;
 }
 
 /** Base colour for a part; siamese points use D on extremities. */
@@ -553,6 +555,15 @@ function drawSitting(c: Canvas, pal: Palette, p: Pose): void {
 		eye: p.eye ?? "open",
 		earPerk: p.earPerk ?? 0.8,
 	});
+
+	if (p.heart !== undefined) {
+		const hy = 3 - p.heart;
+		["01010", "11111", "01110", "00100"].forEach((row, dy) => {
+			[...row].forEach((bit, dx) => {
+				if (bit === "1") c.put(25 + dx, hy + dy, "H");
+			});
+		});
+	}
 }
 
 /**
@@ -737,6 +748,21 @@ export const POSES: Record<string, [PlanName, Pose[]]> = {
 			},
 		],
 	],
+	// Purring: eyes shut, a heart drifting up.
+	purr: [
+		"sit",
+		[
+			{ eye: "closed", earPerk: 0.5, tailAngle: 120, tailCurl: 1.3, heart: 0 },
+			{
+				eye: "closed",
+				earPerk: 0.5,
+				tailAngle: 114,
+				tailCurl: 1.4,
+				headDy: 0.4,
+				heart: 1,
+			},
+		],
+	],
 	// Grooming a partner: sat up, head bowed to lick.
 	groom: [
 		"sit",
@@ -897,6 +923,8 @@ export const PROP_POSES: Record<PropName, Pose[]> = {
 
 // -- SVG emission ------------------------------------------------------------
 
+const HEART_COLOUR = "#e5484d";
+
 /** Run-length merge each row into <rect> elements, grouped by colour. */
 function toSvg(c: Canvas, pal: Palette): string {
 	const runs = new Map<Cell, [number, number, number][]>();
@@ -923,7 +951,7 @@ function toSvg(c: Canvas, pal: Palette): string {
 	];
 	for (const ch of ORDER) {
 		const cells = runs.get(ch);
-		const colour = pal[ch as keyof Palette];
+		const colour = ch === "H" ? HEART_COLOUR : pal[ch as keyof Palette];
 		if (!cells || typeof colour !== "string") continue;
 		out.push(`<g fill="${colour}">`);
 		for (const [x, y, w] of cells)
