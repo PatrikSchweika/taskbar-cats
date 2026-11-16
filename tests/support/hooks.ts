@@ -65,12 +65,13 @@ stage.height = 900;
 
 /** Published on globalThis so test helpers can reach it without importing. */
 export interface TestEnv {
-	pointer: { x: number; y: number };
+	/** `mods` is the Clutter.ModifierType mask: which buttons are held. */
+	pointer: { x: number; y: number; mods: number };
 	logged: string[];
 	loggedErrors: string[];
 }
 const testEnv: TestEnv = {
-	pointer: { x: 0, y: 0 },
+	pointer: { x: 0, y: 0, mods: 0 },
 	logged: [],
 	loggedErrors: [],
 };
@@ -78,7 +79,11 @@ const testEnv: TestEnv = {
 Object.assign(globalThis, {
 	stage,
 	__catsTestEnv: testEnv,
-	get_pointer: () => [testEnv.pointer.x, testEnv.pointer.y, 0],
+	get_pointer: () => [
+		testEnv.pointer.x,
+		testEnv.pointer.y,
+		testEnv.pointer.mods,
+	],
 	log: (msg: unknown) => {
 		testEnv.logged.push(String(msg));
 	},

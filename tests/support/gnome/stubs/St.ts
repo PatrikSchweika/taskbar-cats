@@ -21,5 +21,23 @@ export class Icon extends FakeActor {
 }
 
 export class Widget extends FakeActor {}
+export class BoxLayout extends FakeActor {}
+// `declare`, not `= ""`: an initializer would run after FakeActor's
+// constructor and wipe the value passed in.
+export class Label extends FakeActor {
+	declare text: string;
+}
+/** Tests press one by emitting `clicked`. */
+export class Button extends FakeActor {
+	declare label: string;
+}
 
-export default { Icon, Widget, __setScaleFactor, __scaleFactor };
+export default {
+	Icon,
+	Widget,
+	BoxLayout,
+	Label,
+	Button,
+	__setScaleFactor,
+	__scaleFactor,
+};

@@ -14,3 +14,37 @@
 	padding: 0;
 	margin: 0;
 }
+
+/* Arrange mode. A border would grow the sprite's allocation and lift it off
+   the floor, so the outline is a background tint and a spread shadow, which
+   take no room. */
+.taskbar-cats-prop.taskbar-cats-arranging {
+	background-color: rgba(255, 255, 255, 0.12);
+	border-radius: 6px;
+	box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7);
+}
+
+/* Stood where the user put it. St has no ::after for a pin glyph, so the
+   outline turns the accent colour and thickens instead. */
+.taskbar-cats-prop.taskbar-cats-arranging.taskbar-cats-pinned {
+	background-color: rgba(53, 132, 228, 0.2);
+	box-shadow: 0 0 0 3px rgba(53, 132, 228, 0.95);
+}
+
+.taskbar-cats-arrange-bar {
+	padding: 6px 8px 6px 14px;
+	border-radius: 12px;
+	background-color: rgba(30, 30, 30, 0.92);
+	color: #ffffff;
+}
+
+.taskbar-cats-arrange-hint {
+	padding-right: 4px;
+}
+
+/* Margins rather than St's own `spacing`, which Biome doesn't know. */
+.taskbar-cats-arrange-button {
+	margin-left: 8px;
+	padding: 4px 12px;
+	border-radius: 8px;
+}

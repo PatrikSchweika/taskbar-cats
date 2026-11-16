@@ -113,6 +113,13 @@ export const CAT_SIZE_MAX = 128;
 export const HOTKEY_KEY = "toggle-hotkey";
 export const DEFAULT_HOTKEY = "<Control><Alt>c";
 
+/**
+ * GNOME only, and not a preference: how the preferences ask the shell to let
+ * the furniture be dragged. The extension clears it whenever arrange mode
+ * ends, so it is never part of {@link Settings}.
+ */
+export const ARRANGE_KEY = "arrange-mode";
+
 /** Coerce one stored string list, keeping the index of every entry. */
 export function normalizeStringList(raw: unknown): string[] {
 	if (!Array.isArray(raw)) return [];

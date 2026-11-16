@@ -146,5 +146,11 @@
       <description>Keyboard shortcut that hides every cat and brings them back. An empty list turns the shortcut off.</description>
     </key>
 
+    <key name="arrange-mode" type="b">
+      <default>false</default>
+      <summary>Arranging the furniture</summary>
+      <description>Set by the preferences while you drag the furniture on screen. Always false when the shell starts.</description>
+    </key>
+
   </schema>
 </schemalist>
