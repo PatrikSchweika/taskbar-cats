@@ -866,6 +866,57 @@ describe("Cat", () => {
 			assert.equal(cat.free, false, "hunting");
 		});
 
+		it("counts a cat wandering at a run as free", () => {
+			// Wandering runs at 0.55 of top speed, which shows as RUN.
+			const cat = withRandom([0.9], () => makeCat({ x: 200 }));
+			const ctx = makeContext({ cfg: { ...DEFAULT_CFG, sleepAfter: 0 } });
+			run([cat], ctx, 0.1);
+			cat.play = null;
+			let ran = false;
+			// Head for the far side and look while it is on its way.
+			withRandom([0.95], () => {
+				for (let t = 0; t < 4 && !ran; t += 1 / 30) {
+					run([cat], ctx, 1 / 30);
+					if (cat.state === State.RUN) {
+						ran = true;
+						assert.equal(cat.free, true, "a running wanderer is free");
+					}
+				}
+			});
+			assert.ok(ran, "never broke into a run");
+		});
+
+		it("flees away from a new chaser even after dashing past an old one", () => {
+			// Cornered at the left edge: the follower dashes right, past the lead.
+			const [lead, other] = pair("chase", 168, 48);
+			const ctx = makeContext({ neighbours: [lead, other] });
+			run([lead, other], ctx, 0.5);
+			// Tagged before it got past, it chases for a moment...
+			lead.play = { kind: "chase", partner: other, lead: false };
+			other.play = { kind: "chase", partner: lead, lead: true };
+			run([lead, other], ctx, 1 / 30);
+			// ...and is tagged back out in open ground, the chaser to its right.
+			lead.play = { kind: "chase", partner: other, lead: true };
+			other.play = { kind: "chase", partner: lead, lead: false };
+			other.x = 800;
+			other.vx = 0;
+			lead.x = 900;
+			lead.vx = 0;
+			run([lead, other], ctx, 0.3);
+			assert.ok(other.vx < 0, `ran at its chaser, vx ${other.vx}`);
+		});
+
+		it("sits to be groomed by a bigger cat", () => {
+			const lead = makeCat({ x: 400, size: 96, index: 0 });
+			const other = makeCat({ x: 600, size: 48, index: 1 });
+			lead.play = { kind: "groom", partner: other, lead: true };
+			other.play = { kind: "groom", partner: lead, lead: false };
+			run([lead, other], makeContext({ neighbours: [lead, other] }), 3);
+			assert.equal(lead.state, State.GROOM);
+			assert.equal(other.state, State.SIT);
+			assert.equal(other.facing, -1);
+		});
+
 		it("leaves PLAY once the game is over", () => {
 			const [lead, other] = pair("tussle", 400, 430);
 			const ctx = makeContext({ neighbours: [lead, other] });

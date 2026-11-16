@@ -248,14 +248,19 @@ export class Cat {
 		return this._interrupted;
 	}
 
-	/** Whether this cat could start a game: idling, not playing, not busy. */
+	/**
+	 * Whether this cat could start a game: not playing, not busy, just idling
+	 * or wandering. A wandering cat cruises fast enough to show RUN, so that
+	 * counts too; a hunt or the pointer already counts as `interrupted`.
+	 */
 	get free(): boolean {
 		return (
 			!this._interrupted &&
 			this.play === null &&
 			(this.state === State.IDLE ||
 				this.state === State.SIT ||
-				this.state === State.WALK)
+				this.state === State.WALK ||
+				this.state === State.RUN)
 		);
 	}
 
@@ -432,7 +437,7 @@ export class Cat {
 		// joins this expression, and the Playground then ends the game.
 		this._interrupted = hunting || interested || sleepy;
 		const play = this._interrupted ? null : this.play;
-		if (!play) this._dashing = false;
+		if (!play || play.lead) this._dashing = false;
 
 		// --- Somewhere to sleep? -------------------------------------------
 		if (sleepy) {
@@ -550,7 +555,8 @@ export class Cat {
 			play?.kind === "groom" &&
 			!play.lead &&
 			speed <= 6 &&
-			Math.abs(play.partner.x - this.x) <= GROOM_GAP * this.size + ARRIVE_PX
+			Math.abs(play.partner.x - this.x) <=
+				GROOM_GAP * play.partner.size + ARRIVE_PX
 		) {
 			// Being groomed: sit still for it, however long it takes.
 			this._setState(State.SIT);
@@ -601,7 +607,9 @@ export class Cat {
 		const side = Math.sign(partner.x - this.x) || 1;
 		switch (play.kind) {
 			case "chase": {
-				if (play.lead) return clamp(partner.x, minX, maxX);
+				// Aim a little beyond the other cat: aiming at it, the steering
+				// would ease off as it closed in and never quite catch it.
+				if (play.lead) return clamp(partner.x + side * this.size, minX, maxX);
 				// Dash past a chaser that cornered us, until we are past it.
 				if (this._dashing) {
 					if (side > 0 === this._dashSide > 0)

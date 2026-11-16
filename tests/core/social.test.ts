@@ -194,6 +194,26 @@ describe("Playground", () => {
 		assert.equal(b.play?.lead, false);
 	});
 
+	it("a chaser catches up and tags in open ground", () => {
+		// Far from either edge, so a tag can only come from the chase itself.
+		const cats = settledCats(760, 840);
+		const [a, b] = cats;
+		const pg = new Playground();
+		startGame(pg, cats);
+		const ctx = makeContext({ neighbours: cats });
+		let tagged = false;
+		for (let t = 0; t < 4 && !tagged; t += DT) {
+			pg.update(DT, cats, true);
+			if (b.play?.lead === true) tagged = true;
+			for (const cat of cats) cat.update(DT, ctx);
+			assert.ok(
+				Math.min(a.x, b.x) > 200 && Math.max(a.x, b.x) < 1400,
+				"reached an edge first",
+			);
+		}
+		assert.ok(tagged, "the chaser never caught up");
+	});
+
 	it("ends every game when switched off", () => {
 		const cats = settledCats(400, 500);
 		const pg = new Playground();
