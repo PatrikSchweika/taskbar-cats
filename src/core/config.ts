@@ -20,6 +20,8 @@ export interface Settings extends CatConfig {
 	beds: number;
 	/** Scratching posts on the floor, clawed instead of (or as well as) icons. */
 	scratchers: number;
+	/** Food bowls on the floor. Hungry cats eat from them. */
+	bowls: number;
 	/** Average seconds between a mouse running across the floor; 0 for none. */
 	mouseInterval: number;
 	/**
@@ -74,6 +76,8 @@ export const INT_SETTINGS = {
 	fps: { key: "animation-fps", default: 12, min: 4, max: 30 },
 	beds: { key: "bed-count", default: 0, min: 0, max: 8 },
 	scratchers: { key: "scratcher-count", default: 0, min: 0, max: 8 },
+	bowls: { key: "bowl-count", default: 0, min: 0, max: 8 },
+	hungerAfter: { key: "hunger-after", default: 1800, min: 60, max: 14400 },
 	mouseInterval: { key: "mouse-interval", default: 120, min: 0, max: 3600 },
 	playFrequency: { key: "play-frequency", default: 5, min: 1, max: 10 },
 } as const satisfies Record<string, IntSpec>;

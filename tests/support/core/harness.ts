@@ -111,6 +111,7 @@ export const DEFAULT_CFG: CatConfig = {
 	scratchIcons: true,
 	sleepAfter: 20,
 	fps: 12,
+	hungerAfter: 1800,
 };
 
 export function makeIcon(x: number, w = 48): IconRect {

@@ -28,6 +28,8 @@ export interface CatConfig {
 	scratchIcons: boolean;
 	sleepAfter: number;
 	fps: number;
+	/** Seconds after a meal before a cat is hungry again. */
+	hungerAfter: number;
 }
 
 export interface CatContext {

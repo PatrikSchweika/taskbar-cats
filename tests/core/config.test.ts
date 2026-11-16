@@ -334,3 +334,16 @@ describe("play-frequency", () => {
 		assert.equal(normalizeSettings({ "play-frequency": 99 }).playFrequency, 10);
 	});
 });
+
+describe("bowl and hunger settings", () => {
+	it("defaults to no bowls and 1800 s", () => {
+		const s = defaultSettings();
+		assert.equal(s.bowls, 0);
+		assert.equal(s.hungerAfter, 1800);
+	});
+	it("clamps them from a hand-edited file", () => {
+		const s = normalizeSettings({ "hunger-after": 5, "bowl-count": 99 });
+		assert.equal(s.hungerAfter, 60);
+		assert.equal(s.bowls, 8);
+	});
+});
