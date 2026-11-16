@@ -305,6 +305,10 @@ class CatsApp {
 			// decide nothing changed and send nothing.
 			this._pushSettings();
 			this._relayout();
+			// A reloaded overlay has forgotten it was arranging, and the timeout
+			// that would end it lived in the old page; end it rather than leave
+			// the strip taking the mouse.
+			this._setArranging(false);
 		});
 		ipcMain.on(CHANNELS.apply, (_event, patch: Partial<Settings>) => {
 			this._config.update(patch);
@@ -393,6 +397,10 @@ class CatsApp {
 
 		void window.loadURL(
 			`${SCHEME}://bundle/platform/win32/renderer/overlay.html`,
+		);
+		// A crashed overlay can't end arrange mode itself, nor take the mouse.
+		window.webContents.on("render-process-gone", () =>
+			this._setArranging(false),
 		);
 		this._overlay = { window, origin: { x: 0, y: 0 } };
 	}

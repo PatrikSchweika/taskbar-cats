@@ -1,8 +1,7 @@
 import type Clutter from "gi://Clutter";
 import St from "gi://St";
 
-const HINT = "Drag the furniture. Double-click one to place it automatically.";
-const EMPTY_HINT = "Add a bed, post or bowl first";
+import { ARRANGE_EMPTY_HINT, ARRANGE_HINT } from "../../core/arrange.js";
 
 export interface ArrangeBarHandlers {
 	/** Put every bed, post and bowl back to automatic placement. */
@@ -28,7 +27,7 @@ export class ArrangeBar {
 		});
 		this._hint = new St.Label({
 			style_class: "taskbar-cats-arrange-hint",
-			text: HINT,
+			text: ARRANGE_HINT,
 		});
 		this.actor.add_child(this._hint);
 		this.actor.add_child(this._button("Reset all", () => handlers.reset()));
@@ -54,7 +53,7 @@ export class ArrangeBar {
 	setEmpty(empty: boolean): void {
 		if (empty === this._empty) return;
 		this._empty = empty;
-		this._hint.text = empty ? EMPTY_HINT : HINT;
+		this._hint.text = empty ? ARRANGE_EMPTY_HINT : ARRANGE_HINT;
 	}
 
 	destroy(): void {

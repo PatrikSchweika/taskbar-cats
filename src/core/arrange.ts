@@ -20,6 +20,12 @@ export const DOUBLE_CLICK_SECONDS = 0.4;
 /** Arrange mode ends by itself after this long with no press. */
 export const ARRANGE_TIMEOUT = 120;
 
+/** The arrange toolbar's hint, on both platforms. */
+export const ARRANGE_HINT =
+	"Drag the furniture. Double-click one to place it automatically.";
+/** The toolbar's hint when there is no furniture to drag. */
+export const ARRANGE_EMPTY_HINT = "Add a bed, post or bowl first";
+
 export type PositionList =
 	| "bedPositions"
 	| "scratcherPositions"

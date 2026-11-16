@@ -5,7 +5,12 @@
  * the icons are) and a pointer sample; everything else — the cats, their
  * physics, when they nap — is the same code the GNOME extension runs.
  */
-import { Arranger, resetAllPositions } from "../../../core/arrange.js";
+import {
+	ARRANGE_EMPTY_HINT,
+	ARRANGE_HINT,
+	Arranger,
+	resetAllPositions,
+} from "../../../core/arrange.js";
 import {
 	Colony,
 	DROWSY_INTERVAL_MS,
@@ -32,11 +37,10 @@ declare const cats: {
 	ready(): void;
 };
 
-const HINT = "Drag the furniture. Double-click one to place it automatically.";
-const EMPTY_HINT = "Add a bed, post or bowl first";
-
 const MAX_DT = 0.2; // a stalled renderer must not teleport every cat
 const MIN_DT = 0.001;
+/** Gap between the arrange toolbar and the tallest prop, in px (as on GNOME). */
+const BAR_GAP = 8;
 
 async function main(): Promise<void> {
 	const stage = document.getElementById("stage");
@@ -116,13 +120,33 @@ async function main(): Promise<void> {
 		heldPointer = null;
 	};
 
-	/** Outline the furniture, and mark the props standing where they were put. */
-	const markProps = (): void => {
+	/** Mark the props standing where the user put them; `show` false clears all. */
+	const markPinned = (show: boolean): void => {
 		for (const prop of colony.props)
 			if (prop.view instanceof DomCatView)
-				prop.view.element.classList.toggle("pinned", prop.pinned !== null);
-		const text = colony.props.length ? HINT : EMPTY_HINT;
+				prop.view.element.classList.toggle(
+					"pinned",
+					show && prop.pinned !== null,
+				);
+	};
+
+	/** Mark the props standing where they were put, and say what to do. */
+	const markProps = (): void => {
+		markPinned(true);
+		const text = colony.props.length ? ARRANGE_HINT : ARRANGE_EMPTY_HINT;
 		if (hint.textContent !== text) hint.textContent = text;
+	};
+
+	/**
+	 * Stand the toolbar centred on the floor, its bottom {@link BAR_GAP} above
+	 * the tallest prop, as on GNOME; never above the top of the strip.
+	 */
+	const placeBar = (current: Layout, height: number): void => {
+		const tallest = Math.max(0, ...colony.props.map((p) => p.size));
+		const left = `${Math.round((current.roam.min + current.roam.max) / 2)}px`;
+		const top = `${Math.max(0, Math.round(current.floorY - tallest - BAR_GAP - height))}px`;
+		if (bar.style.left !== left) bar.style.left = left;
+		if (bar.style.top !== top) bar.style.top = top;
 	};
 
 	const startArranging = (): void => {
@@ -141,9 +165,7 @@ async function main(): Promise<void> {
 		releaseHeld();
 		bar.hidden = true;
 		stage.classList.remove("arranging");
-		for (const prop of colony.props)
-			if (prop.view instanceof DomCatView)
-				prop.view.element.classList.remove("pinned");
+		markPinned(false);
 		// Sent even when already false: main restores click-through anyway, and
 		// this keeps the two sides from disagreeing.
 		captured = false;
@@ -269,6 +291,7 @@ async function main(): Promise<void> {
 				// Props are pinned and unpinned by drops and Reset all, and
 				// rebuilt when a count changes, so this is kept current.
 				markProps();
+				placeBar(layout, rect.height);
 			}
 		}
 

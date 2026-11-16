@@ -59,9 +59,10 @@
 				outline: 3px solid rgba(53, 132, 228, 0.95);
 			}
 
+			/* Placed by overlay.ts: centred on the floor, above the furniture. */
 			#arrange-bar {
 				position: absolute;
-				top: 4px;
+				top: 0;
 				left: 50%;
 				transform: translateX(-50%);
 				/* Above the stage, so no cat ever walks in front of it. */
@@ -102,7 +103,7 @@
 	<body>
 		<div id="stage"></div>
 		<div id="arrange-bar" hidden>
-			<span id="arrange-hint">Drag the furniture. Double-click one to place it automatically.</span>
+			<span id="arrange-hint"></span>
 			<button id="arrange-reset" type="button">Reset all</button>
 			<button id="arrange-done" type="button">Done</button>
 		</div>
