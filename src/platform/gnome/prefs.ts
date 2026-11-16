@@ -191,8 +191,8 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 		const toys = new Adw.PreferencesGroup({
 			title: "Furniture and toys",
 			description:
-				"Beds and scratching posts stand on the floor to either side of " +
-				"the dock, never in front of an icon.",
+				"Beds, scratching posts and food bowls stand on the floor to " +
+				"either side of the dock, never in front of an icon.",
 		});
 		page.add(toys);
 		toys.add(

@@ -4,8 +4,9 @@ Small pixel-art cats that live on your dock or taskbar. They chase your mouse
 pointer, sit and look up at it, nap when you ignore them, and scratch your app
 icons. When they have nothing better to do, two cats sometimes play together:
 they chase each other, play-fight or groom. You can give them beds,
-scratching posts and food bowls. Now and then a mouse runs across the screen and every cat
-goes after it.
+scratching posts and food bowls; with bowls out, the cats get hungry every so
+often and eat from them. Now and then a mouse runs across the screen and every
+cat goes after it.
 
 It runs on two platforms:
 
