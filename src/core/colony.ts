@@ -236,8 +236,9 @@ export class Colony {
 	private readonly _host: ColonyHost;
 	/** Pairs up idle cats for games and runs them. */
 	private readonly _playground = new Playground();
-	/** Spots the pointer rubbing a bowl, which fills it. */
+	/** Spots the pointer rubbing a cat, which purrs, or a bowl, which fills. */
 	private readonly _rub = new RubDetector();
+	private _lastPointerX = Number.NaN;
 	/** Made on the first update, so a colony that never runs draws nothing. */
 	private _nameTag: NameTag | null = null;
 	private _size = 0;
@@ -502,12 +503,6 @@ export class Colony {
 			cfg: settings as CatConfig,
 		};
 
-		// Rubbing a bowl fills it, before the cats look for something to eat.
-		const rubTarget = bowlUnderPointer(this.bowls, world.pointer, world.floorY);
-		this._rub.update(dt, world.pointer.x, rubTarget, rubTarget?.size ?? 0);
-		const rubbed = this._rub.rubbing;
-		if (rubbed instanceof Prop && rubbed.kind === "bowl") rubbed.refill();
-
 		// The cat under the pointer holds still; mark it before the cats move.
 		// A pointer parked past the sleep delay hovers nothing, or the cat it
 		// stopped on could never nap or eat, and the colony never sleep.
@@ -517,6 +512,19 @@ export class Colony {
 			? null
 			: catUnderPointer(this.cats, world.pointer, world.floorY);
 		for (const cat of this.cats) cat.hovered = cat === hovered;
+
+		// Rubbing a cat makes it purr and rubbing a bowl fills it, before the
+		// cats look for something to do or eat.
+		const rubTarget =
+			hovered ?? bowlUnderPointer(this.bowls, world.pointer, world.floorY);
+		this._rub.update(dt, world.pointer.x, rubTarget, rubTarget?.size ?? 0);
+		const rubbed = this._rub.rubbing;
+		if (rubbed instanceof Prop && rubbed.kind === "bowl") rubbed.refill();
+		// Pet only while the pointer is still moving, so the purr ends PET_LINGER
+		// after the last stroke rather than after the detector's 1.2 s window.
+		if (rubbed instanceof Cat && world.pointer.x !== this._lastPointerX)
+			rubbed.pet();
+		this._lastPointerX = world.pointer.x;
 
 		// Games start and end before the cats move, so each steers by its role.
 		this._playground.update(
