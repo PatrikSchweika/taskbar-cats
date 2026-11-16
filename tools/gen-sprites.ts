@@ -735,6 +735,30 @@ export const POSES: Record<string, [PlanName, Pose[]]> = {
 			},
 		],
 	],
+	// Grooming a partner: sat up, head bowed to lick.
+	groom: [
+		"sit",
+		[
+			{
+				eye: "half",
+				headDx: -1.2,
+				headDy: 2.2,
+				lookUp: -0.6,
+				earPerk: 0.4,
+				tailAngle: 124,
+			},
+			{
+				eye: "closed",
+				headDx: -1.0,
+				headDy: 2.8,
+				lookUp: -0.8,
+				earPerk: 0.4,
+				tailAngle: 118,
+			},
+		],
+	],
+	// Play-fighting: reared up, batting at the other cat.
+	play: ["scratch", [{ reach: 0.2 }, { reach: 0.9 }, { reach: 0.5 }]],
 };
 
 // -- props -------------------------------------------------------------------

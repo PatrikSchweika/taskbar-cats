@@ -2,8 +2,10 @@
 
 Small pixel-art cats that live on your dock or taskbar. They chase your mouse
 pointer, sit and look up at it, nap when you ignore them, and scratch your app
-icons. You can give them beds and scratching posts. Now and then a mouse runs
-across the screen and every cat goes after it.
+icons. When they have nothing better to do, two cats sometimes play together:
+they chase each other, play-fight or groom. You can give them beds and
+scratching posts. Now and then a mouse runs across the screen and every cat
+goes after it.
 
 It runs on two platforms:
 
@@ -68,6 +70,8 @@ All settings apply at once. No restart is needed.
 | Attraction radius | 260 | How far from the bottom of the screen the pointer still matters |
 | Top speed | 160 | Pixels per second when running |
 | Nap after | 20 | Seconds without movement before a cat sleeps. 0 keeps them awake |
+| Cats play together | on | Idle cats sometimes chase, play-fight or groom each other |
+| Play frequency | 5 | How often idle cats start a game, from 1 (rarely) to 10 (all the time) |
 | Hide or show the cats | Ctrl+Alt+C | A keyboard shortcut that hides every cat and brings them back. Works in any program. Clear it to turn it off |
 | Scratch app icons | on | Cats stop at an icon and claw it |
 | Shake the scratched icon | on | GNOME only. Moves the real dock icon |
@@ -123,8 +127,8 @@ restart. `npm run test:shell` and `npm run dev` avoid that.
 Bump `version` in `package.json`, commit, then push a matching tag:
 
 ```bash
-git tag v1.4.0
-git push origin v1.4.0
+git tag v1.5.0
+git push origin v1.5.0
 ```
 
 GitHub Actions builds the Windows installer, the portable zip, and the GNOME

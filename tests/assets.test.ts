@@ -76,6 +76,8 @@ describe("generated sprites", () => {
 		assert.equal(manifest.props.scratcher, 2, "upright and rocking");
 		assert.equal(manifest.props.mouse, 2, "two running frames");
 		assert.equal(manifest.animations.pounce, 2);
+		assert.equal(manifest.animations.play, 3);
+		assert.equal(manifest.animations.groom, 2);
 	});
 
 	it("has no stray frames the manifest does not know about", () => {

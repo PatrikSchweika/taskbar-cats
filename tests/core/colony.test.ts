@@ -551,6 +551,50 @@ describe("Colony", () => {
 			assert.equal(colony.cats[0].scratchTarget?.handle, icon.handle);
 		});
 
+		it("lets the cats play only when cats-play is on", () => {
+			const played = (social: boolean): boolean => {
+				const colony = new Colony(fakeHost());
+				const settings = makeSettings({ count: 2, social });
+				const world = makeWorld();
+				let any = false;
+				withRandom([0], () => {
+					colony.sync(settings, [], makeBounds());
+					colony.cats[0].x = 500;
+					colony.cats[1].x = 600;
+					for (let t = 0; t < 2; t += 1 / 30) {
+						colony.update(1 / 30, world, settings);
+						any ||= colony.cats.some((cat) => cat.play !== null);
+					}
+				});
+				colony.destroy();
+				return any;
+			};
+			assert.equal(played(false), false, "played with cats-play off");
+			assert.equal(played(true), true, "never played with cats-play on");
+		});
+
+		it("starts games more often at a higher play frequency", () => {
+			const played = (playFrequency: number): boolean => {
+				const colony = new Colony(fakeHost());
+				const settings = makeSettings({ count: 2, playFrequency });
+				let any = false;
+				// 0.005 per tick: a game at level 10 (0.4/s), never at 1 (0.04/s).
+				withRandom([0.005], () => {
+					colony.sync(settings, [], makeBounds());
+					colony.cats[0].x = 500;
+					colony.cats[1].x = 600;
+					for (let t = 0; t < 1; t += 1 / 30) {
+						colony.update(1 / 30, makeWorld(), settings);
+						any ||= colony.cats.some((cat) => cat.play !== null);
+					}
+				});
+				colony.destroy();
+				return any;
+			};
+			assert.equal(played(1), false, "played at the lowest frequency");
+			assert.equal(played(10), true, "never played at the highest");
+		});
+
 		it("does nothing at all with no cats", () => {
 			const colony = new Colony(fakeHost());
 			assert.doesNotThrow(() =>

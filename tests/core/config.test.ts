@@ -310,3 +310,27 @@ describe("settings", () => {
 		});
 	});
 });
+
+describe("cats-play", () => {
+	it("defaults to on", () => {
+		assert.equal(defaultSettings().social, true);
+	});
+	it("keeps the default for a non-boolean in a hand-edited file", () => {
+		assert.equal(normalizeSettings({ "cats-play": "yes" }).social, true);
+		assert.equal(normalizeSettings({ "cats-play": false }).social, false);
+	});
+});
+
+describe("play-frequency", () => {
+	it("defaults to the middle of its range", () => {
+		assert.equal(defaultSettings().playFrequency, 5);
+		assert.deepEqual(
+			[INT_SETTINGS.playFrequency.min, INT_SETTINGS.playFrequency.max],
+			[1, 10],
+		);
+	});
+	it("is clamped into range in a hand-edited file", () => {
+		assert.equal(normalizeSettings({ "play-frequency": 0 }).playFrequency, 1);
+		assert.equal(normalizeSettings({ "play-frequency": 99 }).playFrequency, 10);
+	});
+});

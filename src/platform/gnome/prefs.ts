@@ -134,6 +134,28 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 				5,
 			),
 		);
+		const play = switchRow(
+			settings,
+			"cats-play",
+			"Cats play together",
+			"Idle cats sometimes chase, play-fight or groom each other.",
+		);
+		const playFrequency = spinRow(
+			settings,
+			"play-frequency",
+			"Play frequency",
+			"How often idle cats start a game: 1 is rarely, 10 is all the time.",
+			1,
+			10,
+		);
+		behaviour.add(play);
+		behaviour.add(playFrequency);
+		settings.bind(
+			"cats-play",
+			playFrequency,
+			"sensitive",
+			Gio.SettingsBindFlags.GET | Gio.SettingsBindFlags.NO_SENSITIVITY,
+		);
 		behaviour.add(this._hotkeyRow(settings, window));
 
 		// -- Mischief -------------------------------------------------------

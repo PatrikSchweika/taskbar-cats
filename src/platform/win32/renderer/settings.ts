@@ -57,6 +57,10 @@ const LABELS: Record<string, { title: string; hint?: string }> = {
 		title: "Scratching posts",
 		hint: "something to claw that is not one of your icons",
 	},
+	playFrequency: {
+		title: "Play frequency",
+		hint: "how often idle cats start a game: 1 is rarely, 10 is all the time",
+	},
 	mouseInterval: {
 		title: "Mouse visits",
 		hint: "roughly this many seconds apart; every cat joins the hunt. 0 means no mice",
@@ -68,6 +72,10 @@ const LABELS: Record<string, { title: string; hint?: string }> = {
 	wiggleIcons: {
 		title: "Shake the icon being clawed",
 		hint: "not available on Windows — the taskbar belongs to explorer.exe",
+	},
+	social: {
+		title: "Cats play together",
+		hint: "idle cats sometimes chase, play-fight or groom each other",
 	},
 };
 

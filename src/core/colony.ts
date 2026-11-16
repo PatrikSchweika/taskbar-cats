@@ -20,6 +20,7 @@ import {
 	pinnedX,
 	type Span,
 } from "./props.js";
+import { Playground, playRate } from "./social.js";
 import type { CatView, IconRect, Rect, SpriteSource } from "./types.js";
 
 export const ACTIVE_INTERVAL_MS = 33; // ~30Hz while anything is happening
@@ -144,6 +145,8 @@ export class Colony {
 	mouse: Mouse | null = null;
 
 	private readonly _host: ColonyHost;
+	/** Pairs up idle cats for games and runs them. */
+	private readonly _playground = new Playground();
 	private _size = 0;
 	private _layoutKey = "";
 	private _mouseInterval = -1;
@@ -396,6 +399,13 @@ export class Colony {
 			cfg: settings as CatConfig,
 		};
 
+		// Games start and end before the cats move, so each steers by its role.
+		this._playground.update(
+			dt,
+			this.cats,
+			settings.social,
+			playRate(settings.playFrequency),
+		);
 		for (const cat of this.cats) cat.update(dt, ctx);
 
 		for (const prop of this.props)
@@ -424,6 +434,7 @@ export class Colony {
 	}
 
 	destroy(): void {
+		this._playground.clear();
 		for (const cat of this.cats) cat.destroy();
 		this.cats.length = 0;
 		for (const prop of this.props) prop.destroy();

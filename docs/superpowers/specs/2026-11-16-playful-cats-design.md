@@ -6,7 +6,7 @@ Claude's calls, made while writing the plan, and are waiting for review. Each
 one is marked *(call)*.
 
 Implementation: one plan per feature, buildable in any order:
-[cat play](../plans/2026-11-16-cat-play.md),
+cat play (already implemented),
 [food bowls](../plans/2026-11-16-food-bowls.md),
 [name tags](../plans/2026-11-16-name-tags.md) and
 [petting](../plans/2026-11-16-petting.md). Hover is shared by name tags and
@@ -48,8 +48,9 @@ a text label.
   Without bowls (the default) there is no hunger at all.
 - **Getting in the way.** Name tags, hearts and hovering must never block a
   click on the dock or taskbar. Nothing becomes reactive.
-- **Spam.** Play is occasional (about once every 25 seconds of idle colony
-  time). A cat that just played rests for 15 seconds before playing again.
+- **Spam.** Play is a regular sight but not constant (about once every 20
+  seconds of idle colony time, a sixth of the cats' time or so). A cat that
+  just played rests for 8 seconds before playing again.
 
 ## Behaviour
 
@@ -106,11 +107,13 @@ eats first and naps after.
 ### Play
 
 The colony pairs up cats. A cat is **free** when its last tick ended in IDLE,
-SIT or WALK, with no mouse, no pointer interest, no sleepiness, no hunger, no
-hover and no petting.
+SIT, WALK or RUN (a wandering cat cruises fast enough to show RUN), with no
+mouse, no pointer interest, no sleepiness, no hunger, no hover and no petting.
 
-- **Starting:** each second, with probability 0.04, the colony picks two free
-  cats within 4 cat sizes of each other that are not resting after a game.
+- **Starting:** each second, with probability 0.2 (0.04 per step of **Play
+  frequency**, default 5), the colony picks two free
+  cats within 8 cat sizes of each other that are not resting after a game.
+  Only a cat with such a partner can be picked first.
   They start one of three games, chosen at random: chase 40%, tussle 35%,
   groom 25%.
 - **Chase** (4 to 7 s): the lead runs at the other cat at full speed, and the
@@ -126,11 +129,12 @@ hover and no petting.
   facing it, and grooms it (new `groom` animation). The other cat sits facing
   the lead (existing `sit` animation).
 - **Ending:** a game ends when its time is up, or as soon as either cat stops
-  being free. Then both cats rest from play for 15 s.
+  being free. Then both cats rest from play for 8 s.
 - The two cats in a game don't push each other apart, which the existing
   separation rule would otherwise do.
 - The setting **Cats play together** (`cats-play`, default on) turns games
-  off. Turning it off ends any game in progress.
+  off. Turning it off ends any game in progress. **Play frequency**
+  (`play-frequency`, 1–10, default 5) sets how often games start.
 
 ### Hunger and bowls
 
@@ -192,14 +196,16 @@ implements it:
 | Key | Type | Default | Range | Shown as |
 |---|---|---|---|---|
 | `cats-play` | b | true | | Cats play together |
+| `play-frequency` | i | 5 | 1–10 | Play frequency |
 | `name-tags` | b | true | | Show names on hover |
 | `bowl-count` | i | 0 | 0–8 | Food bowls |
 | `hunger-after` | i | 1800 | 60–14400 | Hungry after (seconds) |
 
-All four go in the shared tables in `src/core/config.ts` and the GSettings
+All of them go in the shared tables in `src/core/config.ts` and the GSettings
 schema. The Windows settings window builds its rows from those tables. The
-GNOME preferences put the two switches under **Behaviour** and the two
-numbers under **Furniture and toys**.
+GNOME preferences put the two switches and Play frequency (greyed out while
+play is off) under **Behaviour**, and the bowl numbers under **Furniture and
+toys**.
 
 ## Testing
 
