@@ -1323,84 +1323,102 @@ describe("Colony", () => {
 				assert.equal(view.destroyed, true);
 		});
 	});
-});
 
-describe("catUnderPointer", () => {
-	// floor 900, size 48: the square spans x 376..424 and y 852..900
-	const floorY = 900;
-	const colonyWith = (xs: number[], scale = 1) => {
+	describe("catUnderPointer", () => {
+		// floor 900, size 48: the square spans x 376..424 and y 852..900
+		const floorY = 900;
+		const colonyWith = (xs: number[], size = 48) => {
+			const colony = new Colony(fakeHost());
+			colony.sync(makeSettings({ count: xs.length }), [], makeBounds());
+			colony.cats.forEach((cat, i) => {
+				cat.x = xs[i];
+				cat.size = size;
+			});
+			return colony.cats;
+		};
+
+		it("finds the cat whose square holds the pointer", () => {
+			const cats = colonyWith([400, 600]);
+			assert.equal(catUnderPointer(cats, { x: 410, y: 870 }, floorY), cats[0]);
+		});
+
+		it("returns null above the cat's head", () => {
+			const cats = colonyWith([400, 600]);
+			assert.equal(catUnderPointer(cats, { x: 400, y: 851 }, floorY), null);
+		});
+
+		it("prefers the cat drawn on top when two overlap", () => {
+			const cats = colonyWith([400, 410]);
+			assert.equal(catUnderPointer(cats, { x: 405, y: 880 }, floorY), cats[1]);
+		});
+
+		it("finds a cat at 2x by its on-screen square", () => {
+			// logical 48 at scale 2 is 96 on screen: (400, 810) is inside it.
+			const cats = colonyWith([400], 96);
+			assert.equal(catUnderPointer(cats, { x: 400, y: 810 }, floorY), cats[0]);
+		});
+	});
+
+	it("marks only the cat under the pointer as hovered", () => {
 		const host = fakeHost();
 		const colony = new Colony(host);
-		colony.sync(makeSettings({ count: xs.length }), [], makeBounds());
-		host.views.forEach((v) => {
-			v.scale = scale;
+		const settings = makeSettings({ count: 2 });
+		colony.sync(settings, [], makeBounds());
+		colony.cats[0].x = 400;
+		colony.cats[1].x = 700;
+		colony.update(
+			1 / 30,
+			makeWorld({ pointer: { x: 700, y: 880, idleTime: 0 } }),
+			settings,
+		);
+		assert.deepEqual(
+			colony.cats.map((c) => c.hovered),
+			[false, true],
+		);
+	});
+
+	it("shows a hovered cat's name from the settings", () => {
+		const host = fakeHost();
+		const colony = new Colony(host);
+		const settings = makeSettings({ count: 1, catNames: ["Miso"] });
+		colony.sync(settings, [], makeBounds());
+		colony.cats[0].x = 400;
+		const world = makeWorld({ pointer: { x: 400, y: 880, idleTime: 0 } });
+		for (let i = 0; i < 15; i++) colony.update(1 / 30, world, settings);
+		assert.equal(host.labels.length, 1);
+		assert.equal(host.labels[0].text, "Miso");
+		assert.equal(host.labels[0].visible, true);
+	});
+
+	it("destroys the label with the colony", () => {
+		const host = fakeHost();
+		const colony = new Colony(host);
+		const settings = makeSettings({ count: 1 });
+		colony.sync(settings, [], makeBounds());
+		colony.update(1 / 30, makeWorld(), settings);
+		colony.destroy();
+		assert.equal(host.labels[0].destroyed, true);
+	});
+
+	it("lets a cat under a resting pointer fall asleep, and hides its name", () => {
+		const host = fakeHost();
+		const colony = new Colony(host);
+		const settings = makeSettings({
+			count: 1,
+			sleepAfter: 1,
+			catNames: ["Miso"],
 		});
-		colony.cats.forEach((cat, i) => {
-			cat.x = xs[i];
-			cat.size = 48 * scale;
-		});
-		return colony.cats;
-	};
+		colony.sync(settings, [], makeBounds());
+		colony.cats[0].x = 400;
+		const parked = makeWorld({ pointer: { x: 400, y: 880, idleTime: 60 } });
+		for (let t = 0; t < 8; t += 1 / 30) colony.update(1 / 30, parked, settings);
+		assert.equal(colony.cats[0].hovered, false);
+		assert.equal(colony.allAsleep(settings), true);
+		assert.equal(host.labels[0]?.visible ?? false, false);
 
-	it("finds the cat whose square holds the pointer", () => {
-		const cats = colonyWith([400, 600]);
-		assert.equal(catUnderPointer(cats, { x: 410, y: 870 }, floorY), cats[0]);
+		// Moving the pointer again brings the tag back.
+		const moved = makeWorld({ pointer: { x: 400, y: 880, idleTime: 0 } });
+		for (let i = 0; i < 15; i++) colony.update(1 / 30, moved, settings);
+		assert.equal(host.labels[0].visible, true);
 	});
-
-	it("returns null above the cat's head", () => {
-		const cats = colonyWith([400, 600]);
-		assert.equal(catUnderPointer(cats, { x: 400, y: 851 }, floorY), null);
-	});
-
-	it("prefers the cat drawn on top when two overlap", () => {
-		const cats = colonyWith([400, 410]);
-		assert.equal(catUnderPointer(cats, { x: 405, y: 880 }, floorY), cats[1]);
-	});
-
-	it("finds a cat at 2x by its on-screen square", () => {
-		// logical 48 at scale 2 is 96 on screen: (400, 810) is inside it.
-		const cats = colonyWith([400], 2);
-		assert.equal(catUnderPointer(cats, { x: 400, y: 810 }, floorY), cats[0]);
-	});
-});
-
-it("marks only the cat under the pointer as hovered", () => {
-	const host = fakeHost();
-	const colony = new Colony(host);
-	const settings = makeSettings({ count: 2 });
-	colony.sync(settings, [], makeBounds());
-	colony.cats[0].x = 400;
-	colony.cats[1].x = 700;
-	colony.update(
-		1 / 30,
-		makeWorld({ pointer: { x: 700, y: 880, idleTime: 0 } }),
-		settings,
-	);
-	assert.deepEqual(
-		colony.cats.map((c) => c.hovered),
-		[false, true],
-	);
-});
-
-it("shows a hovered cat's name from the settings", () => {
-	const host = fakeHost();
-	const colony = new Colony(host);
-	const settings = makeSettings({ count: 1, catNames: ["Miso"] });
-	colony.sync(settings, [], makeBounds());
-	colony.cats[0].x = 400;
-	const world = makeWorld({ pointer: { x: 400, y: 880, idleTime: 0 } });
-	for (let i = 0; i < 15; i++) colony.update(1 / 30, world, settings);
-	assert.equal(host.labels.length, 1);
-	assert.equal(host.labels[0].text, "Miso");
-	assert.equal(host.labels[0].visible, true);
-});
-
-it("destroys the label with the colony", () => {
-	const host = fakeHost();
-	const colony = new Colony(host);
-	const settings = makeSettings({ count: 1 });
-	colony.sync(settings, [], makeBounds());
-	colony.update(1 / 30, makeWorld(), settings);
-	colony.destroy();
-	assert.equal(host.labels[0].destroyed, true);
 });

@@ -509,7 +509,13 @@ export class Colony {
 		if (rubbed instanceof Prop && rubbed.kind === "bowl") rubbed.refill();
 
 		// The cat under the pointer holds still; mark it before the cats move.
-		const hovered = catUnderPointer(this.cats, world.pointer, world.floorY);
+		// A pointer parked past the sleep delay hovers nothing, or the cat it
+		// stopped on could never nap or eat, and the colony never sleep.
+		const resting =
+			settings.sleepAfter > 0 && world.pointer.idleTime > settings.sleepAfter;
+		const hovered = resting
+			? null
+			: catUnderPointer(this.cats, world.pointer, world.floorY);
 		for (const cat of this.cats) cat.hovered = cat === hovered;
 
 		// Games start and end before the cats move, so each steers by its role.

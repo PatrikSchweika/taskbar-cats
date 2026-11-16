@@ -693,6 +693,7 @@ export class Cat {
 			if (this.stateTime >= POUNCE_SECONDS) this._setState(State.IDLE);
 		} else if (underPointer) {
 			this._setState(State.ALERT);
+			this._face(pointer.x);
 		} else if (this.state === State.EAT) {
 			if (this.stateTime >= EAT_SECONDS && meal) {
 				meal.food = Math.max(0, meal.food - 1);
