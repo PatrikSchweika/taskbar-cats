@@ -21,6 +21,7 @@ import {
 import { defaultSettings, type Settings } from "../../../core/config.js";
 import type { Layout, SpriteManifest } from "../ipc.js";
 import { DomCatView } from "./catView.js";
+import { DomLabelView } from "./labelView.js";
 import { WebSpriteSet } from "./sprites.js";
 
 /** The API preload.ts exposes. */
@@ -44,11 +45,12 @@ const BAR_GAP = 8;
 
 async function main(): Promise<void> {
 	const stage = document.getElementById("stage");
+	const tags = document.getElementById("tags");
 	const bar = document.getElementById("arrange-bar");
 	const hint = document.getElementById("arrange-hint");
 	const reset = document.getElementById("arrange-reset");
 	const done = document.getElementById("arrange-done");
-	if (!stage || !bar || !hint || !reset || !done)
+	if (!stage || !tags || !bar || !hint || !reset || !done)
 		throw new Error("taskbar-cats: the overlay markup is missing");
 
 	const sprites = await WebSpriteSet.load(await cats.manifest());
@@ -63,6 +65,7 @@ async function main(): Promise<void> {
 			return view;
 		},
 		createToyView: () => new DomCatView(stage, { behind: true }),
+		createLabelView: () => new DomLabelView(tags),
 	});
 	const pointer = new PointerTracker();
 

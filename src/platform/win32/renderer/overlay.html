@@ -29,6 +29,28 @@
 				inset: 0;
 			}
 
+			/* Name tags: above the cats, never catching the pointer. */
+			#tags {
+				position: absolute;
+				inset: 0;
+				pointer-events: none;
+			}
+
+			.tag {
+				position: absolute;
+				top: 0;
+				left: 0;
+				background: rgba(20, 20, 20, 0.8);
+				color: #fff;
+				font:
+					12px system-ui,
+					sans-serif;
+				border-radius: 4px;
+				padding: 1px 6px;
+				white-space: nowrap;
+				pointer-events: none;
+			}
+
 			.cat {
 				position: absolute;
 				top: 0;
@@ -102,6 +124,7 @@
 	</head>
 	<body>
 		<div id="stage"></div>
+		<div id="tags"></div>
 		<div id="arrange-bar" hidden>
 			<span id="arrange-hint"></span>
 			<button id="arrange-reset" type="button">Reset all</button>

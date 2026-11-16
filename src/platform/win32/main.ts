@@ -37,12 +37,13 @@ import {
 import electronUpdater from "electron-updater";
 
 import { ACTIVE_INTERVAL_MS } from "../../core/colony.js";
-import { CAT_SIZE_MAX, type Settings } from "../../core/config.js";
+import type { Settings } from "../../core/config.js";
 import { parseAccelerator, toElectronAccelerator } from "../../core/hotkey.js";
 import { parseManifest, type SpriteManifest } from "../../core/sprites.js";
 import { ConfigStore } from "./config.js";
 import { CHANNELS, type Layout, type SettingsDescription } from "./ipc.js";
 import { loadShell, type Win32Shell } from "./native.js";
+import { stripHeight } from "./strip.js";
 import {
 	type Desktop,
 	type Display,
@@ -148,10 +149,6 @@ function createUpdater(): Updater {
 
 /** How often the taskbar's shape and icon list are re-read. */
 const LAYOUT_INTERVAL_MS = 500;
-/** The tallest a cat can be, from the per-cat size setting's maximum. */
-const MAX_CAT_HEIGHT = CAT_SIZE_MAX;
-/** Head-room above the cats so a tall sprite is never clipped. */
-const STRIP_SLACK = 24;
 
 interface Overlay {
 	window: BrowserWindow;
@@ -221,10 +218,7 @@ function asDisplay(display: Electron.Display | undefined): Display | null {
  */
 function stripFor(desktop: Desktop): Electron.Rectangle {
 	const overTaskbar = desktop.edge === "bottom" ? desktop.taskbar.h : 0;
-	const height = Math.min(
-		desktop.monitor.h,
-		Math.round(overTaskbar + MAX_CAT_HEIGHT + STRIP_SLACK),
-	);
+	const height = stripHeight(overTaskbar, desktop.monitor.h);
 	return {
 		x: desktop.monitor.x,
 		y: desktop.monitor.y + desktop.monitor.h - height,
