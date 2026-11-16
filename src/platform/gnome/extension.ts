@@ -75,6 +75,8 @@ export default class TaskbarCatsExtension extends Extension {
 	/** Set by the hotkey. Runtime only: a fresh enable always shows the cats. */
 	private _hidden = false;
 	private _arranging: Arranging | null = null;
+	/** Set while {@link _savePositions} writes, which re-lays out once after. */
+	private _savingPositions = false;
 
 	private readonly _pointer = new PointerTracker();
 	private _lastTick = 0;
@@ -253,7 +255,7 @@ export default class TaskbarCatsExtension extends Extension {
 
 	private _onSettingChanged(key: string): void {
 		const rt = this._rt;
-		if (!rt) return;
+		if (!rt || this._savingPositions) return;
 		this._readConfig(rt);
 		if (
 			key === INT_SETTINGS.count.key ||
@@ -459,15 +461,26 @@ export default class TaskbarCatsExtension extends Extension {
 		);
 	}
 
+	/**
+	 * Write a patch of position lists, laying the furniture out once rather
+	 * than once per list. `settings.delay()` would not do it: GSettings still
+	 * emits `changed` for each write as it is made, and once delayed a
+	 * settings object stays delayed, holding back every later write too.
+	 */
 	private _savePositions(rt: Runtime, patch: PositionPatch): void {
-		for (const [name, list] of Object.entries(patch) as [
-			PositionList,
-			number[],
-		][])
-			rt.settings.set_value(
-				POSITION_SETTINGS[name].key,
-				new GLib.Variant("ai", list),
-			);
+		const entries = Object.entries(patch) as [PositionList, number[]][];
+		this._savingPositions = true;
+		try {
+			for (const [name, list] of entries)
+				rt.settings.set_value(
+					POSITION_SETTINGS[name].key,
+					new GLib.Variant("ai", list),
+				);
+		} finally {
+			this._savingPositions = false;
+		}
+		const last = entries.at(-1);
+		if (last) this._onSettingChanged(POSITION_SETTINGS[last[0]].key);
 	}
 
 	/** Shake the icons being clawed this tick; release the ones that are not. */

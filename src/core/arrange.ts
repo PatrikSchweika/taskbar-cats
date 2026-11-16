@@ -94,7 +94,6 @@ export class Arranger {
 
 	/** @returns true when the press landed on a prop. */
 	press(time: number, x: number, y: number, floorY: number): boolean {
-		this._idle = 0;
 		const prop = propUnderPointer(this._colony.props, { x, y }, floorY);
 		this._pressed = prop;
 		this._dragging = false;
@@ -102,6 +101,8 @@ export class Arranger {
 			this._lastClick = null;
 			return false;
 		}
+		// Only a press on the furniture counts as arranging.
+		this._idle = 0;
 		this._pressX = x;
 		this._pressTime = time;
 		this._grabOffset = prop.x - x;
@@ -130,11 +131,12 @@ export class Arranger {
 	 */
 	release(time: number, settings: Settings, roam: Span): PositionPatch | null {
 		void time;
-		this._idle = 0;
 		const prop = this._pressed;
 		const dragged = this._dragging;
 		this._pressed = null;
 		this._dragging = false;
+		// A long drag counts as arranging the whole time it is held.
+		if (prop) this._idle = 0;
 		if (!prop || !this._colony.props.includes(prop)) {
 			this._lastClick = null;
 			return null;
@@ -172,7 +174,10 @@ export class Arranger {
 		this._lastClick = null;
 	}
 
-	/** @returns false once {@link ARRANGE_TIMEOUT} passes with no press. */
+	/**
+	 * @returns false once {@link ARRANGE_TIMEOUT} passes with no press on the
+	 * furniture. Presses that miss it don't count.
+	 */
 	tick(dt: number): boolean {
 		this._idle += dt;
 		return this._idle < ARRANGE_TIMEOUT;

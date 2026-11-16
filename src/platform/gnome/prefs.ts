@@ -221,7 +221,7 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 				settings,
 				ARRANGE_KEY,
 				"Arrange on screen",
-				"Drag the furniture where you want it, right on the dock",
+				"Drag the furniture where you want it, right on the dock.",
 			),
 		);
 		toys.add(this._positionsRow(settings, "bed-count", "bed-positions", "Bed"));

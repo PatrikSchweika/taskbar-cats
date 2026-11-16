@@ -20,7 +20,11 @@ const PINNED_CLASS = "taskbar-cats-pinned";
  * every cat means clicks pass straight through to the dock underneath.
  *
  * The one exception is arrange mode ({@link setArranging}), when the furniture
- * — and only the furniture — takes presses so it can be dragged.
+ * — and only the furniture — takes presses so it can be dragged. For that
+ * span each prop is tracked as chrome with `trackChrome()`: on X11 the stage
+ * only receives clicks inside the chrome input region, so a reactive actor
+ * that isn't tracked would still pass its clicks to the window underneath.
+ * (Wayland picks through the stage and doesn't need it.)
  */
 export class CatLayer {
 	actor: St.Widget;
@@ -100,9 +104,9 @@ export class CatLayer {
 	 * Let the furniture be dragged, or stop.
 	 *
 	 * While on, every prop view — including any made later — is reactive,
-	 * outlined, and hands primary-button presses to `onPress`, stopping them
-	 * there so the dock underneath never sees them. Cats stay click-through.
-	 * Turning it off undoes all of it.
+	 * outlined, in the input region, and hands primary-button presses to
+	 * `onPress`, stopping them there so the dock underneath never sees them.
+	 * Cats stay click-through. Turning it off undoes all of it.
 	 */
 	setArranging(on: boolean, onPress?: PressHandler): void {
 		for (const view of this._propViews.keys()) this._unarrange(view);
@@ -134,11 +138,17 @@ export class CatLayer {
 			},
 		);
 		this._propViews.set(view, id);
+		// A prop destroyed while tracked needs no untracking here: the
+		// LayoutManager untracks an actor itself when it is destroyed.
+		Main.layoutManager.trackChrome(view.actor, { affectsInputRegion: true });
 	}
 
 	private _unarrange(view: GnomeCatView): void {
 		const id = this._propViews.get(view);
-		if (id) view.actor.disconnect(id);
+		if (id) {
+			view.actor.disconnect(id);
+			Main.layoutManager.untrackChrome(view.actor);
+		}
 		this._propViews.set(view, 0);
 		view.actor.reactive = false;
 		view.actor.remove_style_class_name(ARRANGING_CLASS);

@@ -32,7 +32,20 @@ class Signalled {
 	}
 }
 
+/** The chrome parameters the extension may pass to `trackChrome`. */
+export interface ChromeParams {
+	affectsInputRegion?: boolean;
+	affectsStruts?: boolean;
+	trackFullscreen?: boolean;
+}
+
 class LayoutManager extends Signalled {
+	/**
+	 * Actors tracked as chrome, with the parameters they were tracked with.
+	 * On X11 these are what the stage's input region covers.
+	 */
+	tracked = new Map<FakeActor, ChromeParams>();
+	private _trackedDestroyIds = new Map<FakeActor, number>();
 	uiGroup = new FakeActor({ name: "uiGroup" });
 	overviewGroup = new FakeActor({ name: "overviewGroup" });
 	primaryMonitor: FakeMonitor | null = {
@@ -45,6 +58,31 @@ class LayoutManager extends Signalled {
 	monitorForActor: FakeMonitor | null = null;
 	findMonitorForActor(_actor: FakeActor): FakeMonitor | null {
 		return this.monitorForActor ?? this.primaryMonitor;
+	}
+	/**
+	 * As in GNOME Shell's layout.js: tracking an actor twice throws, and a
+	 * tracked actor is untracked by itself when it is destroyed.
+	 */
+	trackChrome(actor: FakeActor, params: ChromeParams = {}): void {
+		if (this.tracked.has(actor))
+			throw new Error("trying to re-track existing chrome actor");
+		this.tracked.set(actor, { ...params });
+		this._trackedDestroyIds.set(
+			actor,
+			actor.connect("destroy", () => this.untrackChrome(actor)),
+		);
+	}
+	/** Untracking an actor that isn't tracked does nothing, as in GNOME. */
+	untrackChrome(actor: FakeActor): void {
+		const id = this._trackedDestroyIds.get(actor);
+		if (id === undefined) return;
+		this._trackedDestroyIds.delete(actor);
+		this.tracked.delete(actor);
+		actor.disconnect(id);
+	}
+	clearTracked(): void {
+		this.tracked.clear();
+		this._trackedDestroyIds.clear();
 	}
 }
 
@@ -94,6 +132,7 @@ export function __reset(): void {
 	overview.clearHandlers();
 	extensionManager.clearHandlers();
 	wm.bindings.clear();
+	layoutManager.clearTracked();
 	layoutManager.uiGroup.children = [];
 	layoutManager.overviewGroup.children = [];
 	layoutManager.uiGroup.add_child(layoutManager.overviewGroup);

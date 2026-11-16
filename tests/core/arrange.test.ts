@@ -139,4 +139,12 @@ describe("Arranger", () => {
 		assert.equal(arranger.tick(119), true);
 		assert.equal(arranger.tick(2), false);
 	});
+
+	it("a press that misses the furniture does not keep it going", () => {
+		const { settings, arranger } = setup();
+		assert.equal(arranger.tick(119), true);
+		assert.equal(arranger.press(119, 5, floorY - 10, floorY), false);
+		arranger.release(119.1, settings, roam);
+		assert.equal(arranger.tick(2), false);
+	});
 });

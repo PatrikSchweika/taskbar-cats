@@ -1,5 +1,6 @@
 import type Clutter from "gi://Clutter";
 import St from "gi://St";
+import * as Main from "resource:///org/gnome/shell/ui/main.js";
 
 import { ARRANGE_EMPTY_HINT, ARRANGE_HINT } from "../../core/arrange.js";
 
@@ -13,7 +14,8 @@ export interface ArrangeBarHandlers {
 /**
  * The toolbar that stands above the floor in arrange mode: a hint, **Reset
  * all** and **Done**. Apart from the furniture it is the only thing on the
- * overlay that takes the mouse, and only while arranging.
+ * overlay that takes the mouse, and only while arranging. Like the furniture
+ * it is tracked as chrome for as long as it exists, so it takes clicks on X11.
  */
 export class ArrangeBar {
 	readonly actor: St.BoxLayout;
@@ -33,6 +35,7 @@ export class ArrangeBar {
 		this.actor.add_child(this._button("Reset all", () => handlers.reset()));
 		this.actor.add_child(this._button("Done", () => handlers.done()));
 		parent.add_child(this.actor);
+		Main.layoutManager.trackChrome(this.actor, { affectsInputRegion: true });
 	}
 
 	/**
@@ -57,6 +60,7 @@ export class ArrangeBar {
 	}
 
 	destroy(): void {
+		Main.layoutManager.untrackChrome(this.actor);
 		this.actor.destroy();
 	}
 

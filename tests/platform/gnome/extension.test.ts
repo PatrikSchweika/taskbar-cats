@@ -116,6 +116,14 @@ function arrangeBar(): FakeActor | undefined {
 	);
 }
 
+/**
+ * What the shell tracks as chrome. On X11 only chrome is in the stage's input
+ * region, so anything that must take a click has to be here.
+ */
+function tracked(): FakeActor[] {
+	return [...Main.layoutManager.tracked.keys()];
+}
+
 /** Click the toolbar button with this label. */
 function clickBarButton(label: string): void {
 	const bar = arrangeBar();
@@ -153,6 +161,16 @@ describe("TaskbarCatsExtension", () => {
 			assert.equal(layer.reactive, false);
 			for (const cat of layer.get_children())
 				assert.equal((cat as { reactive: boolean }).reactive, false);
+		});
+
+		it("tracks nothing as chrome outside arrange mode", () => {
+			enableExtension({
+				"bed-count": 2,
+				"scratcher-count": 1,
+				"bowl-count": 1,
+			});
+			tick(5);
+			assert.deepEqual(tracked(), []);
 		});
 
 		it("starts a tick", () => {
@@ -414,6 +432,30 @@ describe("TaskbarCatsExtension", () => {
 			for (const cat of catActors()) assert.equal(cat.reactive, false);
 		});
 
+		it("lets the furniture and the toolbar take clicks on X11", () => {
+			arranging({ "bed-count": 2, "bowl-count": 1 });
+			const bar = arrangeBar();
+			assert.ok(bar);
+			assert.equal(propActors().length, 3);
+			assert.deepEqual(new Set(tracked()), new Set([...propActors(), bar]));
+			for (const params of Main.layoutManager.tracked.values())
+				assert.equal(params.affectsInputRegion, true);
+			for (const cat of catActors()) assert.ok(!tracked().includes(cat));
+		});
+
+		it("tracks furniture made while arranging, and forgets what is gone", () => {
+			const { settings } = arranging();
+			settings.__change("bed-count", 3);
+			tick();
+			const bar = arrangeBar();
+			assert.ok(bar);
+			assert.equal(propActors().length, 3);
+			assert.deepEqual(new Set(tracked()), new Set([...propActors(), bar]));
+			settings.__change("bed-count", 0);
+			tick();
+			assert.deepEqual(tracked(), [bar]);
+		});
+
 		it("drags a bed and saves where it lands", () => {
 			const { settings } = arranging();
 			const [bed] = propActors();
@@ -505,6 +547,7 @@ describe("TaskbarCatsExtension", () => {
 			assert.equal(mouse.reactive, false);
 			assert.ok(!mouse.has_style_class_name("taskbar-cats-arranging"));
 			assert.equal(mouse.handlerCount(), 0, "no press handler");
+			assert.ok(!tracked().includes(mouse), "the mouse is never chrome");
 		});
 
 		it("keeps the toolbar in front of cats added after it", () => {
@@ -538,6 +581,7 @@ describe("TaskbarCatsExtension", () => {
 			clickBarButton("Done");
 			assert.equal(settings.values["arrange-mode"], false);
 			assert.deepEqual(reactiveActors(), []);
+			assert.deepEqual(tracked(), []);
 			assert.equal(arrangeBar(), undefined);
 		});
 
@@ -545,15 +589,26 @@ describe("TaskbarCatsExtension", () => {
 			const { settings } = arranging();
 			settings.__change("arrange-mode", false);
 			assert.deepEqual(reactiveActors(), []);
+			assert.deepEqual(tracked(), []);
 			assert.equal(arrangeBar(), undefined);
 		});
 
 		it("Reset all clears every position", () => {
-			const { settings } = arranging({
+			const { ext, settings } = arranging({
 				"bed-positions": [10],
 				"bowl-positions": [50],
 			});
+			const { colony } = (
+				ext as unknown as { _rt: { colony: { sync(...a: unknown[]): void } } }
+			)._rt;
+			const sync = colony.sync.bind(colony);
+			let layouts = 0;
+			colony.sync = (...args: unknown[]): void => {
+				layouts++;
+				sync(...args);
+			};
 			clickBarButton("Reset all");
+			assert.equal(layouts, 1, "lays the furniture out once, not per list");
 			assert.deepEqual(settings.values["bed-positions"], []);
 			assert.deepEqual(settings.values["scratcher-positions"], []);
 			assert.deepEqual(settings.values["bowl-positions"], []);
@@ -566,6 +621,7 @@ describe("TaskbarCatsExtension", () => {
 			tick(2 * 30);
 			assert.equal(settings.values["arrange-mode"], false);
 			assert.deepEqual(reactiveActors(), []);
+			assert.deepEqual(tracked(), []);
 		});
 
 		it("ends when the cats are hidden", () => {
@@ -573,6 +629,7 @@ describe("TaskbarCatsExtension", () => {
 			Main.wm.__press("toggle-hotkey");
 			assert.equal(settings.values["arrange-mode"], false);
 			assert.deepEqual(reactiveActors(), []);
+			assert.deepEqual(tracked(), []);
 		});
 
 		it("ends when the overview opens", () => {
@@ -581,6 +638,7 @@ describe("TaskbarCatsExtension", () => {
 			tick();
 			assert.equal(settings.values["arrange-mode"], false);
 			assert.deepEqual(reactiveActors(), []);
+			assert.deepEqual(tracked(), []);
 		});
 
 		it("keeps the tick fast while arranging", () => {
@@ -608,6 +666,7 @@ describe("TaskbarCatsExtension", () => {
 			ext.disable();
 			for (const prop of props) assert.equal(prop.reactive, false);
 			assert.equal(bar.destroyed, true);
+			assert.deepEqual(tracked(), []);
 			assert.equal(settings.values["arrange-mode"], false);
 			assert.deepEqual(testEnv().loggedErrors, []);
 		});
