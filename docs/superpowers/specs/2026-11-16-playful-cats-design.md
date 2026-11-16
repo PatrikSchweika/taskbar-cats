@@ -48,8 +48,9 @@ a text label.
   Without bowls (the default) there is no hunger at all.
 - **Getting in the way.** Name tags, hearts and hovering must never block a
   click on the dock or taskbar. Nothing becomes reactive.
-- **Spam.** Play is occasional (about once every 25 seconds of idle colony
-  time). A cat that just played rests for 15 seconds before playing again.
+- **Spam.** Play is a regular sight but not constant (about once every 20
+  seconds of idle colony time, a sixth of the cats' time or so). A cat that
+  just played rests for 8 seconds before playing again.
 
 ## Behaviour
 
@@ -106,11 +107,12 @@ eats first and naps after.
 ### Play
 
 The colony pairs up cats. A cat is **free** when its last tick ended in IDLE,
-SIT or WALK, with no mouse, no pointer interest, no sleepiness, no hunger, no
-hover and no petting.
+SIT, WALK or RUN (a wandering cat cruises fast enough to show RUN), with no
+mouse, no pointer interest, no sleepiness, no hunger, no hover and no petting.
 
-- **Starting:** each second, with probability 0.04, the colony picks two free
-  cats within 4 cat sizes of each other that are not resting after a game.
+- **Starting:** each second, with probability 0.2, the colony picks two free
+  cats within 8 cat sizes of each other that are not resting after a game.
+  Only a cat with such a partner can be picked first.
   They start one of three games, chosen at random: chase 40%, tussle 35%,
   groom 25%.
 - **Chase** (4 to 7 s): the lead runs at the other cat at full speed, and the
@@ -126,7 +128,7 @@ hover and no petting.
   facing it, and grooms it (new `groom` animation). The other cat sits facing
   the lead (existing `sit` animation).
 - **Ending:** a game ends when its time is up, or as soon as either cat stops
-  being free. Then both cats rest from play for 15 s.
+  being free. Then both cats rest from play for 8 s.
 - The two cats in a game don't push each other apart, which the existing
   separation rule would otherwise do.
 - The setting **Cats play together** (`cats-play`, default on) turns games

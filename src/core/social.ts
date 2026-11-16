@@ -31,12 +31,16 @@ export interface Game {
 	tagPause: number;
 }
 
-/** Chance per second that two free cats start a game. */
-export const PLAY_RATE = 0.04;
+/**
+ * Chance per second that two free cats start a game: about one every five
+ * seconds while a pair is ready. Most of the time no pair is (cats are busy,
+ * resting or too far apart), so a colony plays every 20 s or so.
+ */
+export const PLAY_RATE = 0.2;
 /** How close two cats must be, in cat sizes, to start a game. */
-export const PLAY_RANGE = 4;
+export const PLAY_RANGE = 8;
 /** Seconds a cat rests from play after a game ends. */
-export const PLAY_REST = 15;
+export const PLAY_REST = 8;
 /** How close the chaser must get, in cat sizes, to tag the other cat. */
 export const TAG_REACH = 0.4;
 /** Seconds after a tag before the next one counts. */
@@ -55,6 +59,11 @@ export const GAME_SECONDS: Record<GameKind, [number, number]> = {
 };
 
 const KINDS: readonly GameKind[] = ["chase", "tussle", "groom"];
+
+/** Whether two cats are close enough to start a game. */
+function inRange(a: Cat, b: Cat): boolean {
+	return Math.abs(a.x - b.x) <= PLAY_RANGE * Math.max(a.size, b.size);
+}
 
 function pickKind(roll: number): GameKind {
 	let sum = 0;
@@ -76,7 +85,8 @@ export class Playground {
 	 * steered by on this one.
 	 *
 	 * Math.random is consumed in a fixed order, which the tests rely on: the
-	 * start roll, the first cat, its partner, the kind, the duration.
+	 * start roll, the first cat (among those with a partner in range), its
+	 * partner, the kind, the duration.
 	 */
 	update(dt: number, cats: readonly Cat[], enabled: boolean): void {
 		// 1. End the games that are over.
@@ -121,14 +131,13 @@ export class Playground {
 		// 4. Maybe start a game.
 		if (!enabled || Math.random() >= PLAY_RATE * dt) return;
 		const ready = cats.filter((cat) => cat.free && !this._rest.has(cat));
-		if (ready.length < 2) return;
-		const a = ready[Math.floor(Math.random() * ready.length)];
-		const near = ready.filter(
-			(cat) =>
-				cat !== a &&
-				Math.abs(cat.x - a.x) <= PLAY_RANGE * Math.max(a.size, cat.size),
-		);
-		if (!near.length) return;
+		const nearTo = (a: Cat) => ready.filter((b) => b !== a && inRange(a, b));
+		// Only cats with someone to play with, so the roll is never wasted on
+		// a cat off on its own while a pair elsewhere is ready.
+		const firsts = ready.filter((cat) => nearTo(cat).length > 0);
+		if (!firsts.length) return;
+		const a = firsts[Math.floor(Math.random() * firsts.length)];
+		const near = nearTo(a);
 		const b = near[Math.floor(Math.random() * near.length)];
 		const kind = pickKind(Math.random());
 		const [min, max] = GAME_SECONDS[kind];

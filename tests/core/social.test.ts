@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { Cat } from "../../src/core/cat.ts";
 import {
 	type GameKind,
+	PLAY_RATE,
 	PLAY_REST,
 	Playground,
 	TAG_PAUSE,
@@ -63,7 +64,7 @@ describe("Playground", () => {
 		assert.equal(cats[0].play, null);
 	});
 
-	it("pairs two free cats within four sizes", () => {
+	it("pairs two free cats that are close", () => {
 		const [a, b] = settledCats(400, 500);
 		const pg = new Playground();
 		withRandom([0, 0, 0, 0, 0.5], () => pg.update(DT, [a, b], true));
@@ -75,11 +76,37 @@ describe("Playground", () => {
 		assert.deepEqual(b.play, { kind: "chase", partner: a, lead: false });
 	});
 
-	it("never pairs cats more than four sizes apart", () => {
-		const cats = settledCats(400, 700);
+	it("pairs cats up to eight sizes apart", () => {
+		// 380 px apart, at size 48 eight sizes is 384.
+		const cats = settledCats(400, 780);
+		const pg = new Playground();
+		withRandom([0, 0, 0, 0, 0], () => pg.update(DT, cats, true));
+		assert.equal(pg.games.length, 1);
+	});
+
+	it("never pairs cats more than eight sizes apart", () => {
+		const cats = settledCats(400, 800);
 		const pg = new Playground();
 		withRandom([0], () => tick(pg, cats, 1));
 		assert.equal(pg.games.length, 0);
+	});
+
+	it("starts games often enough to notice", () => {
+		// Two free cats side by side: about one game within five seconds.
+		assert.ok(PLAY_RATE * 5 >= 1, `only ${PLAY_RATE} games a second`);
+		assert.ok(PLAY_REST <= 10, `rests ${PLAY_REST} s between games`);
+	});
+
+	it("only picks a first cat that has someone to play with", () => {
+		// The cat at 100 is alone; the roll that picks the first cat must not
+		// land on it and waste the chance of a game between the other two.
+		const cats = settledCats(100, 1000, 1100);
+		const [, b, c] = cats;
+		const pg = new Playground();
+		withRandom([0, 0, 0, 0, 0], () => pg.update(DT, cats, true));
+		assert.equal(pg.games.length, 1);
+		assert.equal(pg.games[0].a, b);
+		assert.equal(pg.games[0].b, c);
 	});
 
 	it("picks tussle and groom by the odds", () => {
@@ -138,7 +165,7 @@ describe("Playground", () => {
 		assert.ok(most >= 2, `only ever ${most} games at once`);
 	});
 
-	it("ends the game when either cat is interrupted, and rests both for 15 s", () => {
+	it("ends the game when either cat is interrupted, and rests both", () => {
 		const cats = settledCats(400, 500);
 		const [a, b] = cats;
 		const pg = new Playground();
