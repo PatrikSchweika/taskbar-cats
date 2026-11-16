@@ -1356,3 +1356,30 @@ describe("Cat", () => {
 		});
 	});
 });
+
+describe("hover", () => {
+	it("holds still and looks up while the pointer is over it", () => {
+		// Pointer right on the cat, near the floor: without hover the fan-out
+		// would walk cat 0 of 3 to a slot beside the pointer.
+		const cats = [0, 1, 2].map((i) => makeCat({ x: 400 + i * 200, index: i }));
+		const ctx = makeContext({
+			neighbours: cats,
+			pointer: { x: 400, y: 880, idleTime: 0 },
+		});
+		cats[0].hovered = true;
+		run(cats, ctx, 1);
+		assert.ok(Math.abs(cats[0].x - 400) < 1);
+		assert.equal(cats[0].state, State.ALERT);
+	});
+
+	it("still runs after a mouse while hovered", () => {
+		const cat = makeCat({ x: 400 });
+		const ctx = makeContext({
+			mouse: makeMouse(900, 1),
+			pointer: { x: 400, y: 880, idleTime: 0 },
+		});
+		cat.hovered = true;
+		run([cat], ctx, 1);
+		assert.ok(cat.x > 450, `cat stayed at ${cat.x}`);
+	});
+});

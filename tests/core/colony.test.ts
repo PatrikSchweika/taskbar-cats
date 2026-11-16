@@ -5,6 +5,7 @@ import {
 	boundsOfMonitor,
 	bowlUnderPointer,
 	Colony,
+	catUnderPointer,
 	interleaveProps,
 	PointerTracker,
 	propUnderPointer,
@@ -1322,4 +1323,61 @@ describe("Colony", () => {
 				assert.equal(view.destroyed, true);
 		});
 	});
+});
+
+describe("catUnderPointer", () => {
+	// floor 900, size 48: the square spans x 376..424 and y 852..900
+	const floorY = 900;
+	const colonyWith = (xs: number[], scale = 1) => {
+		const host = fakeHost();
+		const colony = new Colony(host);
+		colony.sync(makeSettings({ count: xs.length }), [], makeBounds());
+		host.views.forEach((v) => {
+			v.scale = scale;
+		});
+		colony.cats.forEach((cat, i) => {
+			cat.x = xs[i];
+			cat.size = 48 * scale;
+		});
+		return colony.cats;
+	};
+
+	it("finds the cat whose square holds the pointer", () => {
+		const cats = colonyWith([400, 600]);
+		assert.equal(catUnderPointer(cats, { x: 410, y: 870 }, floorY), cats[0]);
+	});
+
+	it("returns null above the cat's head", () => {
+		const cats = colonyWith([400, 600]);
+		assert.equal(catUnderPointer(cats, { x: 400, y: 851 }, floorY), null);
+	});
+
+	it("prefers the cat drawn on top when two overlap", () => {
+		const cats = colonyWith([400, 410]);
+		assert.equal(catUnderPointer(cats, { x: 405, y: 880 }, floorY), cats[1]);
+	});
+
+	it("finds a cat at 2x by its on-screen square", () => {
+		// logical 48 at scale 2 is 96 on screen: (400, 810) is inside it.
+		const cats = colonyWith([400], 2);
+		assert.equal(catUnderPointer(cats, { x: 400, y: 810 }, floorY), cats[0]);
+	});
+});
+
+it("marks only the cat under the pointer as hovered", () => {
+	const host = fakeHost();
+	const colony = new Colony(host);
+	const settings = makeSettings({ count: 2 });
+	colony.sync(settings, [], makeBounds());
+	colony.cats[0].x = 400;
+	colony.cats[1].x = 700;
+	colony.update(
+		1 / 30,
+		makeWorld({ pointer: { x: 700, y: 880, idleTime: 0 } }),
+		settings,
+	);
+	assert.deepEqual(
+		colony.cats.map((c) => c.hovered),
+		[false, true],
+	);
 });

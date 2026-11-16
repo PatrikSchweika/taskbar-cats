@@ -151,6 +151,29 @@ export function interleaveProps(
 }
 
 /**
+ * The last item whose square, standing on the floor, holds the pointer. Edges
+ * count.
+ */
+function squareUnderPointer<T extends { x: number; size: number }>(
+	items: readonly T[],
+	pointer: { x: number; y: number },
+	floorY: number,
+): T | null {
+	let hit: T | null = null;
+	for (const item of items) {
+		const half = item.size * 0.5;
+		if (
+			pointer.x >= item.x - half &&
+			pointer.x <= item.x + half &&
+			pointer.y >= floorY - item.size &&
+			pointer.y <= floorY
+		)
+			hit = item;
+	}
+	return hit;
+}
+
+/**
  * The prop the pointer is over, if any: the last one whose square, standing on
  * the floor, holds it. Edges count.
  */
@@ -159,18 +182,19 @@ export function propUnderPointer(
 	pointer: { x: number; y: number },
 	floorY: number,
 ): Prop | null {
-	let hit: Prop | null = null;
-	for (const prop of props) {
-		const half = prop.size * 0.5;
-		if (
-			pointer.x >= prop.x - half &&
-			pointer.x <= prop.x + half &&
-			pointer.y >= floorY - prop.size &&
-			pointer.y <= floorY
-		)
-			hit = prop;
-	}
-	return hit;
+	return squareUnderPointer(props, pointer, floorY);
+}
+
+/**
+ * The cat the pointer is over, if any: the last one (the one drawn on top)
+ * whose on-screen square, standing on the floor, holds it. Edges count.
+ */
+export function catUnderPointer(
+	cats: readonly Cat[],
+	pointer: { x: number; y: number },
+	floorY: number,
+): Cat | null {
+	return squareUnderPointer(cats, pointer, floorY);
 }
 
 /**
@@ -464,6 +488,10 @@ export class Colony {
 		this._rub.update(dt, world.pointer.x, rubTarget, rubTarget?.size ?? 0);
 		const rubbed = this._rub.rubbing;
 		if (rubbed instanceof Prop && rubbed.kind === "bowl") rubbed.refill();
+
+		// The cat under the pointer holds still; mark it before the cats move.
+		const hovered = catUnderPointer(this.cats, world.pointer, world.floorY);
+		for (const cat of this.cats) cat.hovered = cat === hovered;
 
 		// Games start and end before the cats move, so each steers by its role.
 		this._playground.update(

@@ -183,6 +183,8 @@ export class Cat {
 	/** Seconds spent so far asking by an empty bowl. */
 	private _askedFor = 0;
 	private _interrupted = false;
+	/** Set by the colony before each update: the pointer is over this cat. */
+	hovered = false;
 	/** Cornered while fleeing a chase: dashing past the chaser. */
 	private _dashing = false;
 	/** Which side the chaser was on when the dash began. */
@@ -510,17 +512,24 @@ export class Cat {
 		const mouse =
 			ctx.mouse && !ctx.mouse.caught && !ctx.mouse.gone ? ctx.mouse : null;
 		const hunting = mouse !== null && this.state !== State.POUNCE;
+		// The pointer resting on the cat holds it still, below only a mouse.
+		const underPointer = !hunting && this.hovered;
 
 		// --- Hungry? -------------------------------------------------------
 		// Outranks the pointer and sleep, so a cat eats first and naps after.
 		// A cat that asked at an empty bowl gives up for a while.
 		const seekingFood =
-			!hunting && this.hungry && bowls.length > 0 && this._askCooldown <= 0;
+			!hunting &&
+			!underPointer &&
+			this.hungry &&
+			bowls.length > 0 &&
+			this._askCooldown <= 0;
 
 		// --- Is the pointer interesting? -----------------------------------
 		const attract = cfg.attraction / 100;
 		const interested =
 			!hunting &&
+			!underPointer &&
 			!seekingFood &&
 			attract > 0.05 &&
 			pointer.y > ctx.floorY - attractRadius &&
@@ -530,6 +539,7 @@ export class Cat {
 
 		const sleepy =
 			!mouse &&
+			!underPointer &&
 			!seekingFood &&
 			cfg.sleepAfter > 0 &&
 			pointer.idleTime > cfg.sleepAfter;
@@ -537,7 +547,8 @@ export class Cat {
 		// --- Playing? ------------------------------------------------------
 		// Every drive above play in the chain. A new drive that outranks play
 		// joins this expression, and the Playground then ends the game.
-		this._interrupted = hunting || seekingFood || interested || sleepy;
+		this._interrupted =
+			hunting || underPointer || seekingFood || interested || sleepy;
 		const play = this._interrupted ? null : this.play;
 		if (!play || play.lead) this._dashing = false;
 
@@ -571,6 +582,8 @@ export class Cat {
 		if (hunting) {
 			this._target = clamp(mouse.x, minX, maxX);
 			this._wanderIn = 0.5 + Math.random();
+		} else if (underPointer) {
+			this._target = this.x;
 		} else if (foodBowl) {
 			// Beside the bowl, on whichever side is nearer. A cat waiting for
 			// another to finish stands a cat's length further out, clear of
@@ -678,6 +691,8 @@ export class Cat {
 			}
 		} else if (this.state === State.POUNCE) {
 			if (this.stateTime >= POUNCE_SECONDS) this._setState(State.IDLE);
+		} else if (underPointer) {
+			this._setState(State.ALERT);
 		} else if (this.state === State.EAT) {
 			if (this.stateTime >= EAT_SECONDS && meal) {
 				meal.food = Math.max(0, meal.food - 1);
