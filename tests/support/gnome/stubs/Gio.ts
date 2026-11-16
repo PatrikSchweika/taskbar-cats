@@ -55,8 +55,13 @@ export class Settings {
 		const value = this.values[key] ?? [];
 		return { deepUnpack: <T>() => value as T };
 	}
+	/** Writes notify listeners, as they do in GSettings. */
 	set_value(key: string, value: { deepUnpack<T>(): T }): boolean {
-		this.values[key] = value.deepUnpack();
+		this.__change(key, value.deepUnpack());
+		return true;
+	}
+	set_boolean(key: string, value: boolean): boolean {
+		this.__change(key, value);
 		return true;
 	}
 	connect(_signal: string, cb: SettingsHandler): number {

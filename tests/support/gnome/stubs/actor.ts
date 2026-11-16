@@ -1,5 +1,5 @@
 /** A signal callback. */
-export type SignalHandler = (...args: unknown[]) => void;
+export type SignalHandler = (...args: unknown[]) => unknown;
 
 /** A Clutter.Actor stand-in: just enough tree, signals and geometry. */
 export class FakeActor {
@@ -45,6 +45,25 @@ export class FakeActor {
 		Object.assign(this, props);
 	}
 
+	add_style_class_name(name: string): void {
+		if (!this.has_style_class_name(name))
+			this.style_class = `${this.style_class} ${name}`.trim();
+	}
+	remove_style_class_name(name: string): void {
+		this.style_class = this.style_class
+			.split(/\s+/)
+			.filter((c) => c && c !== name)
+			.join(" ");
+	}
+	has_style_class_name(name: string): boolean {
+		return this.style_class.split(/\s+/).includes(name);
+	}
+	get_parent(): FakeActor | null {
+		return this.parent;
+	}
+	get_last_child(): FakeActor | null {
+		return this.children.at(-1) ?? null;
+	}
 	get_children(): FakeActor[] {
 		return this.children;
 	}
@@ -113,9 +132,12 @@ export class FakeActor {
 	handlerCount(): number {
 		return this._handlers.size;
 	}
-	emit(signal: string, ...args: unknown[]): void {
+	/** @returns what the last handler returned, as Clutter's event signals do. */
+	emit(signal: string, ...args: unknown[]): unknown {
+		let result: unknown;
 		for (const h of [...this._handlers.values()])
-			if (h.signal === signal) h.cb(this, ...args);
+			if (h.signal === signal) result = h.cb(this, ...args);
+		return result;
 	}
 	destroy(): void {
 		this.destroyed = true;

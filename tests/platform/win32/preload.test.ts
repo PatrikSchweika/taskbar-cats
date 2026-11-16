@@ -74,8 +74,31 @@ describe("the emitted preload", () => {
 			"cats:apply",
 			"cats:describe",
 			"cats:manifest",
+			"cats:arrange",
+			"cats:set-arranging",
+			"cats:capture",
 		])
 			assert.match(emitted, new RegExp(channel));
+	});
+
+	it("relays arrange mode in both directions", () => {
+		const emitted = readFileSync(
+			join(out, "platform", "win32", "preload.js"),
+			"utf8",
+		);
+		// onArrange listens on cats:arrange; setArranging and capture send.
+		assert.match(
+			emitted,
+			/onArrange[\s\S]*?ipcRenderer\.on\(\s*"cats:arrange"/,
+		);
+		assert.match(
+			emitted,
+			/setArranging[\s\S]*?ipcRenderer\.send\(\s*"cats:set-arranging"[^,]*,\s*on\s*\)/,
+		);
+		assert.match(
+			emitted,
+			/capture[\s\S]*?ipcRenderer\.send\(\s*"cats:capture"[^,]*,\s*on\s*\)/,
+		);
 	});
 
 	it("exposes the bridge the renderers expect", () => {

@@ -8,6 +8,8 @@
  * too. Both platforms then reduce to "find the dock, build a World, call
  * update()".
  */
+
+import { POSITION_LISTS } from "./arrange.js";
 import { Cat, type CatConfig, State } from "./cat.js";
 import type { Settings } from "./config.js";
 import { AUTO_POSITION } from "./config.js";
@@ -119,10 +121,15 @@ export interface ColonyHost {
 	/** Make a view for one more cat, already attached to the overlay. */
 	createView(): CatView;
 	/**
-	 * Make a view for a prop or the mouse, attached to the overlay *beneath*
+	 * Make a view for a bed, post or bowl, attached to the overlay *beneath*
 	 * the cats, so a cat sleeps on its bed rather than under it.
 	 */
 	createPropView(): CatView;
+	/**
+	 * Make a view for the mouse toy, beneath the cats like a prop view, but
+	 * never part of arrange mode: the mouse is not furniture.
+	 */
+	createToyView(): CatView;
 }
 
 /**
@@ -144,26 +151,38 @@ export function interleaveProps(
 }
 
 /**
- * The bowl the pointer is over, if any: the last one whose square, standing on
- * the floor, holds it. Rubbing the pointer over a bowl fills it.
+ * The prop the pointer is over, if any: the last one whose square, standing on
+ * the floor, holds it. Edges count.
+ */
+export function propUnderPointer(
+	props: readonly Prop[],
+	pointer: { x: number; y: number },
+	floorY: number,
+): Prop | null {
+	let hit: Prop | null = null;
+	for (const prop of props) {
+		const half = prop.size * 0.5;
+		if (
+			pointer.x >= prop.x - half &&
+			pointer.x <= prop.x + half &&
+			pointer.y >= floorY - prop.size &&
+			pointer.y <= floorY
+		)
+			hit = prop;
+	}
+	return hit;
+}
+
+/**
+ * The bowl the pointer is over, if any. Rubbing the pointer over a bowl fills
+ * it.
  */
 export function bowlUnderPointer(
 	bowls: readonly Prop[],
 	pointer: { x: number; y: number },
 	floorY: number,
 ): Prop | null {
-	let hit: Prop | null = null;
-	for (const bowl of bowls) {
-		const half = bowl.size * 0.5;
-		if (
-			pointer.x >= bowl.x - half &&
-			pointer.x <= bowl.x + half &&
-			pointer.y >= floorY - bowl.size &&
-			pointer.y <= floorY
-		)
-			hit = bowl;
-	}
-	return hit;
+	return propUnderPointer(bowls, pointer, floorY);
 }
 
 export class Colony {
@@ -313,12 +332,7 @@ export class Colony {
 			bowl: 0,
 		};
 		for (const prop of this.props) {
-			const list =
-				prop.kind === "bed"
-					? settings.bedPositions
-					: prop.kind === "scratcher"
-						? settings.scratcherPositions
-						: settings.bowlPositions;
+			const list = settings[POSITION_LISTS[prop.kind]];
 			const percent = list[counters[prop.kind]++];
 			const pinned =
 				percent !== undefined && percent !== AUTO_POSITION ? percent : null;
@@ -395,7 +409,7 @@ export class Colony {
 		const fromLeft = Math.random() < 0.5;
 		const half = size * 0.5;
 		this.mouse = new Mouse({
-			view: this._host.createPropView(),
+			view: this._host.createToyView(),
 			sprites: this._host.sprites,
 			size,
 			x: fromLeft ? bounds.roam.min + half : bounds.roam.max - half,

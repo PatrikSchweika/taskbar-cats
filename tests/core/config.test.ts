@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+	ARRANGE_KEY,
 	AUTO_POSITION,
 	BOOL_SETTINGS,
 	CAT_SIZES_KEY,
@@ -128,11 +129,19 @@ describe("settings", () => {
 			]);
 		});
 
+		it("declares arrange-mode as a switch that starts off", () => {
+			// A shell restart must never come back up arranging.
+			const key = schema.get(ARRANGE_KEY);
+			assert.equal(key?.type, "b");
+			assert.equal(key?.default, "false");
+		});
+
 		it("covers every key the schema declares", () => {
 			// The other direction: a key added to the schema but not to the
 			// shared table would be honoured on GNOME and silently ignored on
 			// Windows.
 			const known = new Set<string>([
+				ARRANGE_KEY,
 				CAT_SIZES_KEY,
 				HOTKEY_KEY,
 				...Object.values(INT_SETTINGS).map((s) => s.key),

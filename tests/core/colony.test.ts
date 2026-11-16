@@ -7,6 +7,7 @@ import {
 	Colony,
 	interleaveProps,
 	PointerTracker,
+	propUnderPointer,
 	resolveCatPalette,
 	resolveCatSize,
 } from "../../src/core/colony.ts";
@@ -102,6 +103,30 @@ describe("bowlUnderPointer", () => {
 	it("picks the last of two overlapping bowls", () => {
 		const [a, b] = bowls();
 		assert.equal(bowlUnderPointer([a, b], { x: 310, y: 890 }, floorY), b);
+	});
+});
+
+describe("propUnderPointer", () => {
+	it("picks the last prop whose square holds the pointer", () => {
+		const floorY = 900;
+		const a = makeProp("bed", 300, 40);
+		const b = makeProp("bowl", 320, 40);
+		assert.equal(
+			propUnderPointer([a, b], { x: 280, y: 860 }, floorY),
+			a,
+			"a's edge",
+		);
+		assert.equal(
+			propUnderPointer([a, b], { x: 310, y: 890 }, floorY),
+			b,
+			"overlap",
+		);
+		assert.equal(
+			propUnderPointer([a, b], { x: 300, y: 859 }, floorY),
+			null,
+			"1px above",
+		);
+		assert.equal(propUnderPointer([], { x: 300, y: 890 }, floorY), null);
 	});
 });
 
@@ -1157,10 +1182,10 @@ describe("Colony", () => {
 			colony.sync(settings, [], makeBounds());
 			tick(colony, settings, 60);
 			assert.equal(colony.mouse, null);
-			assert.equal(host.propViews.length, 0);
+			assert.equal(host.toyViews.length, 0);
 		});
 
-		it("appears after roughly the configured interval, on a prop view", () => {
+		it("appears after roughly the configured interval, on a toy view", () => {
 			const host = fakeHost();
 			const colony = new Colony(host);
 			// 0.5 makes the first wait exactly the interval.
@@ -1171,7 +1196,9 @@ describe("Colony", () => {
 				tick(colony, every10s(), 1);
 			});
 			assert.ok(colony.mouse, "no mouse");
-			assert.equal(host.propViews.length, 1);
+			// Under the cats like furniture, but never arranged like it.
+			assert.equal(host.toyViews.length, 1);
+			assert.equal(host.propViews.length, 0);
 		});
 
 		it("comes in from a screen edge", () => {
@@ -1291,7 +1318,8 @@ describe("Colony", () => {
 			colony.destroy();
 			assert.equal(colony.mouse, null);
 			assert.equal(colony.props.length, 0);
-			for (const view of host.propViews) assert.equal(view.destroyed, true);
+			for (const view of [...host.propViews, ...host.toyViews])
+				assert.equal(view.destroyed, true);
 		});
 	});
 });

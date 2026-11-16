@@ -68,6 +68,15 @@ export const enum CHANNELS {
 	 * inside a renderer that has no way to show one.
 	 */
 	manifest = "cats:manifest",
+	/** main -> overlay and settings: whether the furniture is being arranged. */
+	arrange = "cats:arrange",
+	/** overlay or settings -> main: start or stop arranging the furniture. */
+	setArranging = "cats:set-arranging",
+	/**
+	 * overlay -> main: take the mouse now (true) or go back to click-through
+	 * (false). Only honoured while arranging.
+	 */
+	capture = "cats:capture",
 }
 
 export type { SpriteManifest };

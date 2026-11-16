@@ -3,9 +3,16 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
+import { ACTIVE_INTERVAL_MS } from "../../../src/core/colony.ts";
 import TaskbarCatsExtension from "../../../src/extension.ts";
-import { makeDock, resetEnv, testEnv } from "../../support/gnome/env.ts";
+import {
+	makeDock,
+	pressOn,
+	resetEnv,
+	testEnv,
+} from "../../support/gnome/env.ts";
 import type { FakeActor } from "../../support/gnome/stubs/actor.ts";
+import Clutter from "../../support/gnome/stubs/Clutter.ts";
 import { Settings } from "../../support/gnome/stubs/Gio.ts";
 import GLib from "../../support/gnome/stubs/GLib.ts";
 import * as Main from "../../support/gnome/stubs/shellMain.ts";
@@ -40,6 +47,7 @@ const DEFAULTS: Record<string, unknown> = {
 	"cat-names": [],
 	"cat-sizes": [],
 	"toggle-hotkey": ["<Control><Alt>c"],
+	"arrange-mode": false,
 };
 
 interface Harness {
@@ -78,12 +86,53 @@ function layer(): FakeActor {
 
 /** The cat actors currently parented into the overlay. */
 function catActors(): FakeActor[] {
-	return layerChildren().filter((c) => c.style_class === "taskbar-cats-cat");
+	return layerChildren().filter((c) =>
+		c.has_style_class_name("taskbar-cats-cat"),
+	);
 }
 
 /** The beds, posts and mice currently parented into the overlay. */
 function propActors(): FakeActor[] {
-	return layerChildren().filter((c) => c.style_class === "taskbar-cats-prop");
+	return layerChildren().filter((c) =>
+		c.has_style_class_name("taskbar-cats-prop"),
+	);
+}
+
+/** Every actor on the overlay, at any depth, that takes the mouse. */
+function reactiveActors(): FakeActor[] {
+	const out: FakeActor[] = [];
+	const walk = (actor: FakeActor): void => {
+		if (actor.reactive) out.push(actor);
+		for (const child of actor.get_children()) walk(child);
+	};
+	for (const child of layerChildren()) walk(child);
+	return out;
+}
+
+/** The arrange-mode toolbar, if it is up. */
+function arrangeBar(): FakeActor | undefined {
+	return layerChildren().find((c) =>
+		c.has_style_class_name("taskbar-cats-arrange-bar"),
+	);
+}
+
+/**
+ * What the shell tracks as chrome. On X11 only chrome is in the stage's input
+ * region, so anything that must take a click has to be here.
+ */
+function tracked(): FakeActor[] {
+	return [...Main.layoutManager.tracked.keys()];
+}
+
+/** Click the toolbar button with this label. */
+function clickBarButton(label: string): void {
+	const bar = arrangeBar();
+	assert.ok(bar, "no arrange toolbar");
+	const button = bar
+		.get_children()
+		.find((c) => (c as { label?: string }).label === label);
+	assert.ok(button, `no ${label} button`);
+	button.emit("clicked");
 }
 
 function tick(times = 1, dt = 1 / 30): void {
@@ -112,6 +161,16 @@ describe("TaskbarCatsExtension", () => {
 			assert.equal(layer.reactive, false);
 			for (const cat of layer.get_children())
 				assert.equal((cat as { reactive: boolean }).reactive, false);
+		});
+
+		it("tracks nothing as chrome outside arrange mode", () => {
+			enableExtension({
+				"bed-count": 2,
+				"scratcher-count": 1,
+				"bowl-count": 1,
+			});
+			tick(5);
+			assert.deepEqual(tracked(), []);
 		});
 
 		it("starts a tick", () => {
@@ -334,6 +393,282 @@ describe("TaskbarCatsExtension", () => {
 			tick(2);
 			assert.equal(layer().visible, true);
 			ext.disable();
+		});
+	});
+
+	describe("arrange mode", () => {
+		/** One bed and one cat on the dock, with arrange mode switched on. */
+		function arranging(over: Record<string, unknown> = {}): Harness {
+			const h = enableExtension({ "bed-count": 1, "cat-count": 1, ...over });
+			tick(2);
+			h.settings.__change("arrange-mode", true);
+			tick();
+			return h;
+		}
+
+		/** The centre of an actor standing 48 px square on the floor. */
+		function centreOf(actor: FakeActor): [number, number] {
+			return [actor.x + 24, actor.y + 24];
+		}
+
+		/** Hold the button down with the pointer at `x`, then let go there. */
+		function dragTo(x: number): void {
+			const pointer = testEnv().pointer;
+			pointer.x = x;
+			pointer.mods = Clutter.ModifierType.BUTTON1_MASK;
+			tick(2);
+			pointer.mods = 0;
+			tick();
+		}
+
+		it("turning arrange-mode on makes only the furniture reactive", () => {
+			arranging();
+			assert.equal(propActors().length, 1);
+			for (const prop of propActors()) {
+				assert.equal(prop.reactive, true);
+				assert.ok(prop.has_style_class_name("taskbar-cats-arranging"));
+			}
+			assert.equal(catActors().length, 1);
+			for (const cat of catActors()) assert.equal(cat.reactive, false);
+		});
+
+		it("lets the furniture and the toolbar take clicks on X11", () => {
+			arranging({ "bed-count": 2, "bowl-count": 1 });
+			const bar = arrangeBar();
+			assert.ok(bar);
+			assert.equal(propActors().length, 3);
+			assert.deepEqual(new Set(tracked()), new Set([...propActors(), bar]));
+			for (const params of Main.layoutManager.tracked.values())
+				assert.equal(params.affectsInputRegion, true);
+			for (const cat of catActors()) assert.ok(!tracked().includes(cat));
+		});
+
+		it("tracks furniture made while arranging, and forgets what is gone", () => {
+			const { settings } = arranging();
+			settings.__change("bed-count", 3);
+			tick();
+			const bar = arrangeBar();
+			assert.ok(bar);
+			assert.equal(propActors().length, 3);
+			assert.deepEqual(new Set(tracked()), new Set([...propActors(), bar]));
+			settings.__change("bed-count", 0);
+			tick();
+			assert.deepEqual(tracked(), [bar]);
+		});
+
+		it("drags a bed and saves where it lands", () => {
+			const { settings } = arranging();
+			const [bed] = propActors();
+			assert.ok(Math.abs(bed.x + 24 - 160) > 10, "the bed starts at 10%");
+			assert.equal(
+				pressOn(bed, ...centreOf(bed)),
+				Clutter.EVENT_STOP,
+				"the dock must not see the press",
+			);
+			// 10% of the 1600 px stage.
+			dragTo(160);
+			assert.deepEqual(settings.values["bed-positions"], [10]);
+			tick(2);
+			assert.equal(propActors()[0].x, 160 - 24, "the bed stays where dropped");
+		});
+
+		it("a click without a drag saves nothing", () => {
+			const { settings } = arranging();
+			const [bed] = propActors();
+			const [x, y] = centreOf(bed);
+			pressOn(bed, x, y);
+			dragTo(x);
+			assert.deepEqual(settings.values["bed-positions"], []);
+		});
+
+		it("a double-click puts a pinned bed back to automatic", () => {
+			const { settings } = arranging({ "bed-positions": [10] });
+			const [bed] = propActors();
+			const [x, y] = centreOf(bed);
+			pressOn(bed, x, y);
+			dragTo(x);
+			pressOn(bed, x, y);
+			dragTo(x);
+			assert.deepEqual(settings.values["bed-positions"], [-1]);
+		});
+
+		it("marks a pinned prop", () => {
+			const { settings } = arranging({ "bed-count": 2, "bed-positions": [10] });
+			tick();
+			const pinned = propActors().filter((p) =>
+				p.has_style_class_name("taskbar-cats-pinned"),
+			);
+			assert.equal(pinned.length, 1);
+			assert.equal(pinned[0].x, 160 - 24);
+			settings.__change("arrange-mode", false);
+			for (const prop of propActors()) {
+				assert.ok(!prop.has_style_class_name("taskbar-cats-pinned"));
+				assert.ok(!prop.has_style_class_name("taskbar-cats-arranging"));
+			}
+		});
+
+		it("drops a drag when the furniture is rebuilt under it", () => {
+			const { settings } = arranging();
+			const [bed] = propActors();
+			pressOn(bed, ...centreOf(bed));
+			testEnv().pointer.x = 160;
+			tick(2);
+			settings.__change("bed-count", 2);
+			tick();
+			// Still holding the button: the new beds must not follow it.
+			const settled = propActors().map((p) => p.x);
+			testEnv().pointer.x = 1200;
+			assert.doesNotThrow(() => tick(3));
+			assert.deepEqual(
+				propActors().map((p) => p.x),
+				settled,
+			);
+			testEnv().pointer.mods = 0;
+			tick();
+			assert.deepEqual(settings.values["bed-positions"], []);
+			// The new beds can be arranged too.
+			assert.equal(propActors().length, 2);
+			for (const prop of propActors()) assert.equal(prop.reactive, true);
+		});
+
+		it("leaves the mouse toy out", () => {
+			const { settings } = arranging({
+				"mouse-interval": 5,
+				"mouse-attraction": 0,
+			});
+			const beds = propActors();
+			let mouse: FakeActor | undefined;
+			for (let i = 0; i < 400 && !mouse; i++) {
+				tick();
+				mouse = propActors().find((a) => !beds.includes(a));
+			}
+			assert.ok(mouse, "no mouse in 13 seconds");
+			assert.equal(settings.values["arrange-mode"], true);
+			assert.equal(mouse.reactive, false);
+			assert.ok(!mouse.has_style_class_name("taskbar-cats-arranging"));
+			assert.equal(mouse.handlerCount(), 0, "no press handler");
+			assert.ok(!tracked().includes(mouse), "the mouse is never chrome");
+		});
+
+		it("keeps the toolbar in front of cats added after it", () => {
+			const { settings } = arranging();
+			settings.__change("cat-count", 3);
+			tick();
+			assert.equal(layerChildren().at(-1), arrangeBar());
+		});
+
+		it("shows the toolbar, and a hint when there is nothing to arrange", () => {
+			const { settings } = arranging({ "bed-count": 0 });
+			const bar = arrangeBar();
+			assert.ok(bar, "no toolbar");
+			assert.equal(bar.reactive, true);
+			const hint = (): string | undefined =>
+				bar
+					.get_children()
+					.map((c) => (c as { text?: string }).text)
+					.find((text) => text !== undefined);
+			assert.equal(hint(), "Add a bed, post or bowl first");
+			settings.__change("bed-count", 1);
+			tick();
+			assert.equal(
+				hint(),
+				"Drag the furniture. Double-click one to place it automatically.",
+			);
+		});
+
+		it("Done ends arrange mode", () => {
+			const { settings } = arranging();
+			clickBarButton("Done");
+			assert.equal(settings.values["arrange-mode"], false);
+			assert.deepEqual(reactiveActors(), []);
+			assert.deepEqual(tracked(), []);
+			assert.equal(arrangeBar(), undefined);
+		});
+
+		it("switching it off ends arrange mode", () => {
+			const { settings } = arranging();
+			settings.__change("arrange-mode", false);
+			assert.deepEqual(reactiveActors(), []);
+			assert.deepEqual(tracked(), []);
+			assert.equal(arrangeBar(), undefined);
+		});
+
+		it("Reset all clears every position", () => {
+			const { ext, settings } = arranging({
+				"bed-positions": [10],
+				"bowl-positions": [50],
+			});
+			const { colony } = (
+				ext as unknown as { _rt: { colony: { sync(...a: unknown[]): void } } }
+			)._rt;
+			const sync = colony.sync.bind(colony);
+			let layouts = 0;
+			colony.sync = (...args: unknown[]): void => {
+				layouts++;
+				sync(...args);
+			};
+			clickBarButton("Reset all");
+			assert.equal(layouts, 1, "lays the furniture out once, not per list");
+			assert.deepEqual(settings.values["bed-positions"], []);
+			assert.deepEqual(settings.values["scratcher-positions"], []);
+			assert.deepEqual(settings.values["bowl-positions"], []);
+		});
+
+		it("ends after 120 s without a press", () => {
+			const { settings } = arranging();
+			tick(119 * 30);
+			assert.equal(settings.values["arrange-mode"], true);
+			tick(2 * 30);
+			assert.equal(settings.values["arrange-mode"], false);
+			assert.deepEqual(reactiveActors(), []);
+			assert.deepEqual(tracked(), []);
+		});
+
+		it("ends when the cats are hidden", () => {
+			const { settings } = arranging();
+			Main.wm.__press("toggle-hotkey");
+			assert.equal(settings.values["arrange-mode"], false);
+			assert.deepEqual(reactiveActors(), []);
+			assert.deepEqual(tracked(), []);
+		});
+
+		it("ends when the overview opens", () => {
+			const { settings } = arranging();
+			Main.overview.visible = true;
+			tick();
+			assert.equal(settings.values["arrange-mode"], false);
+			assert.deepEqual(reactiveActors(), []);
+			assert.deepEqual(tracked(), []);
+		});
+
+		it("keeps the tick fast while arranging", () => {
+			arranging({ "sleep-after": 1, "mouse-attraction": 0 });
+			tick(400);
+			assert.equal(GLib.__sources()[0].intervalMs, ACTIVE_INTERVAL_MS);
+		});
+
+		it("enable clears a leftover arrange-mode", () => {
+			const { settings } = enableExtension({
+				"bed-count": 1,
+				"arrange-mode": true,
+			});
+			assert.equal(settings.values["arrange-mode"], false);
+			tick(2);
+			assert.deepEqual(reactiveActors(), []);
+			assert.equal(arrangeBar(), undefined);
+		});
+
+		it("disable leaves nothing reactive", () => {
+			const { ext, settings } = arranging();
+			const props = propActors();
+			const bar = arrangeBar();
+			assert.ok(bar);
+			ext.disable();
+			for (const prop of props) assert.equal(prop.reactive, false);
+			assert.equal(bar.destroyed, true);
+			assert.deepEqual(tracked(), []);
+			assert.equal(settings.values["arrange-mode"], false);
+			assert.deepEqual(testEnv().loggedErrors, []);
 		});
 	});
 

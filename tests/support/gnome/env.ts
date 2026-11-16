@@ -1,13 +1,14 @@
 /** Per-test reset of the faked shell environment. */
 
 import { FakeActor } from "./stubs/actor.ts";
+import Clutter from "./stubs/Clutter.ts";
 import GLib from "./stubs/GLib.ts";
 import St from "./stubs/St.ts";
 import * as Main from "./stubs/shellMain.ts";
 
 export interface Env {
 	stage: FakeActor;
-	pointer: { x: number; y: number };
+	pointer: { x: number; y: number; mods: number };
 	loggedErrors: string[];
 }
 
@@ -24,6 +25,7 @@ export function resetEnv(scaleFactor = 1): Env {
 	const t = testEnv();
 	t.pointer.x = 0;
 	t.pointer.y = 0;
+	t.pointer.mods = 0;
 	t.loggedErrors.length = 0;
 	t.logged.length = 0;
 
@@ -31,7 +33,7 @@ export function resetEnv(scaleFactor = 1): Env {
 }
 
 interface TestEnv {
-	pointer: { x: number; y: number };
+	pointer: { x: number; y: number; mods: number };
 	logged: string[];
 	loggedErrors: string[];
 }
@@ -99,4 +101,22 @@ export function makeDock(
 		made.push(appIcon);
 	}
 	return { dash, icons: made };
+}
+
+/**
+ * Press the primary button on `actor` at a stage point, as Clutter delivers
+ * it, and leave the button held on the fake pointer.
+ *
+ * @returns what the actor's handlers returned: `Clutter.EVENT_STOP` if one
+ * took the press.
+ */
+export function pressOn(actor: FakeActor, x: number, y: number): unknown {
+	const pointer = testEnv().pointer;
+	pointer.x = x;
+	pointer.y = y;
+	pointer.mods = Clutter.ModifierType.BUTTON1_MASK;
+	return actor.emit("button-press-event", {
+		get_coords: (): [number, number] => [x, y],
+		get_button: (): number => Clutter.BUTTON_PRIMARY,
+	});
 }

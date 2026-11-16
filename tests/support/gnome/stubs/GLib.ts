@@ -36,6 +36,19 @@ export function file_get_contents(path: string): [boolean, Uint8Array] {
 	}
 }
 
+/** Just enough GLib.Variant to hand an array to `Gio.Settings.set_value`. */
+export class Variant {
+	readonly type: string;
+	private readonly _value: unknown;
+	constructor(type: string, value: unknown) {
+		this.type = type;
+		this._value = value;
+	}
+	deepUnpack<T>(): T {
+		return this._value as T;
+	}
+}
+
 export function get_monotonic_time(): number {
 	return monotonicUs;
 }
@@ -86,6 +99,7 @@ export default {
 	PRIORITY_DEFAULT,
 	SOURCE_CONTINUE,
 	SOURCE_REMOVE,
+	Variant,
 	build_filenamev,
 	file_get_contents,
 	get_monotonic_time,

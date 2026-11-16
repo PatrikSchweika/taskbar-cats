@@ -86,6 +86,19 @@ All settings apply at once. No restart is needed.
 
 The settings show a small animated preview of what each cat will wear.
 
+### Placing the furniture
+
+By default beds, posts and bowls pick their own spots. To place them yourself,
+turn on arrange mode. On GNOME, switch on *Arrange on screen* in the settings.
+On Windows, tick *Arrange furniture* in the tray menu, or press *Arrange on
+screen…* in the settings window.
+
+Drag a bed, post or bowl along the dock or taskbar to put it where you want it.
+Pinned props get a thicker outline. Double-click a prop to hand it back to
+automatic placement. The toolbar has *Reset all*, which returns every prop to
+automatic, and *Done*, which ends arranging. Arrange mode also ends by itself
+after two minutes without a press.
+
 ## Build from source
 
 You need Node 22.22.2 or newer. Everything in the project is TypeScript,

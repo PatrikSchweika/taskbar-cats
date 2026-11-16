@@ -8,6 +8,7 @@ import { ExtensionPreferences } from "resource:///org/gnome/Shell/Extensions/js/
 
 import { resolveCatPalette } from "../../core/colony.js";
 import {
+	ARRANGE_KEY,
 	AUTO_POSITION,
 	CAT_SIZE_MAX,
 	CAT_SIZE_MIN,
@@ -213,6 +214,14 @@ export default class TaskbarCatsPreferences extends ExtensionPreferences {
 				"Something to claw that is not one of your icons.",
 				0,
 				8,
+			),
+		);
+		toys.add(
+			switchRow(
+				settings,
+				ARRANGE_KEY,
+				"Arrange on screen",
+				"Drag the furniture where you want it, right on the dock.",
 			),
 		);
 		toys.add(this._positionsRow(settings, "bed-count", "bed-positions", "Bed"));
