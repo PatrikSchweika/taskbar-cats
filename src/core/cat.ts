@@ -16,6 +16,8 @@ export const State = Object.freeze({
 	PLAY: "play",
 	/** Grooming the cat it plays with. */
 	GROOM: "groom",
+	/** Eating from a bowl. */
+	EAT: "eat",
 });
 
 export type CatState = (typeof State)[keyof typeof State];
@@ -48,6 +50,11 @@ export interface CatContext {
 	beds: readonly Prop[];
 	/** Scratching posts on the floor, clawed the way icons are. */
 	scratchers: readonly Prop[];
+	/**
+	 * Food bowls on the floor. A hungry cat claims a free one with food in it
+	 * and eats. Without any, the cats never get hungry.
+	 */
+	bowls: readonly Prop[];
 	/** The mouse, if one is out. Every cat drops what it is doing to hunt it. */
 	mouse: Mouse | null;
 	cfg: CatConfig;
@@ -66,6 +73,7 @@ const FRAME_RATE_SCALE: Record<CatState, number> = {
 	[State.POUNCE]: 0.18,
 	[State.PLAY]: 1.2,
 	[State.GROOM]: 0.5,
+	[State.EAT]: 0.6,
 };
 
 const ARRIVE_PX = 7; // close enough to the target to stop
@@ -87,6 +95,14 @@ export const TUSSLE_REACH = 0.7;
 export const GROOM_GAP = 0.6;
 /** How fast a chased cat runs away, as a fraction of top speed. */
 export const FLEE_SPEED = 0.8;
+/** How long a meal takes. */
+export const EAT_SECONDS = 4;
+/** How long a hungry cat sits by an empty bowl asking for food. */
+export const ASK_SECONDS = 8;
+/** How long a cat that asked in vain ignores its hunger before asking again. */
+export const ASK_COOLDOWN = 60;
+/** Where beside a bowl a cat stands to eat from it, in cat sizes. */
+export const BOWL_STANCE = 0.45;
 
 function clamp(v: number, lo: number, hi: number): number {
 	return v < lo ? lo : v > hi ? hi : v;
@@ -98,7 +114,8 @@ function isRooted(state: CatState): boolean {
 		state === State.SCRATCH ||
 		state === State.POUNCE ||
 		state === State.PLAY ||
-		state === State.GROOM
+		state === State.GROOM ||
+		state === State.EAT
 	);
 }
 
@@ -137,6 +154,11 @@ export class Cat {
 	stateTime = 0;
 	/** The game this cat is in, if any. Set only by the Playground. */
 	play: PlayRole | null = null;
+	/**
+	 * How hungry this cat is: rises from 0 by 1 every `hungerAfter` seconds
+	 * while there are bowls, and goes back to 0 after a meal.
+	 */
+	hunger: number;
 
 	private readonly _sprites: SpriteSource;
 	private _palette = "";
@@ -149,6 +171,9 @@ export class Cat {
 	private _scratchCooldown = 0;
 	private _sitFor = 5;
 	private _bed: Prop | null = null;
+	private _bowl: Prop | null = null;
+	/** Seconds until a cat that asked in vain asks again. */
+	private _askCooldown = 0;
 	private _interrupted = false;
 	/** Cornered while fleeing a chase: dashing past the chaser. */
 	private _dashing = false;
@@ -167,6 +192,8 @@ export class Cat {
 		this.facing = Math.random() < 0.5 ? -1 : 1;
 		this._target = x;
 		this._wanderIn = Math.random() * 3;
+		// Spread out, so the colony does not all get hungry at once.
+		this.hunger = Math.random() * 0.5;
 
 		this.view.setSize(size);
 		this._syncPixelSize();
@@ -177,6 +204,7 @@ export class Cat {
 		this._scratchIcon = null;
 		this._scratchProp = null;
 		this._releaseBed();
+		this._releaseBowl();
 		this.view.destroy();
 	}
 
@@ -231,20 +259,30 @@ export class Cat {
 		return this._bed;
 	}
 
+	/** The bowl this cat has claimed — eating from it, or on the way. */
+	get bowl(): Prop | null {
+		return this._bowl;
+	}
+
+	/** True once hunger reaches 1. Only bowls make a cat hungry. */
+	get hungry(): boolean {
+		return this.hunger >= 1;
+	}
+
 	/** Where this cat is heading along the floor. */
 	get target(): number {
 		return this._target;
 	}
 
-	/** True while a scratch, a pounce or a game holds the cat in place. */
+	/** True while a scratch, a pounce, a game or a meal holds the cat in place. */
 	get rooted(): boolean {
 		return isRooted(this.state);
 	}
 
 	/**
 	 * Whether, on the last tick, something more important than play had this
-	 * cat's attention: a mouse, the pointer, or sleepiness. A game ends as
-	 * soon as either cat is interrupted.
+	 * cat's attention: a mouse, hunger, the pointer, or sleepiness. A game
+	 * ends as soon as either cat is interrupted.
 	 */
 	get interrupted(): boolean {
 		return this._interrupted;
@@ -384,12 +422,52 @@ export class Cat {
 		this._bed = null;
 	}
 
+	// -- bowls ----------------------------------------------------------------
+
+	/**
+	 * Take the nearest bowl with food in it that nobody else has, if there is
+	 * one.
+	 */
+	private _claimBowl(bowls: readonly Prop[]): Prop | null {
+		let best: Prop | null = null;
+		for (const bowl of bowls) {
+			if (bowl.food <= 0 || (bowl.eater && bowl.eater !== this)) continue;
+			if (!best || Math.abs(bowl.x - this.x) < Math.abs(best.x - this.x))
+				best = bowl;
+		}
+		if (best) best.eater = this;
+		return best;
+	}
+
+	private _releaseBowl(): void {
+		if (!this._bowl) return;
+		if (this._bowl.eater === this) this._bowl.eater = null;
+		this._bowl = null;
+	}
+
+	/** The nearest of `bowls` that `ok` accepts, or null. */
+	private _nearestBowl(
+		bowls: readonly Prop[],
+		ok: (bowl: Prop) => boolean = () => true,
+	): Prop | null {
+		let best: Prop | null = null;
+		for (const bowl of bowls) {
+			if (!ok(bowl)) continue;
+			if (!best || Math.abs(bowl.x - this.x) < Math.abs(best.x - this.x))
+				best = bowl;
+		}
+		return best;
+	}
+
 	update(dt: number, ctx: CatContext): void {
-		const { icons, pointer, neighbours, beds, scratchers, cfg } = ctx;
+		const { icons, pointer, neighbours, beds, scratchers, bowls, cfg } = ctx;
 		// Cheap, and self-corrects if the scale factor changes under us.
 		this._syncPixelSize();
 		this.stateTime += dt;
 		this._scratchCooldown = Math.max(0, this._scratchCooldown - dt);
+		this._askCooldown = Math.max(0, this._askCooldown - dt);
+		// No bowls, no hunger: the cats are never made to want what is not there.
+		if (bowls.length) this.hunger += dt / cfg.hungerAfter;
 
 		// The dock destroys and recreates icon handles whenever the app list
 		// changes. Holding one across ticks and then reading a property off it
@@ -403,6 +481,7 @@ export class Cat {
 		if (this._scratchProp && !scratchers.includes(this._scratchProp))
 			this._scratchProp = null;
 		if (this._bed && !beds.includes(this._bed)) this._bed = null;
+		if (this._bowl && !bowls.includes(this._bowl)) this._bowl = null;
 
 		const half = this.size * 0.5;
 		const minX = ctx.roam.min + half;
@@ -421,10 +500,17 @@ export class Cat {
 			ctx.mouse && !ctx.mouse.caught && !ctx.mouse.gone ? ctx.mouse : null;
 		const hunting = mouse !== null && this.state !== State.POUNCE;
 
+		// --- Hungry? -------------------------------------------------------
+		// Outranks the pointer and sleep, so a cat eats first and naps after.
+		// A cat that asked at an empty bowl gives up for a while.
+		const seekingFood =
+			!hunting && this.hungry && bowls.length > 0 && this._askCooldown <= 0;
+
 		// --- Is the pointer interesting? -----------------------------------
 		const attract = cfg.attraction / 100;
 		const interested =
 			!hunting &&
+			!seekingFood &&
 			attract > 0.05 &&
 			pointer.y > ctx.floorY - attractRadius &&
 			pointer.y <= ctx.floorY &&
@@ -432,12 +518,15 @@ export class Cat {
 			pointer.x < maxX + 200;
 
 		const sleepy =
-			!mouse && cfg.sleepAfter > 0 && pointer.idleTime > cfg.sleepAfter;
+			!mouse &&
+			!seekingFood &&
+			cfg.sleepAfter > 0 &&
+			pointer.idleTime > cfg.sleepAfter;
 
 		// --- Playing? ------------------------------------------------------
 		// Every drive above play in the chain. A new drive that outranks play
 		// joins this expression, and the Playground then ends the game.
-		this._interrupted = hunting || interested || sleepy;
+		this._interrupted = hunting || seekingFood || interested || sleepy;
 		const play = this._interrupted ? null : this.play;
 		if (!play || play.lead) this._dashing = false;
 
@@ -448,9 +537,36 @@ export class Cat {
 		const bed = this._bed;
 		const bedReached = !bed || Math.abs(bed.x - this.x) <= ARRIVE_PX * 2;
 
+		// --- Something to eat? ---------------------------------------------
+		// A meal cut short, by a mouse or the bowl going away, uses no food.
+		if (seekingFood) {
+			if (!this._bowl) this._bowl = this._claimBowl(bowls);
+		} else this._releaseBowl();
+		if (this.state === State.EAT && !this._bowl) this._setState(State.IDLE);
+		const meal = this._bowl;
+		// With no free bowl to eat from, go and wait by the nearest one that
+		// has food, or else ask at the nearest one.
+		const empty = !bowls.some((b) => b.food > 0);
+		const foodBowl = seekingFood
+			? (meal ??
+				(empty
+					? this._nearestBowl(bowls)
+					: this._nearestBowl(bowls, (b) => b.food > 0)))
+			: null;
+		const asking = seekingFood && !meal && empty;
+
 		// --- Pick a target -------------------------------------------------
 		if (hunting) {
 			this._target = clamp(mouse.x, minX, maxX);
+			this._wanderIn = 0.5 + Math.random();
+		} else if (foodBowl) {
+			// Beside the bowl, on whichever side is nearer.
+			const side = Math.sign(this.x - foodBowl.x) || 1;
+			this._target = clamp(
+				foodBowl.x + side * this.size * BOWL_STANCE,
+				minX,
+				maxX,
+			);
 			this._wanderIn = 0.5 + Math.random();
 		} else if (interested) {
 			// Fan out around the pointer instead of all aiming at the exact
@@ -474,9 +590,9 @@ export class Cat {
 			}
 		}
 
-		// Only a scratch or a pounce commits the cat in place. Sitting,
-		// watching and even sleeping all yield to somewhere it would rather be,
-		// or a cat that once sat down would never get up again.
+		// Only a scratch, a pounce, a game or a meal commits the cat in place.
+		// Sitting, watching and even sleeping all yield to somewhere it would
+		// rather be, or a cat that once sat down would never get up again.
 		const rooted = isRooted(this.state);
 
 		// --- Steering ------------------------------------------------------
@@ -528,6 +644,10 @@ export class Cat {
 			this._setState(State.POUNCE);
 		}
 
+		// Standing beside the bowl it is after.
+		const foodReached =
+			foodBowl !== null && Math.abs(this._target - this.x) <= ARRIVE_PX * 2;
+
 		// --- State machine -------------------------------------------------
 		if (this.state === State.SCRATCH) {
 			// Stay put until the swipe finishes, or the thing goes away.
@@ -538,6 +658,26 @@ export class Cat {
 			}
 		} else if (this.state === State.POUNCE) {
 			if (this.stateTime >= POUNCE_SECONDS) this._setState(State.IDLE);
+		} else if (this.state === State.EAT) {
+			if (this.stateTime >= EAT_SECONDS && meal) {
+				meal.food = Math.max(0, meal.food - 1);
+				this.hunger = 0;
+				this._releaseBowl();
+				this._setState(State.IDLE);
+			}
+		} else if (meal && foodReached && speed <= 6) {
+			this._setState(State.EAT);
+			this._face(meal.x);
+		} else if (asking && foodBowl && foodReached && speed <= 6) {
+			// Sit up by the empty bowl and look at it, then give up for a while.
+			if (this.state === State.ALERT && this.stateTime >= ASK_SECONDS) {
+				this._askCooldown = ASK_COOLDOWN;
+				this._wanderIn = 0;
+				this._setState(State.IDLE);
+			} else {
+				this._setState(State.ALERT);
+				this._face(foodBowl.x);
+			}
 		} else if (
 			play?.kind === "tussle" &&
 			(this.state === State.PLAY ||
@@ -598,6 +738,8 @@ export class Cat {
 			if (cx !== undefined && Math.abs(cx - this.x) > 1)
 				this.facing = Math.sign(cx - this.x);
 		}
+		// And the bowl we are eating from, even if a neighbour jostles us.
+		if (this.state === State.EAT && this._bowl) this._face(this._bowl.x);
 
 		this._advanceAnimation(dt, cfg.fps);
 		this._render(ctx.floorY);

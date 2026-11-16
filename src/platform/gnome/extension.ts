@@ -230,6 +230,7 @@ export default class TaskbarCatsExtension extends Extension {
 			key === INT_SETTINGS.count.key ||
 			key === INT_SETTINGS.beds.key ||
 			key === INT_SETTINGS.scratchers.key ||
+			key === INT_SETTINGS.bowls.key ||
 			key === INT_SETTINGS.mouseInterval.key ||
 			key === POSITION_SETTINGS.bedPositions.key ||
 			key === POSITION_SETTINGS.scratcherPositions.key ||

@@ -1,18 +1,20 @@
 /**
- * Furniture: the beds and scratching posts standing on the floor.
+ * Furniture: the beds, scratching posts and food bowls standing on the floor.
  *
  * A prop is a sprite with a fixed place on the floor that the cats know about —
- * a bed is somewhere to sleep, a post is something to claw. Where they stand is
- * decided here too, by {@link layoutProps}, so both platforms put them in the
- * same place for the same dock.
+ * a bed is somewhere to sleep, a post is something to claw, a bowl is somewhere
+ * to eat. Where they stand is decided here too, by {@link layoutProps}, so
+ * both platforms put them in the same place for the same dock.
  */
 import type { Cat } from "./cat.js";
 import type { CatView, IconRect, SpriteSource } from "./types.js";
 
-export type PropKind = "bed" | "scratcher";
+export type PropKind = "bed" | "scratcher" | "bowl";
 
 /** How fast a clawed post rocks, relative to the configured frame rate. */
 const WOBBLE_RATE_SCALE = 1.3;
+/** How many meals a full bowl holds. */
+export const BOWL_PORTIONS = 3;
 
 interface PropOptions {
 	kind: PropKind;
@@ -33,6 +35,10 @@ export class Prop {
 	size: number;
 	/** Beds only: the cat that has claimed it, asleep or on its way. */
 	occupant: Cat | null = null;
+	/** Bowls only: meals left in it, from 0 to {@link BOWL_PORTIONS}. */
+	food = BOWL_PORTIONS;
+	/** Bowls only: the cat that has claimed it, eating or on its way. */
+	eater: Cat | null = null;
 	/**
 	 * Where the user put it, as a percentage of the floor from the left, or
 	 * null to be laid out automatically with the others.
@@ -52,12 +58,25 @@ export class Prop {
 		this.x = x;
 		this.view.setSize(size);
 		this._syncPixelSize();
+		if (kind === "bowl") this._frame = this.fillFrame;
 		this._applyFrame();
 	}
 
 	destroy(): void {
 		this.occupant = null;
+		this.eater = null;
 		this.view.destroy();
+	}
+
+	/** Bowls only: fill it back up to {@link BOWL_PORTIONS}. */
+	refill(): void {
+		this.food = BOWL_PORTIONS;
+	}
+
+	/** The bowl frame for how much food is left: empty, low or full. */
+	get fillFrame(): number {
+		if (this.food <= 0) return 0;
+		return this.food === 1 ? 1 : 2;
 	}
 
 	/** @param size logical pixels, as the dock and the prefs dialog mean it. */
@@ -83,12 +102,19 @@ export class Prop {
 	 * Advance one tick.
 	 *
 	 * @param active true while a cat is using the prop — a post rocks under
-	 * the claws; a bed has no animation and ignores it.
+	 * the claws; a bed has no animation and ignores it, and a bowl always
+	 * shows how full it is.
 	 */
 	update(dt: number, floorY: number, fps: number, active: boolean): void {
 		this._syncPixelSize();
 
-		if (active) {
+		if (this.kind === "bowl") {
+			const fill = this.fillFrame;
+			if (fill !== this._frame) {
+				this._frame = fill;
+				this._applyFrame();
+			}
+		} else if (active) {
 			this._frameTime += dt;
 			const step = 1 / (fps * WOBBLE_RATE_SCALE);
 			if (this._frameTime >= step) {

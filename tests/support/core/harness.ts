@@ -16,8 +16,12 @@ export function fakeSprites(palettes = ["tabby-orange"]): SpriteSource {
 		palettes,
 		frames: (palette: string, animation: string) =>
 			[0, 1, 2, 3].map((frame) => ({ palette, animation, frame })),
+		// A bowl has a frame per fill level, like the real manifest.
 		propFrames: (name: string) =>
-			[0, 1].map((frame) => ({ prop: name, frame })),
+			(name === "bowl" ? [0, 1, 2] : [0, 1]).map((frame) => ({
+				prop: name,
+				frame,
+			})),
 	};
 }
 
@@ -82,7 +86,7 @@ export function shownPropFrame(thing: { view: CatView }): number {
 	return ((thing.view as FakeCatView).frame as { frame: number }).frame;
 }
 
-/** A bed or scratching post standing at `x`, drawn on a recording view. */
+/** A bed, scratching post or bowl standing at `x`, drawn on a recording view. */
 export function makeProp(kind: PropKind, x: number, size = 48): Prop {
 	return new Prop({
 		kind,
@@ -136,6 +140,7 @@ export function makeContext(over: Partial<CatContext> = {}): CatContext {
 		neighbours: [],
 		beds: [],
 		scratchers: [],
+		bowls: [],
 		mouse: null,
 		cfg: { ...DEFAULT_CFG },
 		...over,
